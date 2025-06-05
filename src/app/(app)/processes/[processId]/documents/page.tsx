@@ -11,16 +11,13 @@ import { PdfUploader } from "@/components/process/PdfUploader";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, ListChecks, AlertCircle, CheckCircle, UploadCloud, FileText, Trash2, Send } from "lucide-react";
-import { analyzeDocumentBatch, type AnalyzeDocumentBatchInput, type AnalyzeDocumentBatchOutput } from "@/ai/flows/analyze-document-batch";
-import { saveDocumentAnalysis, getDocumentAnalyses, getProcessSummary, type DocumentAnalysis, type ProcessSummary } from "@/lib/firebase"; // Updated imports
+import { analyzeDocumentBatch, type AnalyzeDocumentBatchInput, type AnalyzeDocumentBatchServerOutput } from "@/ai/flows/analyze-document-batch";
+import { getDocumentAnalyses, getProcessSummary, type DocumentAnalysis, type ProcessSummary } from "@/lib/firebase"; 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"; // Added Alert imports
-import Link from "next/link"; // Added Link import
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"; 
+import Link from "next/link"; 
 
-// Increase the maximum duration for this Server Action to 5 minutes (300 seconds)
-// This might help with long-running document analysis tasks.
-// Note: Support and behavior may vary depending on the hosting environment.
 export const maxDuration = 300;
 
 interface FileToUpload {
@@ -28,8 +25,8 @@ interface FileToUpload {
   dataUri: string;
   status: 'pending' | 'uploading' | 'analyzing' | 'completed' | 'error';
   progress?: number;
-  analysisResult?: any;
-  error?: string;
+  analysisResult?: any; // This will be the parsed JSON
+  message?: string; // For error messages or success messages from server
 }
 
 export default function DocumentAnalysisPage() {
@@ -80,21 +77,21 @@ Formato JSON desejado para CADA arquivo processado NESTE lote:
 \`\`\`
 `);
   const [filesToUpload, setFilesToUpload] = useState<FileToUpload[]>([]);
-  const [analyzedDocuments, setAnalyzedDocuments] = useState<DocumentAnalysis[]>([]);
+  const [analyzedDocuments, setAnalyzedDocuments] = useState<DocumentAnalysis[]>([]); // Stores successfully analyzed & saved docs
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isLoadingExisting, setIsLoadingExisting] = useState(true);
   const [globalError, setGlobalError] = useState<string | null>(null);
 
   useEffect(() => {
     if (processId && user) {
-      getProcessSummary(processId).then(summary => { // Updated call
+      getProcessSummary(processId).then(summary => { 
         if (!summary) {
           toast({ title: "Error", description: "Process summary not found.", variant: "destructive" });
           router.push("/dashboard"); 
         }
         setProcessSummary(summary);
       });
-      getDocumentAnalyses(processId) // Updated call
+      getDocumentAnalyses(processId) 
         .then(docs => {
           setAnalyzedDocuments(docs);
           setIsLoadingExisting(false);
@@ -112,7 +109,7 @@ Formato JSON desejado para CADA arquivo processado NESTE lote:
       const newFiles = Array.from(_files).map((file, index) => ({
         file,
         dataUri: dataUris.find(du => du.name === file.name)?.dataUri || "",
-        status: 'pending' as 'pending' | 'uploading' | 'analyzing' | 'completed' | 'error',
+        status: 'pending' as 'pending', // Corrected type
         progress: 0,
       }));
       setFilesToUpload(prevFiles => [...prevFiles, ...newFiles.filter(nf => nf.dataUri)]);
@@ -125,8 +122,8 @@ Formato JSON desejado para CADA arquivo processado NESTE lote:
   
   const handleSubmitAnalysis = async (event: FormEvent) => {
     event.preventDefault();
-    if (filesToUpload.filter(f => f.status === 'pending').length === 0 || !analysisPrompt.trim() || !user) {
-      toast({ title: "Missing Information", description: "Please select files and ensure the analysis prompt is filled.", variant: "destructive" });
+    if (filesToUpload.filter(f => f.status === 'pending').length === 0 || !analysisPrompt.trim() || !user || !processId) {
+      toast({ title: "Missing Information", description: "Please select files, ensure the process is loaded, and the analysis prompt is filled.", variant: "destructive" });
       return;
     }
 
@@ -134,67 +131,86 @@ Formato JSON desejado para CADA arquivo processado NESTE lote:
     setGlobalError(null);
 
     const pendingFiles = filesToUpload.filter(f => f.status === 'pending');
-    const documentsToAnalyze: AnalyzeDocumentBatchInput['documents'] = pendingFiles.map(f => ({
+    const documentsToAnalyzeInput: AnalyzeDocumentBatchInput['documents'] = pendingFiles.map(f => ({
       fileName: f.file.name,
       fileDataUri: f.dataUri,
     }));
 
+    // Update UI for pending files
     setFilesToUpload(prevFiles => prevFiles.map(f => 
-      f.status === 'pending' ? { ...f, status: 'analyzing', progress: 50 } : f
+      f.status === 'pending' ? { ...f, status: 'analyzing', progress: 50, message: "Analysis in progress..." } : f
     ));
 
     try {
-      const results: AnalyzeDocumentBatchOutput = await analyzeDocumentBatch({
-        documents: documentsToAnalyze,
+      const serverResults: AnalyzeDocumentBatchServerOutput = await analyzeDocumentBatch({
+        processId: processId,
+        documents: documentsToAnalyzeInput,
         analysisPrompt: analysisPrompt,
       });
 
-      const newAnalyzedDocs: DocumentAnalysis[] = [];
-      const updatedFilesToUpload = [...filesToUpload];
+      const newlyCompletedAnalyses: DocumentAnalysis[] = [];
 
-      for (const result of results) {
-        const originalFileIndex = updatedFilesToUpload.findIndex(f => f.file.name === result.fileName && f.status === 'analyzing');
-        if (originalFileIndex !== -1) {
-          try {
-            const parsedResult = JSON.parse(result.analysisResult); // Validate JSON parsing
-            const savedDoc = await saveDocumentAnalysis( // Updated call
-              processId, 
-              result.fileName, 
-              analysisPrompt, 
-              parsedResult
-            );
-            newAnalyzedDocs.push(savedDoc);
-            updatedFilesToUpload[originalFileIndex] = { ...updatedFilesToUpload[originalFileIndex], status: 'completed', progress: 100, analysisResult: parsedResult };
-          } catch (jsonError) {
-            console.error(`Error parsing JSON for ${result.fileName}:`, jsonError);
-             updatedFilesToUpload[originalFileIndex] = { ...updatedFilesToUpload[originalFileIndex], status: 'error', error: `AI returned invalid JSON: ${ (jsonError as Error).message}` };
+      // Update filesToUpload based on server results
+      setFilesToUpload(prevFiles => {
+        const updatedList = [...prevFiles];
+        serverResults.forEach(sr => {
+          const fileIndex = updatedList.findIndex(f => f.file.name === sr.fileName && f.status === 'analyzing');
+          if (fileIndex !== -1) {
+            updatedList[fileIndex] = {
+              ...updatedList[fileIndex],
+              status: sr.status,
+              message: sr.message || (sr.status === 'completed' ? "Analysis successful." : "Analysis failed."),
+              progress: sr.status === 'completed' ? 100 : updatedList[fileIndex].progress,
+              analysisResult: sr.analysisResult // Store the parsed JSON if successful
+            };
+            if (sr.status === 'completed' && sr.analysisResult) {
+                // For immediate display of newly analyzed docs, we can create a temporary DocumentAnalysis-like object
+                // or refetch. For simplicity here, we'll add to a temporary list.
+                 newlyCompletedAnalyses.push({
+                    id: `temp-${Date.now()}-${sr.fileName}`, // Temporary ID
+                    processId: processId,
+                    fileName: sr.fileName,
+                    analysisPromptUsed: analysisPrompt,
+                    analysisResultJson: sr.analysisResult,
+                    status: 'completed',
+                    uploadedAt: new Date(), // Or get timestamp from server if available
+                 });
+            }
           }
-        }
-      }
-      setFilesToUpload(updatedFilesToUpload);
-      setAnalyzedDocuments(prev => [...prev, ...newAnalyzedDocs]);
+        });
+        return updatedList;
+      });
       
-      const successfulCount = newAnalyzedDocs.length;
-      const failedCount = documentsToAnalyze.length - successfulCount;
+      // Add newly completed analyses to the display list, or refetch all.
+      // Here, we add them directly. For more robustness, refetch getDocumentAnalyses(processId).
+      if (newlyCompletedAnalyses.length > 0) {
+        setAnalyzedDocuments(prev => [...prev, ...newlyCompletedAnalyses]);
+      }
+
+      const successfulCount = serverResults.filter(r => r.status === 'completed').length;
+      const failedCount = serverResults.filter(r => r.status === 'error').length;
 
       if (successfulCount > 0) {
-        toast({ title: "Analysis Complete", description: `${successfulCount} document(s) analyzed and saved.`, className: "bg-green-500 text-white" });
+        toast({ title: "Analysis Processed", description: `${successfulCount} document(s) processed successfully.`, className: "bg-green-500 text-white" });
       }
       if (failedCount > 0) {
-         toast({ title: "Analysis Issues", description: `${failedCount} document(s) failed to analyze or save. Check file status.`, variant: "destructive" });
+         toast({ title: "Analysis Issues", description: `${failedCount} document(s) encountered errors. Check file status.`, variant: "destructive" });
       }
 
 
     } catch (err) {
-      console.error("Error analyzing documents:", err);
-      const errorMsg = err instanceof Error ? err.message : "An unknown error occurred during batch analysis.";
+      console.error("Error in analyzeDocumentBatch Server Action:", err);
+      const errorMsg = err instanceof Error ? err.message : "An unknown error occurred calling batch analysis action.";
       setGlobalError(errorMsg);
-      toast({ title: "Batch Analysis Failed", description: errorMsg, variant: "destructive" });
+      toast({ title: "Batch Analysis Action Failed", description: errorMsg, variant: "destructive" });
+      // Mark all 'analyzing' files as errored on the client if the action itself fails
       setFilesToUpload(prevFiles => prevFiles.map(f => 
-        f.status === 'analyzing' ? { ...f, status: 'error', error: "Batch analysis failed." } : f
+        f.status === 'analyzing' ? { ...f, status: 'error', message: "Server action failed: " + errorMsg } : f
       ));
     } finally {
       setIsAnalyzing(false);
+      // Optionally, refetch all document analyses to ensure UI consistency
+      // getDocumentAnalyses(processId).then(setAnalyzedDocuments);
     }
   };
 
@@ -237,7 +253,7 @@ Formato JSON desejado para CADA arquivo processado NESTE lote:
           {globalError && (
              <Alert variant="destructive" className="mt-4">
               <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Analysis Error</AlertTitle>
+              <AlertTitle>Server Action Error</AlertTitle>
               <AlertDescription>{globalError}</AlertDescription>
             </Alert>
           )}
@@ -259,10 +275,13 @@ Formato JSON desejado para CADA arquivo processado NESTE lote:
                         </Button>
                        )}
                     </div>
-                    {item.status === 'analyzing' && <Progress value={item.progress || 50} className="w-full h-1.5 mt-1" />}
-                    {item.status === 'completed' && <p className="text-xs text-green-600 mt-1 flex items-center"><CheckCircle className="h-3 w-3 mr-1"/>Analysis complete.</p>}
-                    {item.status === 'error' && <p className="text-xs text-destructive mt-1 flex items-center"><AlertCircle className="h-3 w-3 mr-1"/>Error: {item.error || "Unknown analysis error"}</p>}
-                     {item.status === 'pending' && <p className="text-xs text-muted-foreground mt-1">Pending analysis...</p>}
+                    {(item.status === 'analyzing' || (item.status === 'error' && item.progress && item.progress < 100) || (item.status === 'completed' && item.progress && item.progress < 100) ) && 
+                      <Progress value={item.progress || (item.status === 'analyzing' ? 50 : 0)} className="w-full h-1.5 mt-1" />
+                    }
+                    {item.status === 'completed' && <p className="text-xs text-green-600 mt-1 flex items-center"><CheckCircle className="h-3 w-3 mr-1"/>{item.message || "Analysis complete."}</p>}
+                    {item.status === 'error' && <p className="text-xs text-destructive mt-1 flex items-center"><AlertCircle className="h-3 w-3 mr-1"/>Error: {item.message || "Unknown analysis error"}</p>}
+                    {item.status === 'pending' && <p className="text-xs text-muted-foreground mt-1">Pending analysis...</p>}
+                    {item.status === 'analyzing' && <p className="text-xs text-blue-600 mt-1">{item.message || "Analyzing..."}</p>}
                   </div>
                 ))}
               </ScrollArea>
@@ -304,7 +323,7 @@ Formato JSON desejado para CADA arquivo processado NESTE lote:
             type="button"
             variant="default"
             onClick={() => router.push(`/processes/${processId}/chat`)}
-            disabled={isAnalyzing || !someDocumentsSuccessfullyAnalyzed}
+            disabled={isAnalyzing || !someDocumentsSuccessfullyAnalyzed } // Ensure some docs are completed before proceeding
             className="w-full sm:w-auto text-base py-3 bg-primary hover:bg-primary/90"
           >
             <Send className="mr-2 h-5 w-5" />
@@ -315,5 +334,3 @@ Formato JSON desejado para CADA arquivo processado NESTE lote:
     </form>
   );
 }
-
-    
