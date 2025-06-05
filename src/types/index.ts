@@ -1,37 +1,34 @@
+
+import type { Timestamp } from 'firebase/firestore'; // Import Timestamp
+
 export interface Process {
-  id: string; // Firestore document ID, could be same as processNumber or generated
-  processNumber: string; // "Número do Processo"
-  summaryText?: string; // Extracted summary text
-  summaryJson?: any; // Full JSON result from extractSummaryFromPdf
-  userId: string; // ID of the user who created this process
-  createdAt: any; // Firestore Timestamp or Date
-  updatedAt?: any; // Firestore Timestamp or Date
+  id: string; 
+  processNumber: string; 
+  summaryText?: string; 
+  summaryJson?: any; 
+  userId: string; 
+  createdAt: Date | Timestamp; // Can be Date on client, Timestamp from Firestore
+  updatedAt?: Date | Timestamp;
   status?: 'summary_pending' | 'summary_completed' | 'documents_pending' | 'documents_completed' | 'chat_ready' | 'archived';
 }
 
 export interface DocumentRecord {
-  id: string; // Firestore document ID
+  id: string; 
   processId: string;
   fileName: string;
-  originalFileName?: string; // If different from stored name
+  originalFileName?: string; 
   analysisPromptUsed?: string;
-  analysisResultJson?: any; // Full JSON from analyzeDocumentBatch
+  analysisResultJson?: any; 
   status: 'pending' | 'analyzing' | 'completed' | 'error';
   errorMessage?: string;
-  uploadedAt: any; // Firestore Timestamp or Date
-  analyzedAt?: any; // Firestore Timestamp or Date
+  uploadedAt: Date | Timestamp; 
+  analyzedAt?: Date | Timestamp; 
 }
 
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
-  timestamp: any; // Firestore Timestamp or Date
-  processId?: string; // Link to the process if relevant
+  timestamp: Date | Timestamp; 
+  processId?: string; 
 }
-
-// For the AI flow outputs, refer to the schemas in src/ai/flows/*.ts
-// For example:
-// import type { ExtractSummaryFromPdfOutput } from '@/ai/flows/extract-summary-from-pdf';
-// import type { AnalyzeDocumentBatchOutput } from '@/ai/flows/analyze-document-batch';
-// import type { ConsolidateAnalysisChatOutput } from '@/ai/flows/consolidate-analysis-chat';

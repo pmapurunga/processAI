@@ -1,7 +1,8 @@
+
 "use client";
 
 import { useState, useEffect, useRef, FormEvent } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation"; // Added useRouter
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,8 +11,9 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, MessageSquare, Send, User, Bot, AlertCircle, CornerDownLeft } from "lucide-react";
 import { consolidateAnalysisChat, type ConsolidateAnalysisChatInput, type ConsolidateAnalysisChatOutput } from "@/ai/flows/consolidate-analysis-chat";
-import { mockGetDocumentAnalyses, mockGetProcessSummary, type DocumentAnalysis, type ProcessSummary } from "@/lib/firebase"; // Using mock
+import { getDocumentAnalyses, getProcessSummary, type DocumentAnalysis, type ProcessSummary } from "@/lib/firebase"; // Updated imports
 import { cn } from "@/lib/utils";
+import Link from "next/link"; // Added import for Link
 
 interface ChatMessage {
   id: string;
@@ -26,6 +28,7 @@ export default function ConsolidatedChatPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const router = useRouter(); // Added router
 
   const [processSummary, setProcessSummary] = useState<ProcessSummary | null>(null);
   const [documentCount, setDocumentCount] = useState(0);
@@ -40,15 +43,32 @@ export default function ConsolidatedChatPage() {
       setIsLoadingData(true);
       setError(null);
       Promise.all([
-        mockGetProcessSummary(processId),
-        mockGetDocumentAnalyses(processId)
+        getProcessSummary(processId), // Updated function call
+        getDocumentAnalyses(processId) // Updated function call
       ]).then(([summary, docs]) => {
+        if (!summary) {
+          setError("Process summary not found. Chat cannot be initiated.");
+          toast({ title: "Chat Initialization Error", description: "Process summary not found.", variant: "destructive" });
+          setProcessSummary(null);
+          setDocumentCount(0);
+          setIsLoadingData(false);
+          router.push('/dashboard'); // Redirect if process not found
+          return;
+        }
         setProcessSummary(summary);
         setDocumentCount(docs.length);
-        if (!summary || docs.length === 0) {
-          const initialError = !summary ? "Process summary not found." : "No documents analyzed for this process.";
-           setError(initialError + " Chat cannot be initiated without analyzed documents.");
-           toast({ title: "Chat Initialization Error", description: initialError, variant: "destructive" });
+        if (docs.length === 0) {
+           const initialError = "No documents analyzed for this process. Chat cannot be effectively used.";
+           setError(initialError);
+           toast({ title: "Chat Information", description: initialError, variant: "default" }); // Info, not destructive
+           setMessages([
+            { 
+              id: 'system-init-no-docs', 
+              role: 'assistant', 
+              content: `Hello! I'm ready to discuss Process ${summary.processNumber}. Currently, no documents have been analyzed. You can still ask general questions, or analyze documents first.`, 
+              timestamp: new Date() 
+            }
+          ]);
         } else {
            setMessages([
             { 
@@ -66,7 +86,7 @@ export default function ConsolidatedChatPage() {
         toast({ title: "Error", description: errorMsg, variant: "destructive" });
       }).finally(() => setIsLoadingData(false));
     }
-  }, [processId, user, toast]);
+  }, [processId, user, toast, router]);
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -76,7 +96,7 @@ export default function ConsolidatedChatPage() {
 
   const handleSendMessage = async (event?: FormEvent) => {
     if (event) event.preventDefault();
-    if (!inputMessage.trim() || !processId || isSending || error) return;
+    if (!inputMessage.trim() || !processId || isSending ) return; // Allow sending even if initial error for no docs
 
     const userMessage: ChatMessage = {
       id: Date.now().toString() + '-user',
@@ -91,7 +111,7 @@ export default function ConsolidatedChatPage() {
     try {
       const chatInput: ConsolidateAnalysisChatInput = {
         processId: processId,
-        prompt: userMessage.content, // The user's message is the prompt for this interaction
+        prompt: userMessage.content, 
       };
       const result: ConsolidateAnalysisChatOutput = await consolidateAnalysisChat(chatInput);
       
@@ -128,7 +148,10 @@ export default function ConsolidatedChatPage() {
     );
   }
   
-  if (error && messages.length <=1) { // Show error prominently if it's an initialization error
+  // Allow chat even if initial error was "no documents analyzed", but not for "process not found"
+  const isChatDisabled = error && error.includes("Process summary not found");
+
+   if (isChatDisabled) {
      return (
       <Card className="shadow-lg w-full">
         <CardHeader>
@@ -139,7 +162,7 @@ export default function ConsolidatedChatPage() {
         <CardContent>
           <p className="text-destructive-foreground bg-destructive/10 p-4 rounded-md">{error}</p>
           <Button variant="link" asChild className="mt-4">
-            <Link href={`/processes/${processId}/documents`}>Go to Document Analysis</Link>
+            <Link href={`/dashboard`}>Go to Dashboard</Link>
           </Button>
         </CardContent>
       </Card>
@@ -156,8 +179,14 @@ export default function ConsolidatedChatPage() {
         </div>
         <CardDescription>
           Interact with the AI about Process: <strong>{processSummary?.processNumber || processId}</strong>. 
-          It has access to {documentCount} analyzed document(s).
+          {documentCount > 0 ? `It has access to ${documentCount} analyzed document(s).` : "No documents have been analyzed yet for this process."}
         </CardDescription>
+         {error && !isChatDisabled && ( // Display non-blocking errors (e.g. no documents)
+          <div className="mt-2 p-3 bg-yellow-100 border border-yellow-300 text-yellow-700 rounded-md text-sm">
+            <AlertCircle className="inline h-4 w-4 mr-1" />
+            {error}
+          </div>
+        )}
       </CardHeader>
       <CardContent className="flex-1 overflow-hidden p-0">
         <ScrollArea className="h-full p-4 sm:p-6" ref={scrollAreaRef}>
@@ -221,11 +250,11 @@ export default function ConsolidatedChatPage() {
         <form onSubmit={handleSendMessage} className="flex w-full items-center space-x-3">
           <Input
             type="text"
-            placeholder={error ? "Chat unavailable due to error" : "Type your message here..."}
+            placeholder={isChatDisabled ? "Chat unavailable" : "Type your message here..."}
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             className="flex-1 text-base"
-            disabled={isSending || !!error}
+            disabled={isSending || isChatDisabled}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -233,7 +262,7 @@ export default function ConsolidatedChatPage() {
               }
             }}
           />
-          <Button type="submit" size="icon" disabled={isSending || !inputMessage.trim() || !!error}>
+          <Button type="submit" size="icon" disabled={isSending || !inputMessage.trim() || isChatDisabled}>
             {isSending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
             <span className="sr-only">Send message</span>
           </Button>
@@ -243,8 +272,9 @@ export default function ConsolidatedChatPage() {
   );
 }
 
+// Minimal Avatar components for this page if not globally available or to avoid ShadCN dependency for these simple ones
 function Avatar({ className, children }: { className?: string; children: React.ReactNode }) {
-  return <div className={cn("flex items-center justify-center", className)}>{children}</div>;
+  return <div className={cn("flex items-center justify-center rounded-full overflow-hidden", className)}>{children}</div>;
 }
 function AvatarFallback({ children }: { children: React.ReactNode }) {
   return <div className="flex items-center justify-center h-full w-full">{children}</div>;

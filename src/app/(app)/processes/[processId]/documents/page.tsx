@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, FormEvent } from "react";
@@ -11,9 +12,11 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, ListChecks, AlertCircle, CheckCircle, UploadCloud, FileText, Trash2, Send } from "lucide-react";
 import { analyzeDocumentBatch, type AnalyzeDocumentBatchInput, type AnalyzeDocumentBatchOutput } from "@/ai/flows/analyze-document-batch";
-import { mockSaveDocumentAnalysis, mockGetDocumentAnalyses, mockGetProcessSummary, type DocumentAnalysis, type ProcessSummary } from "@/lib/firebase"; // Using mock
+import { saveDocumentAnalysis, getDocumentAnalyses, getProcessSummary, type DocumentAnalysis, type ProcessSummary } from "@/lib/firebase"; // Updated imports
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"; // Added Alert imports
+import Link from "next/link"; // Added Link import
 
 interface FileToUpload {
   file: File;
@@ -79,8 +82,14 @@ Formato JSON desejado para CADA arquivo processado NESTE lote:
 
   useEffect(() => {
     if (processId && user) {
-      mockGetProcessSummary(processId).then(setProcessSummary);
-      mockGetDocumentAnalyses(processId)
+      getProcessSummary(processId).then(summary => { // Updated call
+        if (!summary) {
+          toast({ title: "Error", description: "Process summary not found.", variant: "destructive" });
+          router.push("/dashboard"); 
+        }
+        setProcessSummary(summary);
+      });
+      getDocumentAnalyses(processId) // Updated call
         .then(docs => {
           setAnalyzedDocuments(docs);
           setIsLoadingExisting(false);
@@ -91,20 +100,17 @@ Formato JSON desejado para CADA arquivo processado NESTE lote:
           setIsLoadingExisting(false);
         });
     }
-  }, [processId, user, toast]);
+  }, [processId, user, toast, router]);
 
   const handleFilesSelect = (_files: FileList | null, dataUris: { name: string; dataUri: string }[]) => {
     if (_files) {
       const newFiles = Array.from(_files).map((file, index) => ({
         file,
-        dataUri: dataUris.find(du => du.name === file.name)?.dataUri || "", // Ensure dataUri exists
+        dataUri: dataUris.find(du => du.name === file.name)?.dataUri || "",
         status: 'pending' as 'pending' | 'uploading' | 'analyzing' | 'completed' | 'error',
         progress: 0,
       }));
-      setFilesToUpload(prevFiles => [...prevFiles, ...newFiles.filter(nf => nf.dataUri)]); // Only add files with dataUri
-    } else {
-      // PdfUploader might call with null if there's an internal error like file type mismatch
-      // setFilesToUpload([]); // Or handle as needed
+      setFilesToUpload(prevFiles => [...prevFiles, ...newFiles.filter(nf => nf.dataUri)]);
     }
   };
 
@@ -114,7 +120,7 @@ Formato JSON desejado para CADA arquivo processado NESTE lote:
   
   const handleSubmitAnalysis = async (event: FormEvent) => {
     event.preventDefault();
-    if (filesToUpload.length === 0 || !analysisPrompt.trim() || !user) {
+    if (filesToUpload.filter(f => f.status === 'pending').length === 0 || !analysisPrompt.trim() || !user) {
       toast({ title: "Missing Information", description: "Please select files and ensure the analysis prompt is filled.", variant: "destructive" });
       return;
     }
@@ -122,13 +128,15 @@ Formato JSON desejado para CADA arquivo processado NESTE lote:
     setIsAnalyzing(true);
     setGlobalError(null);
 
-    const documentsToAnalyze: AnalyzeDocumentBatchInput['documents'] = filesToUpload.map(f => ({
+    const pendingFiles = filesToUpload.filter(f => f.status === 'pending');
+    const documentsToAnalyze: AnalyzeDocumentBatchInput['documents'] = pendingFiles.map(f => ({
       fileName: f.file.name,
       fileDataUri: f.dataUri,
     }));
 
-    // Update UI for all files to show "analyzing"
-    setFilesToUpload(prevFiles => prevFiles.map(f => ({ ...f, status: 'analyzing', progress: 50 })));
+    setFilesToUpload(prevFiles => prevFiles.map(f => 
+      f.status === 'pending' ? { ...f, status: 'analyzing', progress: 50 } : f
+    ));
 
     try {
       const results: AnalyzeDocumentBatchOutput = await analyzeDocumentBatch({
@@ -136,46 +144,57 @@ Formato JSON desejado para CADA arquivo processado NESTE lote:
         analysisPrompt: analysisPrompt,
       });
 
-      // Process results
       const newAnalyzedDocs: DocumentAnalysis[] = [];
+      const updatedFilesToUpload = [...filesToUpload];
+
       for (const result of results) {
-        const originalFile = filesToUpload.find(f => f.file.name === result.fileName);
-        if (originalFile) {
-          // Mock saving each document
-          const savedDoc = await mockSaveDocumentAnalysis(
-            processId, 
-            result.fileName, 
-            analysisPrompt, 
-            JSON.parse(result.analysisResult) // Assuming analysisResult is a JSON string
-          );
-          newAnalyzedDocs.push(savedDoc);
-          
-          // Update specific file status
-          setFilesToUpload(prevFiles => prevFiles.map(f => 
-            f.file.name === result.fileName ? { ...f, status: 'completed', progress: 100, analysisResult: JSON.parse(result.analysisResult) } : f
-          ));
+        const originalFileIndex = updatedFilesToUpload.findIndex(f => f.file.name === result.fileName && f.status === 'analyzing');
+        if (originalFileIndex !== -1) {
+          try {
+            const parsedResult = JSON.parse(result.analysisResult); // Validate JSON parsing
+            const savedDoc = await saveDocumentAnalysis( // Updated call
+              processId, 
+              result.fileName, 
+              analysisPrompt, 
+              parsedResult
+            );
+            newAnalyzedDocs.push(savedDoc);
+            updatedFilesToUpload[originalFileIndex] = { ...updatedFilesToUpload[originalFileIndex], status: 'completed', progress: 100, analysisResult: parsedResult };
+          } catch (jsonError) {
+            console.error(`Error parsing JSON for ${result.fileName}:`, jsonError);
+             updatedFilesToUpload[originalFileIndex] = { ...updatedFilesToUpload[originalFileIndex], status: 'error', error: `AI returned invalid JSON: ${ (jsonError as Error).message}` };
+          }
         }
       }
+      setFilesToUpload(updatedFilesToUpload);
       setAnalyzedDocuments(prev => [...prev, ...newAnalyzedDocs]);
       
-      toast({ title: "Analysis Complete", description: `${results.length} documents analyzed and saved.`, className: "bg-green-500 text-white" });
-      // Clear successfully analyzed files from upload list
-      setFilesToUpload(prevFiles => prevFiles.filter(f => f.status !== 'completed'));
+      const successfulCount = newAnalyzedDocs.length;
+      const failedCount = documentsToAnalyze.length - successfulCount;
+
+      if (successfulCount > 0) {
+        toast({ title: "Analysis Complete", description: `${successfulCount} document(s) analyzed and saved.`, className: "bg-green-500 text-white" });
+      }
+      if (failedCount > 0) {
+         toast({ title: "Analysis Issues", description: `${failedCount} document(s) failed to analyze or save. Check file status.`, variant: "destructive" });
+      }
+
 
     } catch (err) {
       console.error("Error analyzing documents:", err);
       const errorMsg = err instanceof Error ? err.message : "An unknown error occurred during batch analysis.";
       setGlobalError(errorMsg);
       toast({ title: "Batch Analysis Failed", description: errorMsg, variant: "destructive" });
-      // Mark all as error
-      setFilesToUpload(prevFiles => prevFiles.map(f => ({ ...f, status: 'error', error: "Batch analysis failed." })));
+      setFilesToUpload(prevFiles => prevFiles.map(f => 
+        f.status === 'analyzing' ? { ...f, status: 'error', error: "Batch analysis failed." } : f
+      ));
     } finally {
       setIsAnalyzing(false);
     }
   };
 
-  const allDocumentsAnalyzed = filesToUpload.every(f => f.status === 'completed' || f.status === 'error') && filesToUpload.length > 0;
   const someDocumentsSuccessfullyAnalyzed = analyzedDocuments.length > 0 || filesToUpload.some(f => f.status === 'completed');
+  const pendingFileCount = filesToUpload.filter(f=>f.status === 'pending').length;
 
   return (
     <form onSubmit={handleSubmitAnalysis}>
@@ -220,7 +239,7 @@ Formato JSON desejado para CADA arquivo processado NESTE lote:
 
           {filesToUpload.length > 0 && (
             <div className="space-y-3">
-              <h4 className="text-md font-semibold">Files to Analyze ({filesToUpload.length}):</h4>
+              <h4 className="text-md font-semibold">Files Queue ({filesToUpload.length}):</h4>
               <ScrollArea className="h-64 border rounded-md p-3 bg-secondary/20">
                 {filesToUpload.map((item, index) => (
                   <div key={index} className="mb-2 p-3 border rounded-md bg-card shadow-sm">
@@ -229,13 +248,16 @@ Formato JSON desejado para CADA arquivo processado NESTE lote:
                         <FileText className="h-5 w-5 text-primary flex-shrink-0" />
                         <span className="text-sm font-medium truncate" title={item.file.name}>{item.file.name}</span>
                       </div>
-                      <Button variant="ghost" size="icon" onClick={() => removeFileToUpload(index)} disabled={isAnalyzing}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                       {item.status === 'pending' && !isAnalyzing && (
+                        <Button variant="ghost" size="icon" onClick={() => removeFileToUpload(index)} disabled={isAnalyzing}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                       )}
                     </div>
                     {item.status === 'analyzing' && <Progress value={item.progress || 50} className="w-full h-1.5 mt-1" />}
                     {item.status === 'completed' && <p className="text-xs text-green-600 mt-1 flex items-center"><CheckCircle className="h-3 w-3 mr-1"/>Analysis complete.</p>}
                     {item.status === 'error' && <p className="text-xs text-destructive mt-1 flex items-center"><AlertCircle className="h-3 w-3 mr-1"/>Error: {item.error || "Unknown analysis error"}</p>}
+                     {item.status === 'pending' && <p className="text-xs text-muted-foreground mt-1">Pending analysis...</p>}
                   </div>
                 ))}
               </ScrollArea>
@@ -252,7 +274,7 @@ Formato JSON desejado para CADA arquivo processado NESTE lote:
                   <div key={doc.id} className="mb-2 p-2 border rounded-md bg-card shadow-sm text-sm flex items-center space-x-2">
                      <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0"/>
                      <span className="font-medium truncate" title={doc.fileName}>{doc.fileName}</span>
-                     <span className="text-xs text-muted-foreground">(Analyzed: {new Date(doc.uploadedAt).toLocaleDateString()})</span>
+                     <span className="text-xs text-muted-foreground">(Analyzed: {doc.uploadedAt instanceof Date ? doc.uploadedAt.toLocaleDateString() : new Date(doc.uploadedAt).toLocaleDateString()})</span>
                   </div>
                 ))}
               </ScrollArea>
@@ -263,7 +285,7 @@ Formato JSON desejado para CADA arquivo processado NESTE lote:
         <CardFooter className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t">
           <Button 
             type="submit" 
-            disabled={isAnalyzing || filesToUpload.length === 0 || !analysisPrompt.trim()}
+            disabled={isAnalyzing || pendingFileCount === 0 || !analysisPrompt.trim()}
             className="w-full sm:w-auto text-base py-3"
           >
             {isAnalyzing ? (
@@ -271,7 +293,7 @@ Formato JSON desejado para CADA arquivo processado NESTE lote:
             ) : (
               <UploadCloud className="mr-2 h-5 w-5" />
             )}
-            Analyze Selected Documents ({filesToUpload.filter(f=>f.status === 'pending').length})
+            Analyze {pendingFileCount > 0 ? `${pendingFileCount} Pending` : 'Selected'} Document(s)
           </Button>
           <Button 
             type="button"

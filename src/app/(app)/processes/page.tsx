@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -6,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/hooks/use-auth";
-import { mockGetProcesses, type ProcessSummary } from "@/lib/firebase"; // Using mock
+import { getProcesses, type ProcessSummary } from "@/lib/firebase"; // Updated import
 import { Loader2, FilePlus, Eye, ListOrdered, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
@@ -21,7 +22,7 @@ export default function ProcessesListPage() {
     if (user) {
       setIsLoading(true);
       setError(null);
-      mockGetProcesses(user.uid)
+      getProcesses(user.uid) // Updated function call
         .then(data => {
           setProcesses(data);
         })
@@ -30,10 +31,11 @@ export default function ProcessesListPage() {
           setError(err instanceof Error ? err.message : "Failed to load processes.");
         })
         .finally(() => setIsLoading(false));
-    } else {
-      setIsLoading(false); // Not logged in, so not loading
+    } else if (!user && !isLoading) { // If user becomes null and we are not already loading
+        setProcesses([]); // Clear processes if user logs out
+        setIsLoading(false);
     }
-  }, [user]);
+  }, [user, isLoading]); // Added isLoading to dependencies to avoid potential loops if user logs out while loading
 
   if (isLoading) {
     return (
@@ -72,7 +74,22 @@ export default function ProcessesListPage() {
         </Button>
       </div>
 
-      {processes.length === 0 ? (
+      {!user ? (
+        <Card className="text-center py-12 shadow-lg">
+          <CardContent className="flex flex-col items-center">
+            <AlertCircle className="h-12 w-12 text-muted-foreground mb-4"/>
+            <h2 className="text-2xl font-semibold mb-2 text-foreground">Please Log In</h2>
+            <p className="text-muted-foreground mb-6">
+              You need to be logged in to view your processes.
+            </p>
+            <Button asChild size="lg">
+              <Link href="/login">
+                Log In
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : processes.length === 0 ? (
         <Card className="text-center py-12 shadow-lg border-dashed">
           <CardContent className="flex flex-col items-center">
             <Image src="https://placehold.co/300x200.png?text=No+Processes+Yet" alt="No processes illustration" width={300} height={200} data-ai-hint="empty state documents" className="mb-6 rounded-lg opacity-60"/>
@@ -111,11 +128,16 @@ export default function ProcessesListPage() {
                   <TableRow key={process.id}>
                     <TableCell className="font-medium">{process.processNumber}</TableCell>
                     <TableCell>
-                       <Badge variant={process.status === 'chat_ready' || process.status === 'documents_completed' ? 'default' : 'secondary'} className={process.status === 'chat_ready' || process.status === 'documents_completed' ? 'bg-green-500 hover:bg-green-600' : ''}>
-                        {process.status ? process.status.replace(/_/g, ' ') : 'Summary Completed'}
+                       <Badge variant={process.status === 'chat_ready' || process.status === 'documents_completed' ? 'default' : 'secondary'} className={cn(
+                        'capitalize',
+                        {'bg-green-100 text-green-700 border-green-300': process.status === 'chat_ready' || process.status === 'documents_completed'},
+                        {'bg-blue-100 text-blue-700 border-blue-300': process.status === 'summary_completed'},
+                        {'bg-yellow-100 text-yellow-700 border-yellow-300': process.status === 'documents_pending' || process.status === 'summary_pending'}
+                       )}>
+                        {process.status ? process.status.replace(/_/g, ' ') : 'N/A'}
                        </Badge>
                     </TableCell>
-                    <TableCell>{new Date(process.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell>{process.createdAt instanceof Date ? process.createdAt.toLocaleDateString() : new Date(process.createdAt).toLocaleDateString()}</TableCell>
                     <TableCell className="text-right">
                       <Button asChild variant="outline" size="sm">
                         <Link href={`/processes/${process.id}/summary`}>

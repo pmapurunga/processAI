@@ -1,9 +1,10 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/use-auth";
-import { mockGetProcesses, type ProcessSummary } from "@/lib/firebase";
+import { getProcesses, type ProcessSummary } from "@/lib/firebase"; // Updated import
 import { FilePlus, ListChecks, MessageSquare, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -18,7 +19,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (user) {
       setIsLoading(true);
-      mockGetProcesses(user.uid)
+      getProcesses(user.uid) // Updated function call
         .then(processes => {
           setRecentProcesses(processes.slice(0, 3)); // Show top 3 recent
           setIsLoading(false);
@@ -63,7 +64,9 @@ export default function DashboardPage() {
           <CardContent>
             <div className="text-2xl font-bold">Deep Dive</div>
             <p className="text-xs text-muted-foreground mb-4">Analyze multiple documents for a case.</p>
-             <Button variant="outline" className="w-full" disabled>Select Process to Analyze</Button> 
+             <Button variant="outline" className="w-full" asChild>
+                <Link href="/processes">Select Process</Link>
+             </Button> 
           </CardContent>
         </Card>
         <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
@@ -74,7 +77,9 @@ export default function DashboardPage() {
           <CardContent>
             <div className="text-2xl font-bold">AI Assistant</div>
             <p className="text-xs text-muted-foreground mb-4">Chat about your consolidated findings.</p>
-            <Button variant="outline" className="w-full" disabled>Select Process to Chat</Button>
+            <Button variant="outline" className="w-full" asChild>
+                <Link href="/processes">Select Process</Link>
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -93,7 +98,7 @@ export default function DashboardPage() {
               <Card key={process.id} className="overflow-hidden hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <CardTitle className="truncate font-headline text-lg">{process.processNumber}</CardTitle>
-                  <CardDescription>Created: {new Date(process.createdAt).toLocaleDateString()}</CardDescription>
+                  <CardDescription>Created: {process.createdAt instanceof Date ? process.createdAt.toLocaleDateString() : new Date(process.createdAt).toLocaleDateString()}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground line-clamp-2 h-10">

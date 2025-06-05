@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -12,7 +13,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, FileText, CheckCircle, AlertCircle, Save } from "lucide-react";
 import { extractSummaryFromPdf, type ExtractSummaryFromPdfOutput } from "@/ai/flows/extract-summary-from-pdf";
-import { mockSaveSummary } from "@/lib/firebase"; // Using mock
+import { saveSummary } from "@/lib/firebase"; // Updated import
 
 export default function CreateProcessPage() {
   const router = useRouter();
@@ -29,7 +30,7 @@ export default function CreateProcessPage() {
   const handleFileSelect = (file: File | null, dataUri: string | null) => {
     setSummaryFile(file);
     setSummaryDataUri(dataUri);
-    setAnalysisResult(null); // Clear previous results if new file is selected
+    setAnalysisResult(null); 
     setError(null);
   };
 
@@ -84,7 +85,8 @@ export default function CreateProcessPage() {
     setIsSaving(true);
     setError(null);
     try {
-      const savedProcess = await mockSaveSummary(
+      // Use the updated saveSummary function
+      const savedProcess = await saveSummary(
         analysisResult.processNumber,
         analysisResult.summary,
         analysisResult, // Save the full JSON output as well
@@ -96,7 +98,7 @@ export default function CreateProcessPage() {
         variant: "default",
          className: "bg-green-500 text-white"
       });
-      router.push(`/processes/${savedProcess.id}/documents`);
+      router.push(`/processes/${savedProcess.id}/documents`); // Use the ID from the saved process
     } catch (err) {
       console.error("Error saving process:", err);
       const errorMessage = err instanceof Error ? err.message : "An unknown error occurred while saving.";
@@ -117,7 +119,7 @@ export default function CreateProcessPage() {
         <CardHeader>
           <div className="flex items-center space-x-3 mb-2">
             <FileText className="h-8 w-8 text-primary" />
-            <CardTitle className="font-headline text-2xl md:text-3xl">Step 1: Summary Analysis</CardTitle>
+            <CardTitle className="font-headline text-2xl md:text-3xl">Step 1: New Process Summary</CardTitle>
           </div>
           <CardDescription>
             Upload a PDF document containing the process summary. The system will extract the summary and process number.

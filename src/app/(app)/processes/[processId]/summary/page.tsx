@@ -1,21 +1,25 @@
+
 "use client";
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation'; // Added useRouter
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { mockGetProcessSummary, type ProcessSummary as ProcessSummaryType } from '@/lib/firebase'; // Using mock
+import { getProcessSummary, type ProcessSummary as FirebaseProcessSummary } from '@/lib/firebase'; // Updated import
 import { Loader2, FileText, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { useToast } from '@/hooks/use-toast'; // Added useToast
 
 export default function ProcessSummaryPage() {
   const params = useParams();
+  const router = useRouter(); // Initialize router
+  const { toast } = useToast(); // Initialize toast
   const processId = params.processId as string;
 
-  const [summaryData, setSummaryData] = useState<ProcessSummaryType | null>(null);
+  const [summaryData, setSummaryData] = useState<FirebaseProcessSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,31 +27,35 @@ export default function ProcessSummaryPage() {
     if (processId) {
       setIsLoading(true);
       setError(null);
-      mockGetProcessSummary(processId)
+      getProcessSummary(processId) // Updated function call
         .then(data => {
           if (data) {
             setSummaryData(data);
           } else {
             setError("Process summary not found.");
+            toast({ title: "Error", description: "Process summary not found. Redirecting...", variant: "destructive"});
+            router.replace("/dashboard");
           }
         })
         .catch(err => {
           console.error("Error fetching process summary:", err);
-          setError(err instanceof Error ? err.message : "Failed to load summary.");
+          const errorMessage = err instanceof Error ? err.message : "Failed to load summary.";
+          setError(errorMessage);
+           toast({ title: "Error", description: errorMessage, variant: "destructive"});
         })
         .finally(() => setIsLoading(false));
     }
-  }, [processId]);
+  }, [processId, router, toast]);
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-10">
+      <div className="flex items-center justify-center p-10 h-[calc(100vh-250px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
   }
 
-  if (error) {
+  if (error && !summaryData) { // Error and no data means we should show the error prominently
     return (
       <Card className="shadow-lg">
         <CardHeader>
@@ -63,7 +71,7 @@ export default function ProcessSummaryPage() {
     );
   }
 
-  if (!summaryData) {
+  if (!summaryData) { // Should be caught by error handling above, but as a fallback
     return (
       <Card className="shadow-lg">
         <CardHeader>
@@ -84,10 +92,10 @@ export default function ProcessSummaryPage() {
       <CardHeader>
         <div className="flex items-center space-x-3 mb-2">
             <FileText className="h-8 w-8 text-primary" />
-            <CardTitle className="font-headline text-2xl md:text-3xl">Process Summary Details</CardTitle>
+            <CardTitle className="font-headline text-2xl md:text-3xl">Step 1: Process Summary</CardTitle>
         </div>
         <CardDescription>
-          Review the extracted summary and process number for Process ID: <strong>{summaryData.processNumber}</strong>.
+          Review the extracted summary and process number for Process: <strong>{summaryData.processNumber}</strong>.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
