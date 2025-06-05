@@ -17,7 +17,7 @@ import {
   // deleteDoc, // Not currently used, can be removed if not planned
   // writeBatch // Not currently used, can be removed if not planned
 } from "firebase/firestore";
-import type { ProcessSummary, DocumentAnalysis } from "@/types";
+import type { ProcessSummary, DocumentAnalysis } from "@/types"; // Updated import from @/types
 
 // ATENÇÃO: Erro "auth/requests-from-referer...-are-blocked"
 // Este erro indica que o domínio de onde seu app está sendo servido NÃO está autorizado.
@@ -32,6 +32,33 @@ import type { ProcessSummary, DocumentAnalysis } from "@/types";
 //    - Salve e aguarde a propagação (pode levar alguns minutos).
 // 3. Verifique se não há erros de digitação e se o projeto correto está selecionado em ambos os consoles.
 // 4. Limpe o cache do navegador ou teste em modo anônimo.
+
+// ATENÇÃO: Erro "The requested action is invalid." no popup do Google Sign-In
+// Este erro geralmente indica um problema de configuração no Firebase Console ou Google Cloud Console:
+// 1. Firebase Console > Authentication > Sign-in method:
+//    - Certifique-se de que o provedor "Google" está HABILITADO.
+//    - Verifique se um "E-mail de suporte do projeto" está selecionado para o provedor Google.
+// 2. Google Cloud Console (Projeto: processai-145cd) > APIs & Serviços > Tela de consentimento OAuth:
+//    - Verifique se a tela de consentimento está configurada corretamente.
+//    - Nome do Aplicativo: Defina um nome para seu app.
+//    - E-mail para Suporte ao Usuário: Selecione seu e-mail.
+//    - Domínios Autorizados: Adicione '6000-firebase-studio-1749115397750.cluster-etsqrqvqyvd4erxx7qq32imrjk.cloudworkstations.dev' (e seu domínio de produção).
+//    - Informações de Contato do Desenvolvedor: Preencha seu e-mail.
+//    - Status da Publicação: Se "Em teste", adicione seu e-mail de login como "Usuário de teste". Considere publicar o app se estiver pronto.
+// 3. Google Cloud Console (Projeto: processai-145cd) > APIs & Serviços > Credenciais:
+//    - Encontre a Chave de API usada pelo seu app (geralmente o valor de NEXT_PUBLIC_FIREBASE_API_KEY).
+//    - Clique no nome da chave para editar.
+//    - Em "Restrições de aplicativos":
+//        - Se "Referenciadores HTTP (websites)" estiver selecionado, certifique-se de que
+//          '6000-firebase-studio-1749115397750.cluster-etsqrqvqyvd4erxx7qq32imrjk.cloudworkstations.dev' (e outros domínios necessários) está na lista.
+//          Adicione o domínio sem 'https://' ou barras finais.
+//    - Em "Restrições de API":
+//        - Certifique-se de que "Identity Toolkit API" (usada pelo Firebase Auth) e "Cloud Firestore API" estão permitidas se você estiver restringindo APIs.
+//          Geralmente, é mais seguro não restringir por API, a menos que necessário.
+// 4. APIs Habilitadas no Google Cloud Console:
+//    - Verifique se "Identity Toolkit API" (Firebase Authentication) e "Cloud Firestore API" estão habilitadas no seu projeto Google Cloud.
+//      O Firebase geralmente as habilita automaticamente, mas vale a pena conferir.
+// Lembre-se que após qualquer alteração no console, pode haver um tempo de propagação.
 
 
 const firebaseConfig = {
@@ -56,36 +83,28 @@ const googleProvider = new GoogleAuthProvider();
 
 export type { FirebaseUserType as FirebaseUser };
 
-export type AuthUser = {
-  uid: string;
-  displayName: string | null;
-  email: string | null;
-  photoURL: string | null;
-} | null;
+// This type is now defined directly in use-auth.tsx and firebase.ts uses it from there or implicitly
+// export type AuthUser = {
+//   uid: string;
+//   displayName: string | null;
+//   email: string | null;
+//   photoURL: string | null;
+// } | null;
 
-export const signInWithGoogle = async (): Promise<AuthUser> => {
+export const signInWithGoogle = async (): Promise<FirebaseUserType> => {
   try {
     const result = await signInWithPopup(auth, googleProvider);
-    const firebaseUser = result.user;
-    if (firebaseUser) {
-      const userToSave: AuthUser = {
-        uid: firebaseUser.uid,
-        displayName: firebaseUser.displayName,
-        email: firebaseUser.email,
-        photoURL: firebaseUser.photoURL,
-      };
-      return userToSave;
-    }
-    throw new Error("Firebase user not found after successful sign-in popup.");
+    // The user object from signInWithPopup is already a FirebaseUser type
+    return result.user;
   } catch (error: any) {
     const errorCode = error?.code;
+    // Log less critical errors as warnings or info, or handle them silently if preferred
     if (
       errorCode === 'auth/popup-closed-by-user' ||
       errorCode === 'auth/cancelled-popup-request' ||
       errorCode === 'auth/popup-blocked'
     ) {
-      // These are user actions or browser issues, not unexpected server errors.
-      // Let the calling function (useAuth) handle specific logging or user feedback.
+      console.info('Firebase sign-in user action:', errorCode);
     } else {
       console.error("Error signing in with Google (from firebase.ts):", error);
     }
@@ -107,17 +126,19 @@ export const saveSummary = async (processNumber: string, summaryText: string, su
     const processData = {
       processNumber,
       summaryText,
-      summaryJson,
+      summaryJson, // Save the full JSON output
       userId,
-      createdAt: serverTimestamp(),
-      status: 'summary_completed' as ProcessSummary['status'],
+      createdAt: serverTimestamp(), // Use serverTimestamp for consistency
+      status: 'summary_completed' as ProcessSummary['status'], // Set initial status
     };
     const docRef = await addDoc(collection(db, "processes"), processData);
+    // For immediate use, we construct the ProcessSummary object with a client-side date.
+    // Firestore will store a Timestamp, which will be converted back to Date on retrieval.
     return { 
       id: docRef.id, 
       ...processData,
-      createdAt: new Date() 
-    } as unknown as ProcessSummary; // Cast to avoid timestamp/date type mismatch for immediate return
+      createdAt: new Date() // For optimistic update, actual value is server timestamp
+    } as unknown as ProcessSummary; // Cast because serverTimestamp() isn't Date immediately
   } catch (error) {
     console.error("Error saving summary to Firestore:", error);
     throw error;
@@ -129,37 +150,45 @@ export const saveDocumentAnalysis = async (processId: string, fileName: string, 
     const analysisData = {
       fileName,
       analysisPrompt,
-      analysisResult,
+      analysisResult, // Store the JSON object directly
       uploadedAt: serverTimestamp(),
-      processId, 
+      processId, // Link back to the parent process
     };
     const docRef = await addDoc(collection(db, "processes", processId, "documentAnalyses"), analysisData);
+    
+    // Update the parent process status
     await setDoc(doc(db, "processes", processId), { status: 'documents_completed', updatedAt: serverTimestamp() }, { merge: true });
+
     return { 
       id: docRef.id, 
       ...analysisData,
-      uploadedAt: new Date() 
-    } as unknown as DocumentAnalysis; // Cast for immediate return
+      uploadedAt: new Date() // For optimistic update
+    } as unknown as DocumentAnalysis; // Cast due to serverTimestamp
   } catch (error) {
     console.error("Error saving document analysis to Firestore:", error);
     throw error;
   }
 };
 
+// Helper to convert Firestore Timestamp to Date, handling both types
 const convertTimestampToDate = (timestamp: any): Date => {
   if (timestamp instanceof Timestamp) {
     return timestamp.toDate();
   }
+  // If it's already a Date (e.g., from optimistic update), return it
   if (timestamp instanceof Date) {
     return timestamp;
   }
-  return timestamp ? new Date(timestamp) : new Date(); 
+  // Fallback for serialized timestamps (less ideal, but can happen)
+  // or if serverTimestamp() was somehow not yet converted by Firestore client.
+  return timestamp && timestamp.seconds ? new Date(timestamp.seconds * 1000) : new Date(); 
 };
+
 
 export const getDocumentAnalyses = async (processId: string): Promise<DocumentAnalysis[]> => {
   try {
     const analysesCol = collection(db, "processes", processId, "documentAnalyses");
-    const q = query(analysesCol, orderBy("uploadedAt", "desc"));
+    const q = query(analysesCol, orderBy("uploadedAt", "desc")); // Order by upload time
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(docSnap => {
       const data = docSnap.data();
@@ -167,7 +196,7 @@ export const getDocumentAnalyses = async (processId: string): Promise<DocumentAn
         id: docSnap.id,
         ...data,
         uploadedAt: convertTimestampToDate(data.uploadedAt),
-      } as DocumentAnalysis;
+      } as DocumentAnalysis; // Cast to ensure type correctness
     });
   } catch (error) {
     console.error("Error fetching document analyses from Firestore:", error);
@@ -189,8 +218,7 @@ export const getProcesses = async (userId: string): Promise<ProcessSummary[]> =>
         updatedAt: data.updatedAt ? convertTimestampToDate(data.updatedAt) : undefined,
       } as ProcessSummary;
     });
-  } catch (error)
-{
+  } catch (error) {
     console.error("Error fetching processes from Firestore:", error);
     throw error;
   }
@@ -223,5 +251,5 @@ export {
   auth, 
   db, 
   googleProvider,
-  Timestamp
+  Timestamp // Export Timestamp if it's used externally, otherwise it's internal
 };
