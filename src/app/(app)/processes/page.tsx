@@ -7,35 +7,86 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/hooks/use-auth";
-import { getProcesses, type ProcessSummary } from "@/lib/firebase"; // Updated import
+import { getProcesses, type ProcessSummary } from "@/lib/firebase"; 
 import { Loader2, FilePlus, Eye, ListOrdered, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
+
+interface IndexErrorState {
+  message: string;
+  link: string | null;
+}
 
 export default function ProcessesListPage() {
   const { user } = useAuth();
   const [processes, setProcesses] = useState<ProcessSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null); // General error
+  const [indexError, setIndexError] = useState<IndexErrorState | null>(null); // Specific index error
 
   useEffect(() => {
     if (user) {
       setIsLoading(true);
       setError(null);
-      getProcesses(user.uid) // Updated function call
+      setIndexError(null);
+      getProcesses(user.uid) 
         .then(data => {
           setProcesses(data);
         })
         .catch(err => {
           console.error("Error fetching processes:", err);
-          setError(err instanceof Error ? err.message : "Failed to load processes.");
+          if (err.message && err.message.includes("The query requires an index.")) {
+            const match = err.message.match(/(https?:\/\/[^\s]+)/);
+            setIndexError({
+              message: err.message,
+              link: match ? match[0] : null,
+            });
+          } else {
+            setError(err instanceof Error ? err.message : "Failed to load processes.");
+          }
         })
         .finally(() => setIsLoading(false));
-    } else if (!user && !isLoading) { // If user becomes null and we are not already loading
-        setProcesses([]); // Clear processes if user logs out
+    } else if (!user && !isLoading) { 
+        setProcesses([]); 
         setIsLoading(false);
     }
-  }, [user, isLoading]); // Added isLoading to dependencies to avoid potential loops if user logs out while loading
+  }, [user, isLoading]); 
+
+  const renderIndexErrorMessage = () => {
+    if (!indexError) return null;
+    return (
+      <Alert variant="destructive" className="my-4">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Firestore Index Required</AlertTitle>
+        <AlertDescription>
+          <p className="mb-2">
+            A required Firestore index is missing to list your processes.
+            Please create it in the Firebase Console.
+          </p>
+          {indexError.link ? (
+            <a
+              href={indexError.link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-destructive-foreground underline hover:text-destructive-foreground/80 break-all"
+            >
+              Click here to create the index
+            </a>
+          ) : (
+            <p>Please check the browser console for a link to create the index.</p>
+          )}
+          <p className="mt-2 text-xs">
+            (Full error: {indexError.message})
+          </p>
+          <p className="mt-2">
+            After creating the index (which may take a few minutes), please refresh this page.
+          </p>
+        </AlertDescription>
+      </Alert>
+    );
+  };
 
   if (isLoading) {
     return (
@@ -46,7 +97,7 @@ export default function ProcessesListPage() {
     );
   }
 
-  if (error) {
+  if (error && !indexError) { // Show general error only if no specific index error
     return (
       <Card className="shadow-lg m-4">
         <CardHeader>
@@ -74,7 +125,9 @@ export default function ProcessesListPage() {
         </Button>
       </div>
 
-      {!user ? (
+      {renderIndexErrorMessage()}
+
+      {!user && !indexError ? (
         <Card className="text-center py-12 shadow-lg">
           <CardContent className="flex flex-col items-center">
             <AlertCircle className="h-12 w-12 text-muted-foreground mb-4"/>
@@ -89,7 +142,7 @@ export default function ProcessesListPage() {
             </Button>
           </CardContent>
         </Card>
-      ) : processes.length === 0 ? (
+      ) : processes.length === 0 && !indexError && !isLoading ? (
         <Card className="text-center py-12 shadow-lg border-dashed">
           <CardContent className="flex flex-col items-center">
             <Image src="https://placehold.co/300x200.png?text=No+Processes+Yet" alt="No processes illustration" width={300} height={200} data-ai-hint="empty state documents" className="mb-6 rounded-lg opacity-60"/>
@@ -105,7 +158,7 @@ export default function ProcessesListPage() {
             </Button>
           </CardContent>
         </Card>
-      ) : (
+      ) : !indexError && processes.length > 0 ? (
         <Card className="shadow-xl">
           <CardHeader>
             <CardTitle>All Process Analyses</CardTitle>
@@ -156,7 +209,9 @@ export default function ProcessesListPage() {
                 </p>
             </CardFooter>
         </Card>
-      )}
+      ) : null}
     </div>
   );
 }
+
+    
