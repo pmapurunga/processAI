@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -33,7 +34,7 @@ export type AnalyzeDocumentBatchInput = z.infer<typeof AnalyzeDocumentBatchInput
 const AnalyzeDocumentBatchOutputSchema = z.array(
   z.object({
     fileName: z.string().describe('Name of the document file.'),
-    analysisResult: z.string().describe('Analysis result for the document in JSON format.'),
+    analysisResult: z.string().describe('Analysis result for the document in JSON format, or an error message if analysis failed.'),
   })
 );
 export type AnalyzeDocumentBatchOutput = z.infer<typeof AnalyzeDocumentBatchOutputSchema>;
@@ -54,7 +55,7 @@ const analyzeDocumentPrompt = ai.definePrompt({
     }),
   },
   output: {
-    schema: z.string(),
+    schema: z.string().nullable(), // Allow AI to return null if analysis fails or is blocked
   },
   prompt: `Analyze the following document using the provided prompt and return the analysis result in JSON format.\n\nDocument Name: {{{fileName}}}\nDocument Content: {{media url=fileDataUri}}\nAnalysis Prompt: {{{analysisPrompt}}}`,
 });
@@ -78,7 +79,9 @@ const analyzeDocumentBatchFlow = ai.defineFlow(
 
       analysisResults.push({
         fileName: document.fileName,
-        analysisResult: output!,
+        // If output is null, provide a default error message string.
+        // Otherwise, use the string output from the AI.
+        analysisResult: output ?? JSON.stringify({ error: "AI returned no analysis for this document or it was filtered." }),
       });
     }
 
