@@ -1,3 +1,4 @@
+
 "use client";
 
 import { usePathname, useParams } from "next/navigation";
@@ -8,6 +9,7 @@ import { mockGetProcessSummary, type ProcessSummary } from "@/lib/firebase";
 import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button"; // Added import
 
 export default function ProcessLayout({
   children,
