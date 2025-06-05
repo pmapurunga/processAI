@@ -1,4 +1,5 @@
-
+// IMPORTANT: This file contains JSX and therefore needs to have a .tsx file extension.
+// Please rename this file from use-auth.ts to use-auth.tsx to resolve JSX parsing errors.
 "use client";
 
 import type { Dispatch, SetStateAction } from 'react';
@@ -8,14 +9,14 @@ import { mockSignInWithGoogle, mockSignOut, mockGetCurrentUser, type MockUser } 
 // import { onAuthStateChanged } from "firebase/auth";
 
 // Replace MockUser with User from firebase/auth when using real Firebase
-type AuthUser = MockUser | null; 
+type AuthUser = MockUser | null;
 
 interface AuthContextType {
   user: AuthUser;
   loading: boolean;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
-  setUser: Dispatch<SetStateAction<AuthUser>>; // Add setUser to allow manual override if needed
+  setUser: Dispatch<SetStateAction<AuthUser>>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -74,7 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       //   });
       // }
     } catch (error) {
-      console.error("Error signing in:", error);
+      console.error('Error signing in:', error);
       setUser(null); // Ensure user is null on error
     } finally {
       setLoading(false);
@@ -94,7 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // await firebaseSignOut(auth);
       // setUser(null);
     } catch (error) {
-      console.error("Error signing out:", error);
+      console.error('Error signing out:', error);
     } finally {
       setLoading(false);
     }
