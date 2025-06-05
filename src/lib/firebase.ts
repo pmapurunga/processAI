@@ -17,6 +17,7 @@ import {
   deleteDoc,
   writeBatch
 } from "firebase/firestore";
+import type { ProcessSummary, DocumentAnalysis } from "@/types"; // Updated import for ProcessSummary and DocumentAnalysis
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -35,9 +36,8 @@ if (typeof window !== 'undefined') {
     app = getApp();
   }
 } else {
-  // Handle server-side or environment without window (e.g., for testing if needed)
-  // This might require a different initialization strategy if used outside client components
-  // For now, we assume client-side usage where `window` is available.
+  // Fallback for server-side or non-browser environments if needed in the future
+  // For now, primarily client-side initialization
   if (!getApps().length) {
      app = initializeApp(firebaseConfig);
   } else {
@@ -54,46 +54,28 @@ const googleProvider = new GoogleAuthProvider();
 // Export Firebase User type
 export type { FirebaseUser };
 
-// Interfaces for our data structures
-export interface MockUser { // Renaming to avoid conflict with FirebaseUser
+// Interface for user data, mapping from FirebaseUser
+export type AuthUser = {
   uid: string;
   displayName: string | null;
   email: string | null;
   photoURL: string | null;
-}
+} | null;
 
-export interface ProcessSummary {
-  id: string; // Firestore document ID
-  processNumber: string;
-  summaryText: string;
-  summaryJson: any;
-  createdAt: Date; // Stored as Timestamp, converted to Date on retrieval
-  userId: string;
-  status?: 'summary_pending' | 'summary_completed' | 'documents_pending' | 'documents_completed' | 'chat_ready' | 'archived';
-}
-
-export interface DocumentAnalysis {
-  id: string; // Firestore document ID
-  fileName: string;
-  analysisPrompt: string;
-  analysisResult: any;
-  uploadedAt: Date; // Stored as Timestamp, converted to Date on retrieval
-  processId: string; // ID of the parent process document
-}
 
 // Actual Firebase Authentication Functions
-export const signInWithGoogle = async (): Promise<{ user: MockUser } | null> => {
+export const signInWithGoogle = async (): Promise<{ user: AuthUser } | null> => {
   try {
     const result = await signInWithPopup(auth, googleProvider);
     const firebaseUser = result.user;
     if (firebaseUser) {
-      const user: MockUser = {
+      const user: AuthUser = {
         uid: firebaseUser.uid,
         displayName: firebaseUser.displayName,
         email: firebaseUser.email,
         photoURL: firebaseUser.photoURL,
       };
-      // Optionally, save/update user profile in Firestore here
+      // Optional: Save/update user profile in Firestore (example, can be expanded)
       // await setDoc(doc(db, "users", firebaseUser.uid), {
       //   displayName: firebaseUser.displayName,
       //   email: firebaseUser.email,
@@ -118,19 +100,6 @@ export const signOut = async (): Promise<void> => {
   }
 };
 
-export const getCurrentUser = (): MockUser | null => {
-  const firebaseUser = auth.currentUser;
-  if (firebaseUser) {
-    return {
-      uid: firebaseUser.uid,
-      displayName: firebaseUser.displayName,
-      email: firebaseUser.email,
-      photoURL: firebaseUser.photoURL,
-    };
-  }
-  return null;
-};
-
 // Actual Firebase Firestore Functions
 
 export const saveSummary = async (processNumber: string, summaryText: string, summaryJson: any, userId: string): Promise<ProcessSummary> => {
@@ -140,15 +109,17 @@ export const saveSummary = async (processNumber: string, summaryText: string, su
       summaryText,
       summaryJson,
       userId,
-      createdAt: serverTimestamp(),
+      createdAt: serverTimestamp(), // Use serverTimestamp for consistency
       status: 'summary_completed' as ProcessSummary['status'],
     };
     const docRef = await addDoc(collection(db, "processes"), processData);
+    // For the return, we create a client-side version with an approximated Date
+    // The actual Firestore document will have a server-side Timestamp
     return { 
       id: docRef.id, 
       ...processData,
-      createdAt: new Date() // Approximate, real value is server timestamp
-    } as ProcessSummary; // Cast needed because createdAt is serverTimestamp() initially
+      createdAt: new Date() // Client-side approximation
+    } as ProcessSummary;
   } catch (error) {
     console.error("Error saving summary to Firestore:", error);
     throw error;
@@ -162,17 +133,16 @@ export const saveDocumentAnalysis = async (processId: string, fileName: string, 
       analysisPrompt,
       analysisResult,
       uploadedAt: serverTimestamp(),
-      processId, // Parent process ID
+      processId, 
     };
     const docRef = await addDoc(collection(db, "processes", processId, "documentAnalyses"), analysisData);
     
-    // Update process status
-    await setDoc(doc(db, "processes", processId), { status: 'documents_completed' }, { merge: true });
+    await setDoc(doc(db, "processes", processId), { status: 'documents_completed', updatedAt: serverTimestamp() }, { merge: true });
 
     return { 
       id: docRef.id, 
       ...analysisData,
-      uploadedAt: new Date() // Approximate
+      uploadedAt: new Date() // Client-side approximation
     } as DocumentAnalysis;
   } catch (error) {
     console.error("Error saving document analysis to Firestore:", error);
@@ -190,7 +160,8 @@ export const getDocumentAnalyses = async (processId: string): Promise<DocumentAn
       return {
         id: docSnap.id,
         ...data,
-        uploadedAt: (data.uploadedAt as Timestamp)?.toDate() || new Date(),
+        // Convert Firestore Timestamp to JS Date
+        uploadedAt: (data.uploadedAt as Timestamp)?.toDate ? (data.uploadedAt as Timestamp).toDate() : new Date(data.uploadedAt),
       } as DocumentAnalysis;
     });
   } catch (error) {
@@ -209,7 +180,8 @@ export const getProcesses = async (userId: string): Promise<ProcessSummary[]> =>
       return {
         id: docSnap.id,
         ...data,
-        createdAt: (data.createdAt as Timestamp)?.toDate() || new Date(),
+        createdAt: (data.createdAt as Timestamp)?.toDate ? (data.createdAt as Timestamp).toDate() : new Date(data.createdAt),
+        updatedAt: (data.updatedAt as Timestamp)?.toDate ? (data.updatedAt as Timestamp).toDate() : data.updatedAt ? new Date(data.updatedAt) : undefined,
       } as ProcessSummary;
     });
   } catch (error) {
@@ -227,10 +199,11 @@ export const getProcessSummary = async (processId: string): Promise<ProcessSumma
       return {
         id: docSnap.id,
         ...data,
-        createdAt: (data.createdAt as Timestamp)?.toDate() || new Date(),
+        createdAt: (data.createdAt as Timestamp)?.toDate ? (data.createdAt as Timestamp).toDate() : new Date(data.createdAt),
+        updatedAt: (data.updatedAt as Timestamp)?.toDate ? (data.updatedAt as Timestamp).toDate() : data.updatedAt ? new Date(data.updatedAt) : undefined,
       } as ProcessSummary;
     } else {
-      console.log("No such process summary!");
+      console.warn(`No such process summary found for ID: ${processId}`);
       return null;
     }
   } catch (error) {
@@ -239,12 +212,13 @@ export const getProcessSummary = async (processId: string): Promise<ProcessSumma
   }
 };
 
+// Export core Firebase services and utilities if needed elsewhere (though most interaction should be via these functions)
 export { 
   app, 
   auth, 
   db, 
-  googleProvider, 
-  doc, 
+  googleProvider,
+  doc, // Re-exporting for potential direct use, though wrapped functions are preferred
   setDoc, 
   getDoc, 
   collection, 
@@ -252,12 +226,6 @@ export {
   query, 
   where, 
   getDocs,
-  Timestamp
+  Timestamp,
+  serverTimestamp
 };
-
-// Mock functions are no longer needed and are removed.
-// Make sure to replace mockGetCurrentUser, mockSignInWithGoogle, mockSignOut, 
-// mockSaveSummary, mockSaveDocumentAnalysis, mockGetDocumentAnalyses, 
-// mockGetProcesses, mockGetProcessSummary calls in your components with the new functions.
-// The hook use-auth.tsx will handle getCurrentUser, signInWithGoogle, signOut.
-// Other pages will need to import the new Firestore functions directly.
