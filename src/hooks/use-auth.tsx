@@ -1,12 +1,14 @@
 
 "use client";
+// THIS FILE REQUIRES THE .tsx EXTENSION because it contains JSX.
+// Please ensure it is named use-auth.tsx
 
 import type { Dispatch, SetStateAction } from 'react';
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { 
   auth, 
   signInWithGoogle as firebaseSignInWithGoogle, 
-  signOut as firebaseSignOut, 
+  signOutFirebase as firebaseSignOut, 
   type FirebaseUser 
 } from '@/lib/firebase';
 import { onAuthStateChanged } from "firebase/auth";
@@ -97,3 +99,4 @@ export const useAuth = (): AuthContextType => {
   }
   return context;
 };
+
