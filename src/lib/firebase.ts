@@ -1,6 +1,7 @@
 
+
 import { initializeApp, getApp, getApps, type FirebaseApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as firebaseSignOutFirebase, type User as FirebaseUserType } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as signOutFirebase, type User as FirebaseUserType } from "firebase/auth";
 import { 
   getFirestore, 
   doc, 
@@ -17,19 +18,24 @@ import {
   // deleteDoc, // Not currently used, can be removed if not planned
   // writeBatch // Not currently used, can be removed if not planned
 } from "firebase/firestore";
-import type { ProcessSummary as AppProcessSummary, DocumentAnalysis as AppDocumentAnalysis } from "@/types"; // Renamed to avoid conflict
+// import type { ProcessSummary as AppProcessSummary, DocumentAnalysis as AppDocumentAnalysis } from "@/types";
+// Ajuste para evitar conflito de nomenclatura com os tipos Firebase, se necessário.
+// Se os tipos em @/types já são chamados AppProcessSummary e AppDocumentAnalysis, então a importação acima está ok.
+// Por agora, vou assumir que os tipos em @/types são ProcessSummary e DocumentAnalysis.
+import type { Process as AppProcessSummary, DocumentRecord as AppDocumentAnalysis } from "@/types";
+
 
 // =====================================================================================
 // GUIA DE SOLUÇÃO DE PROBLEMAS DE AUTENTICAÇÃO E CONFIGURAÇÃO DO FIREBASE
 // =====================================================================================
 //
-// Erro Comum 1: "auth/requests-from-referer...-are-blocked"
-// -----------------------------------------------------------
-// Causa: O domínio de onde seu app está sendo servido NÃO está na lista de "Domínios autorizados"
-//        nas configurações de Autenticação do Firebase.
+// Erro Comum 1: "auth/requests-from-referer...-are-blocked" (Firebase Auth)
+// -------------------------------------------------------------------------
+// Causa: O domínio de onde seu app está sendo servido (ex: NOME_DO_HOST.cloudworkstations.dev)
+//        NÃO está na lista de "Domínios autorizados" nas configurações de Autenticação do Firebase.
 // Solução no Firebase Console:
 // 1. Vá para Firebase Console > Projeto (processai-145cd) > Authentication > Settings.
-// 2. Em "Authorized domains", adicione o domínio EXATO (ex: NOME_DO_HOST.cloudworkstations.dev ou processai-145cd.firebaseapp.com).
+// 2. Em "Authorized domains", adicione o domínio EXATO.
 //    NÃO inclua "https://" ou "/" no final.
 //
 // Erro Comum 2: "The requested action is invalid." (no popup de login do Google)
@@ -55,12 +61,43 @@ import type { ProcessSummary as AppProcessSummary, DocumentAnalysis as AppDocume
 // 3. Clique no nome da chave para editar.
 // 4. Em "Restrições de aplicativos":
 //    - Se "Referenciadores HTTP (websites)" estiver selecionado, ADICIONE os domínios necessários:
-//      - `6000-firebase-studio-1749115397750.cluster-etsqrqvqyvd4erxx7qq32imrjk.cloudworkstations.dev` (se usado para desenvolvimento)
+//      - Domínio do Cloud Workstations (ex: XXXXX.cloudworkstations.dev)
 //      - `processai-145cd.firebaseapp.com` (domínio de hospedagem padrão do Firebase)
+//      - `processai-145cd.web.app` (outro domínio de hospedagem padrão do Firebase)
 //      - `localhost` (se usado para desenvolvimento local)
-//      - Seu domínio personalizado (se aplicável).
 //      Lembre-se: adicione apenas o nome do host, sem "https://" ou barras finais.
 // 5. Salve as alterações e aguarde a propagação (alguns minutos).
+//
+// Erro Comum 4: "FirebaseError: Missing or insufficient permissions." (Firestore)
+// -----------------------------------------------------------------------------
+// Causa: As Regras de Segurança do Firestore estão bloqueando a operação de leitura ou escrita.
+// Solução no Firebase Console:
+// 1. Vá para Firebase Console > Projeto (processai-145cd) > Firestore Database > Aba "Regras".
+// 2. Verifique suas regras. Para desenvolvimento, você pode usar temporariamente (NÃO PARA PRODUÇÃO):
+//    rules_version = '2';
+//    service cloud.firestore {
+//      match /databases/{database}/documents {
+//        match /{document=**} {
+//          allow read, write: if request.auth != null; // Permite se autenticado
+//        }
+//      }
+//    }
+// 3. Para produção, use regras granulares. Exemplo para sua estrutura:
+//    rules_version = '2';
+//    service cloud.firestore {
+//      match /databases/{database}/documents {
+//        match /processes/{processId} {
+//          allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+//          allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+//
+//          match /documentAnalyses/{analysisId} {
+//            allow create: if request.auth != null && get(/databases/$(database)/documents/processes/$(processId)).data.userId == request.auth.uid;
+//            allow read, update, delete: if request.auth != null && get(/databases/$(database)/documents/processes/$(processId)).data.userId == request.auth.uid;
+//          }
+//        }
+//      }
+//    }
+//    Certifique-se de que você está salvando um campo 'userId' em cada documento da coleção 'processes'.
 //
 // APIs Habilitadas no Google Cloud Console:
 // - Certifique-se de que "Identity Toolkit API" (Firebase Authentication) e "Cloud Firestore API"
@@ -101,39 +138,37 @@ export const signInWithGoogle = async (): Promise<FirebaseUserType> => {
       errorCode === 'auth/cancelled-popup-request' ||
       errorCode === 'auth/popup-blocked'
     ) {
-      console.info('Firebase sign-in user action:', errorCode, error.message);
+      // Log como info ou warning, não como erro crítico, pois são ações do usuário ou do navegador
+      console.info('Firebase sign-in user/browser action:', errorCode, error.message);
     } else {
       console.error("Error signing in with Google (from firebase.ts):", error);
     }
-    throw error;
+    throw error; // Re-throw para que o useAuth possa tratar o estado de loading/erro
   }
 };
 
-export const signOutFirebase = async (): Promise<void> => {
-  try {
-    await firebaseSignOutFirebase(auth);
-  } catch (error) {
-    console.error("Error signing out:", error);
-    throw error;
-  }
-};
+// export const signOut = async (): Promise<void> => { // Nome original era signOut, alterado para signOutFirebase
+export { signOutFirebase }; // Exporta a função signOutFirebase (que é o alias de import de 'firebase/auth')
 
 export const saveSummary = async (processNumber: string, summaryText: string, summaryJson: any, userId: string): Promise<AppProcessSummary> => {
   try {
-    const processData = {
+    const processData: Omit<AppProcessSummary, 'id' | 'createdAt' | 'updatedAt'> & { createdAt: any, status: string } = { // Tipagem mais precisa
       processNumber,
       summaryText,
       summaryJson,
       userId,
       createdAt: serverTimestamp(),
-      status: 'summary_completed' as AppProcessSummary['status'],
+      status: 'summary_completed', // status inicial
     };
     const docRef = await addDoc(collection(db, "processes"), processData);
+    // Para retornar o objeto completo, precisamos de uma leitura ou construir a data localmente
     return { 
       id: docRef.id, 
       ...processData,
-      createdAt: new Date() 
-    } as unknown as AppProcessSummary;
+      // O serverTimestamp() não retorna a data imediatamente no cliente.
+      // Para fins de retorno imediato, podemos usar new Date(), mas a data real no DB será a do servidor.
+      createdAt: new Date(), 
+    } as AppProcessSummary; // Ajustar a tipagem conforme a estrutura real de AppProcessSummary
   } catch (error) {
     console.error("Error saving summary to Firestore:", error);
     throw error;
@@ -142,22 +177,24 @@ export const saveSummary = async (processNumber: string, summaryText: string, su
 
 export const saveDocumentAnalysis = async (processId: string, fileName: string, analysisPrompt: string, analysisResult: any): Promise<AppDocumentAnalysis> => {
   try {
-    const analysisData = {
-      fileName,
-      analysisPrompt,
-      analysisResult,
-      uploadedAt: serverTimestamp(),
+    const analysisData: Omit<AppDocumentAnalysis, 'id' | 'uploadedAt'> & { uploadedAt: any } = { // Tipagem mais precisa
       processId,
+      fileName,
+      analysisPromptUsed: analysisPrompt, // Corrigindo nome do campo se necessário
+      analysisResultJson: analysisResult, // Corrigindo nome do campo se necessário
+      status: 'completed', // Assumindo que o salvamento significa que foi completado
+      uploadedAt: serverTimestamp(),
     };
     const docRef = await addDoc(collection(db, "processes", processId, "documentAnalyses"), analysisData);
     
+    // Atualiza o status do processo pai
     await setDoc(doc(db, "processes", processId), { status: 'documents_completed', updatedAt: serverTimestamp() }, { merge: true });
 
     return { 
       id: docRef.id, 
       ...analysisData,
-      uploadedAt: new Date() 
-    } as unknown as AppDocumentAnalysis;
+      uploadedAt: new Date(), 
+    } as AppDocumentAnalysis; // Ajustar a tipagem
   } catch (error) {
     console.error("Error saving document analysis to Firestore:", error);
     throw error;
@@ -168,10 +205,13 @@ const convertTimestampToDate = (timestamp: any): Date => {
   if (timestamp instanceof Timestamp) {
     return timestamp.toDate();
   }
+  // Se já for um Date (ex: vindo de um estado após conversão), retorne-o.
   if (timestamp instanceof Date) {
     return timestamp;
   }
-  return timestamp && timestamp.seconds ? new Date(timestamp.seconds * 1000) : new Date(); 
+  // Fallback para objetos que podem ter segundos e nanossegundos (comum em snapshots diretos)
+  // Este fallback é importante se o serverTimestamp() ainda não foi convertido para Date.
+  return timestamp && typeof timestamp.seconds === 'number' ? new Date(timestamp.seconds * 1000) : new Date(); 
 };
 
 
@@ -186,7 +226,8 @@ export const getDocumentAnalyses = async (processId: string): Promise<AppDocumen
         id: docSnap.id,
         ...data,
         uploadedAt: convertTimestampToDate(data.uploadedAt),
-      } as AppDocumentAnalysis;
+        // analysedAt: data.analysedAt ? convertTimestampToDate(data.analysedAt) : undefined, // Se houver analysedAt
+      } as AppDocumentAnalysis; // Ajustar a tipagem
     });
   } catch (error) {
     console.error("Error fetching document analyses from Firestore:", error);
@@ -197,6 +238,8 @@ export const getDocumentAnalyses = async (processId: string): Promise<AppDocumen
 export const getProcesses = async (userId: string): Promise<AppProcessSummary[]> => {
   try {
     const processesCol = collection(db, "processes");
+    // Para esta consulta funcionar, você precisará de um índice composto no Firestore
+    // em (userId, createdAt desc). O Firebase geralmente fornece um link no console de erro para criar o índice.
     const q = query(processesCol, where("userId", "==", userId), orderBy("createdAt", "desc"));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(docSnap => {
@@ -206,7 +249,7 @@ export const getProcesses = async (userId: string): Promise<AppProcessSummary[]>
         ...data,
         createdAt: convertTimestampToDate(data.createdAt),
         updatedAt: data.updatedAt ? convertTimestampToDate(data.updatedAt) : undefined,
-      } as AppProcessSummary;
+      } as AppProcessSummary; // Ajustar a tipagem
     });
   } catch (error) {
     console.error("Error fetching processes from Firestore:", error);
@@ -225,7 +268,7 @@ export const getProcessSummary = async (processId: string): Promise<AppProcessSu
         ...data,
         createdAt: convertTimestampToDate(data.createdAt),
         updatedAt: data.updatedAt ? convertTimestampToDate(data.updatedAt) : undefined,
-      } as AppProcessSummary;
+      } as AppProcessSummary; // Ajustar a tipagem
     } else {
       console.warn(`No such process summary found for ID: ${processId}`);
       return null;
@@ -241,5 +284,8 @@ export {
   auth, 
   db, 
   googleProvider,
-  Timestamp 
+  Timestamp // Exportar Timestamp pode ser útil
 };
+
+// Adicione aqui outras funções do Firebase que você possa precisar, como upload de arquivos para o Storage, etc.
+
