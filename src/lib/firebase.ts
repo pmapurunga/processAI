@@ -18,6 +18,15 @@ import {
   // deleteDoc, // Not currently used, can be removed if not planned
   // writeBatch // Not currently used, can be removed if not planned
 } from "firebase/firestore";
+import { 
+  getStorage, 
+  ref as storageRef, 
+  uploadBytesResumable, 
+  getDownloadURL, 
+  deleteObject,
+  SettableMetadata 
+} from "firebase/storage";
+
 // =====================================================================================
 // GUIA DE SOLUÇÃO DE PROBLEMAS DE AUTENTICAÇÃO E CONFIGURAÇÃO DO FIREBASE
 // =====================================================================================
@@ -93,6 +102,15 @@ import {
 //    Certifique-se de que você está salvando um campo 'userId' em cada documento da coleção 'processes'.
 //    Publique as regras após editá-las.
 //
+// Erro Comum 5: "FirebaseError: The query requires an index." (Firestore)
+// ------------------------------------------------------------------------
+// Causa: Uma consulta composta (ex: filtrar por um campo e ordenar por outro)
+//        requer um índice composto que não existe.
+// Solução no Firebase Console:
+// 1. A mensagem de erro no console do navegador geralmente fornece um LINK DIRETO para criar o índice.
+// 2. Clique nesse link. Ele o levará à UI de criação de índice no Firebase Console com os campos pré-preenchidos.
+// 3. Revise e clique em "Criar Índice". A criação pode levar alguns minutos.
+//
 // APIs Habilitadas no Google Cloud Console:
 // - Certifique-se de que "Identity Toolkit API" (Firebase Authentication) e "Cloud Firestore API"
 //   estão HABILITADAS no seu projeto Google Cloud.
@@ -122,6 +140,7 @@ if (!getApps().length) {
 
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app); // Initialize Firebase Storage
 const googleProvider = new GoogleAuthProvider();
 
 export type { FirebaseUserType as FirebaseUser };
@@ -170,6 +189,7 @@ export const saveSummary = async (processNumber: string, summaryJsonData: Extrac
   }
 };
 
+// Esta função é chamada pela Server Action `analyzeDocumentBatch`
 export const saveDocumentAnalysis = async (processId: string, fileName: string, analysisPrompt: string, analysisResult: any): Promise<AppDocumentAnalysis> => {
   try {
     const analysisData: Omit<AppDocumentAnalysis, 'id' | 'uploadedAt'> & { uploadedAt: any } = { 
@@ -195,6 +215,55 @@ export const saveDocumentAnalysis = async (processId: string, fileName: string, 
   }
 };
 
+
+export const uploadFileForProcessAnalysis = (
+  file: File, 
+  processId: string, 
+  analysisPrompt: string, 
+  userId: string, 
+  onProgress: (progress: number) => void
+): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    // Usar um ID único para o nome do arquivo no storage para evitar colisões, mas manter o original nos metadados
+    const uniqueFileName = `${Date.now()}-${file.name}`;
+    const filePath = `pendingAnalysis/${userId}/${processId}/${uniqueFileName}`;
+    const fileRef = storageRef(storage, filePath);
+
+    const metadata: SettableMetadata = {
+      customMetadata: {
+        processId: processId,
+        analysisPromptUsed: analysisPrompt, // Nome corrigido para corresponder ao da Cloud Function
+        userId: userId,
+        originalFileName: file.name 
+      }
+    };
+
+    const uploadTask = uploadBytesResumable(fileRef, file, metadata);
+
+    uploadTask.on(
+      "state_changed",
+      (snapshot) => {
+        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        onProgress(progress);
+      },
+      (error) => {
+        console.error("Error uploading file to Firebase Storage:", error);
+        reject(error);
+      },
+      async () => {
+        try {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          resolve(downloadURL); // URL de download, embora a CF não precise dela diretamente. Sinaliza sucesso.
+        } catch (error) {
+           console.error("Error getting download URL after upload:", error);
+           reject(error); // Rejeita se não conseguir obter a URL, indicando problema pós-upload
+        }
+      }
+    );
+  });
+};
+
+
 const convertTimestampToDate = (timestamp: any): Date => {
   if (timestamp instanceof Timestamp) {
     return timestamp.toDate();
@@ -202,6 +271,8 @@ const convertTimestampToDate = (timestamp: any): Date => {
   if (timestamp instanceof Date) {
     return timestamp;
   }
+  // Tenta converter de objeto { seconds, nanoseconds } se não for Timestamp direto
+  // Isso é comum quando os dados vêm de serialização ou de versões mais antigas do SDK admin
   return timestamp && typeof timestamp.seconds === 'number' ? new Date(timestamp.seconds * 1000) : new Date(); 
 };
 
@@ -209,7 +280,7 @@ const convertTimestampToDate = (timestamp: any): Date => {
 export const getDocumentAnalyses = async (processId: string): Promise<AppDocumentAnalysis[]> => {
   try {
     const analysesCol = collection(db, "processes", processId, "documentAnalyses");
-    const q = query(analysesCol, orderBy("uploadedAt", "desc"));
+    const q = query(analysesCol, orderBy("uploadedAt", "desc")); // Ou analyzedAt se preferir
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(docSnap => {
       const data = docSnap.data();
@@ -217,10 +288,13 @@ export const getDocumentAnalyses = async (processId: string): Promise<AppDocumen
         id: docSnap.id,
         ...data,
         uploadedAt: convertTimestampToDate(data.uploadedAt),
+        analyzedAt: data.analyzedAt ? convertTimestampToDate(data.analyzedAt) : undefined,
       } as AppDocumentAnalysis; 
     });
   } catch (error) {
     console.error("Error fetching document analyses from Firestore:", error);
+    // Lançar o erro original pode ser útil para a UI lidar com tipos específicos de erro,
+    // como a necessidade de um índice.
     throw error;
   }
 };
@@ -228,6 +302,9 @@ export const getDocumentAnalyses = async (processId: string): Promise<AppDocumen
 export const getProcesses = async (userId: string): Promise<AppProcessSummary[]> => {
   try {
     const processesCol = collection(db, "processes");
+    // ATENÇÃO: Esta consulta requer um índice composto no Firestore:
+    // Coleção: processes, Campos: userId (Ascendente), createdAt (Descendente)
+    // Se o índice não existir, o Firebase lançará um erro com um link para criá-lo.
     const q = query(processesCol, where("userId", "==", userId), orderBy("createdAt", "desc"));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(docSnap => {
@@ -241,6 +318,7 @@ export const getProcesses = async (userId: string): Promise<AppProcessSummary[]>
     });
   } catch (error) {
     console.error("Error fetching processes from Firestore:", error);
+    // Lançar o erro original para que a UI possa detectar erros de índice.
     throw error;
   }
 };
@@ -267,10 +345,24 @@ export const getProcessSummary = async (processId: string): Promise<AppProcessSu
   }
 };
 
+// Função para deletar arquivo do Firebase Storage (exemplo, pode não ser usada diretamente pelo cliente)
+export const deleteFileFromStorage = async (filePath: string): Promise<void> => {
+  const fileRef = storageRef(storage, filePath);
+  try {
+    await deleteObject(fileRef);
+    console.log(`File deleted successfully: ${filePath}`);
+  } catch (error) {
+    console.error(`Error deleting file ${filePath} from Storage:`, error);
+    throw error;
+  }
+};
+
+
 export { 
   app, 
   auth, 
   db, 
+  storage, // Exportar a instância do Storage
   googleProvider,
   Timestamp 
 };
