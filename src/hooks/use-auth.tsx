@@ -26,7 +26,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
-  setUser: Dispatch<SetStateAction<AuthUser>>; // Still useful for optimistic updates or manual override if needed
+  setUser: Dispatch<SetStateAction<AuthUser>>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,13 +36,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
-      if (firebaseUser) {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUserResult: FirebaseUser | null) => {
+      if (firebaseUserResult) {
         setUser({
-          uid: firebaseUser.uid,
-          displayName: firebaseUser.displayName,
-          email: firebaseUser.email,
-          photoURL: firebaseUser.photoURL,
+          uid: firebaseUserResult.uid,
+          displayName: firebaseUserResult.displayName,
+          email: firebaseUserResult.email,
+          photoURL: firebaseUserResult.photoURL,
         });
       } else {
         setUser(null);
@@ -56,25 +56,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     try {
       await firebaseSignInWithGoogle();
-      // Auth state change will be handled by onAuthStateChanged listener
-    } catch (error) {
-      console.error('Error signing in:', error);
-      // setUser(null); // Listener will handle this
-    } finally {
-      // setLoading(false); // Listener will handle final loading state
+      // Auth state change (success) will be handled by onAuthStateChanged listener,
+      // which will also set loading to false.
+    } catch (e: unknown) {
+      let errorCode: string | undefined;
+      // Safely access error code
+      if (typeof e === 'object' && e !== null && 'code' in e && typeof (e as { code: string }).code === 'string') {
+        errorCode = (e as { code: string }).code;
+      }
+
+      if (errorCode === 'auth/popup-closed-by-user') {
+        console.log('Sign-in popup closed by user.');
+      } else if (errorCode === 'auth/cancelled-popup-request') {
+        console.log('Sign-in cancelled: Another popup request was made before the current one could complete.');
+      } else if (errorCode === 'auth/popup-blocked') {
+        console.warn('Sign-in popup was blocked by the browser. Please ensure popups are enabled for this site.');
+        // Consider showing a toast to the user here.
+        // Example: toast({ title: "Popup Blocked", description: "Please enable popups to sign in.", variant: "destructive" });
+      } else {
+        console.error('Error signing in:', e);
+      }
+      // Ensure user is null and loading is false if the sign-in process itself fails
+      // This provides more immediate state reset than waiting for onAuthStateChanged in error cases.
+      setUser(null); 
+      setLoading(false);
     }
   }, []);
 
   const signOut = useCallback(async () => {
-    setLoading(true);
+    // setLoading(true); // User will be set to null by onAuthStateChanged, which also sets loading to false
     try {
       await firebaseSignOut();
       // Auth state change will be handled by onAuthStateChanged listener
     } catch (error) {
       console.error('Error signing out:', error);
-    } finally {
-      // setLoading(false); // Listener will handle final loading state
+      // setLoading(false); // In case of error, ensure loading is reset if onAuthStateChanged doesn't cover it
     }
+    // setLoading(false) will be called by onAuthStateChanged when user becomes null
   }, []);
   
   const authProviderValue: AuthContextType = {
@@ -82,7 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loading,
     signIn,
     signOut,
-    setUser, // Keep setUser for potential advanced use cases, though mostly driven by onAuthStateChanged now
+    setUser,
   };
 
   return (
@@ -99,4 +117,3 @@ export const useAuth = (): AuthContextType => {
   }
   return context;
 };
-

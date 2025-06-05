@@ -1,6 +1,6 @@
 
 import { initializeApp, getApp, getApps, type FirebaseApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as firebaseSignOut, type User as FirebaseUser } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as firebaseSignOutFirebase, type User as FirebaseUserType } from "firebase/auth";
 import { 
   getFirestore, 
   doc, 
@@ -33,6 +33,7 @@ import type { ProcessSummary, DocumentAnalysis } from "@/types";
 // 3. Verifique se não há erros de digitação e se o projeto correto está selecionado em ambos os consoles.
 // 4. Limpe o cache do navegador ou teste em modo anônimo.
 
+
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -43,7 +44,6 @@ const firebaseConfig = {
 };
 
 let app: FirebaseApp;
-// Garante que a inicialização do Firebase ocorra apenas uma vez
 if (!getApps().length) {
   app = initializeApp(firebaseConfig);
 } else {
@@ -54,11 +54,8 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 
+export type { FirebaseUserType as FirebaseUser };
 
-// Export Firebase User type
-export type { FirebaseUser };
-
-// Interface for user data, mapping from FirebaseUser
 export type AuthUser = {
   uid: string;
   displayName: string | null;
@@ -66,45 +63,44 @@ export type AuthUser = {
   photoURL: string | null;
 } | null;
 
-
-// Actual Firebase Authentication Functions
-export const signInWithGoogle = async (): Promise<AuthUser> => { // Return AuthUser directly or throw
+export const signInWithGoogle = async (): Promise<AuthUser> => {
   try {
     const result = await signInWithPopup(auth, googleProvider);
     const firebaseUser = result.user;
     if (firebaseUser) {
-      const userToSave: AuthUser = { // Explicitly type for clarity
+      const userToSave: AuthUser = {
         uid: firebaseUser.uid,
         displayName: firebaseUser.displayName,
         email: firebaseUser.email,
         photoURL: firebaseUser.photoURL,
       };
-      // Optional: Save/update user profile in Firestore
-      // await setDoc(doc(db, "users", firebaseUser.uid), {
-      //   displayName: firebaseUser.displayName,
-      //   email: firebaseUser.email,
-      //   photoURL: firebaseUser.photoURL,
-      //   lastLogin: serverTimestamp(),
-      // }, { merge: true });
       return userToSave;
     }
-    throw new Error("Firebase user not found after sign-in."); // Should not happen if signInWithPopup succeeds
-  } catch (error) {
-    console.error("Error signing in with Google:", error);
-    throw error; // Re-throw to be handled by caller
+    throw new Error("Firebase user not found after successful sign-in popup.");
+  } catch (error: any) {
+    const errorCode = error?.code;
+    if (
+      errorCode === 'auth/popup-closed-by-user' ||
+      errorCode === 'auth/cancelled-popup-request' ||
+      errorCode === 'auth/popup-blocked'
+    ) {
+      // These are user actions or browser issues, not unexpected server errors.
+      // Let the calling function (useAuth) handle specific logging or user feedback.
+    } else {
+      console.error("Error signing in with Google (from firebase.ts):", error);
+    }
+    throw error; // Re-throw all errors so the caller can handle them appropriately.
   }
 };
 
-export const signOutFirebase = async (): Promise<void> => { // Renamed to avoid conflict with hook
+export const signOutFirebase = async (): Promise<void> => {
   try {
-    await firebaseSignOut(auth);
+    await firebaseSignOutFirebase(auth);
   } catch (error) {
     console.error("Error signing out:", error);
     throw error;
   }
 };
-
-// Actual Firebase Firestore Functions
 
 export const saveSummary = async (processNumber: string, summaryText: string, summaryJson: any, userId: string): Promise<ProcessSummary> => {
   try {
@@ -114,17 +110,14 @@ export const saveSummary = async (processNumber: string, summaryText: string, su
       summaryJson,
       userId,
       createdAt: serverTimestamp(),
-      status: 'summary_completed' as ProcessSummary['status'], // Ensure status type
+      status: 'summary_completed' as ProcessSummary['status'],
     };
     const docRef = await addDoc(collection(db, "processes"), processData);
-    
-    // For the return, we create a client-side version with an ID and an approximated Date for createdAt
-    // The actual Firestore document will have a server-side Timestamp for createdAt
     return { 
       id: docRef.id, 
       ...processData,
-      createdAt: new Date() // Client-side approximation; Firestore returns Timestamp for reads
-    } as ProcessSummary;
+      createdAt: new Date() 
+    } as unknown as ProcessSummary; // Cast to avoid timestamp/date type mismatch for immediate return
   } catch (error) {
     console.error("Error saving summary to Firestore:", error);
     throw error;
@@ -141,22 +134,18 @@ export const saveDocumentAnalysis = async (processId: string, fileName: string, 
       processId, 
     };
     const docRef = await addDoc(collection(db, "processes", processId, "documentAnalyses"), analysisData);
-    
-    // Update process status
     await setDoc(doc(db, "processes", processId), { status: 'documents_completed', updatedAt: serverTimestamp() }, { merge: true });
-
     return { 
       id: docRef.id, 
       ...analysisData,
-      uploadedAt: new Date() // Client-side approximation
-    } as DocumentAnalysis;
+      uploadedAt: new Date() 
+    } as unknown as DocumentAnalysis; // Cast for immediate return
   } catch (error) {
     console.error("Error saving document analysis to Firestore:", error);
     throw error;
   }
 };
 
-// Helper to convert Firestore Timestamp to Date, handling potential undefined or already Date objects
 const convertTimestampToDate = (timestamp: any): Date => {
   if (timestamp instanceof Timestamp) {
     return timestamp.toDate();
@@ -164,10 +153,8 @@ const convertTimestampToDate = (timestamp: any): Date => {
   if (timestamp instanceof Date) {
     return timestamp;
   }
-  // Attempt to parse if it's a string or number, otherwise fallback to now
   return timestamp ? new Date(timestamp) : new Date(); 
 };
-
 
 export const getDocumentAnalyses = async (processId: string): Promise<DocumentAnalysis[]> => {
   try {
@@ -191,7 +178,6 @@ export const getDocumentAnalyses = async (processId: string): Promise<DocumentAn
 export const getProcesses = async (userId: string): Promise<ProcessSummary[]> => {
   try {
     const processesCol = collection(db, "processes");
-    // Ensure you have an index for this query in Firestore: userId (asc), createdAt (desc)
     const q = query(processesCol, where("userId", "==", userId), orderBy("createdAt", "desc"));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(docSnap => {
@@ -203,7 +189,8 @@ export const getProcesses = async (userId: string): Promise<ProcessSummary[]> =>
         updatedAt: data.updatedAt ? convertTimestampToDate(data.updatedAt) : undefined,
       } as ProcessSummary;
     });
-  } catch (error) {
+  } catch (error)
+{
     console.error("Error fetching processes from Firestore:", error);
     throw error;
   }
@@ -231,11 +218,10 @@ export const getProcessSummary = async (processId: string): Promise<ProcessSumma
   }
 };
 
-// Export core Firebase services
 export { 
   app, 
   auth, 
   db, 
   googleProvider,
-  Timestamp // Export Timestamp for use in other files if needed
+  Timestamp
 };
