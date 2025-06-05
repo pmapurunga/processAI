@@ -18,6 +18,11 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"; // Added Alert imports
 import Link from "next/link"; // Added Link import
 
+// Increase the maximum duration for this Server Action to 5 minutes (300 seconds)
+// This might help with long-running document analysis tasks.
+// Note: Support and behavior may vary depending on the hosting environment.
+export const maxDuration = 300;
+
 interface FileToUpload {
   file: File;
   dataUri: string;
@@ -310,3 +315,5 @@ Formato JSON desejado para CADA arquivo processado NESTE lote:
     </form>
   );
 }
+
+    
