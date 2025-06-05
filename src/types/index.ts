@@ -1,11 +1,23 @@
 
 import type { Timestamp } from 'firebase/firestore'; // Import Timestamp
 
+export interface DocumentEntryInSummary {
+  id: string;
+  type: string;
+  polo: string;
+  signatureDate: string;
+}
+
+export interface ProcessSummaryData {
+  processNumber: string;
+  documentTable: DocumentEntryInSummary[];
+}
+
 export interface Process {
   id: string; 
   processNumber: string; 
-  summaryText?: string; 
-  summaryJson?: any; 
+  summaryText?: string; // Tornando opcional, pois o foco agora é summaryJson
+  summaryJson?: ProcessSummaryData | any; // Para armazenar a estrutura extraída
   userId: string; 
   createdAt: Date | Timestamp; // Can be Date on client, Timestamp from Firestore
   updatedAt?: Date | Timestamp;

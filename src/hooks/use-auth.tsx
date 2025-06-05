@@ -8,7 +8,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { 
   auth, 
   signInWithGoogle as firebaseSignInWithGoogle, 
-  signOutFirebase as firebaseSignOut, 
+  signOutFirebaseAuth as firebaseSignOut, 
   type FirebaseUser 
 } from '@/lib/firebase';
 import { onAuthStateChanged } from "firebase/auth";
@@ -66,15 +66,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (errorCode === 'auth/popup-closed-by-user') {
-        console.log('Sign-in popup closed by user.');
+        console.info('Sign-in popup closed by user.');
       } else if (errorCode === 'auth/cancelled-popup-request') {
-        console.log('Sign-in cancelled: Another popup request was made before the current one could complete.');
+        console.info('Sign-in cancelled: Another popup request was made before the current one could complete.');
       } else if (errorCode === 'auth/popup-blocked') {
         console.warn('Sign-in popup was blocked by the browser. Please ensure popups are enabled for this site.');
         // Consider showing a toast to the user here.
         // Example: toast({ title: "Popup Blocked", description: "Please enable popups to sign in.", variant: "destructive" });
       } else {
-        console.error('Error signing in:', e);
+        console.error('Error signing in (from use-auth.tsx):', e);
       }
       // Ensure user is null and loading is false if the sign-in process itself fails
       // This provides more immediate state reset than waiting for onAuthStateChanged in error cases.

@@ -2,21 +2,25 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation'; // Added useRouter
+import { useParams, useRouter } from 'next/navigation'; 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { getProcessSummary, type ProcessSummary as FirebaseProcessSummary } from '@/lib/firebase'; // Updated import
-import { Loader2, FileText, AlertCircle } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea'; // Keep for raw JSON view
+import { getProcessSummary, type ProcessSummary as FirebaseProcessSummary } from '@/lib/firebase'; 
+import { Loader2, FileText, AlertCircle, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { useToast } from '@/hooks/use-toast'; // Added useToast
+import { useToast } from '@/hooks/use-toast'; 
+import type { DocumentEntryInSummary } from '@/types';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+
 
 export default function ProcessSummaryPage() {
   const params = useParams();
-  const router = useRouter(); // Initialize router
-  const { toast } = useToast(); // Initialize toast
+  const router = useRouter(); 
+  const { toast } = useToast(); 
   const processId = params.processId as string;
 
   const [summaryData, setSummaryData] = useState<FirebaseProcessSummary | null>(null);
@@ -27,7 +31,7 @@ export default function ProcessSummaryPage() {
     if (processId) {
       setIsLoading(true);
       setError(null);
-      getProcessSummary(processId) // Updated function call
+      getProcessSummary(processId) 
         .then(data => {
           if (data) {
             setSummaryData(data);
@@ -55,7 +59,7 @@ export default function ProcessSummaryPage() {
     );
   }
 
-  if (error && !summaryData) { // Error and no data means we should show the error prominently
+  if (error && !summaryData) { 
     return (
       <Card className="shadow-lg">
         <CardHeader>
@@ -71,7 +75,7 @@ export default function ProcessSummaryPage() {
     );
   }
 
-  if (!summaryData) { // Should be caught by error handling above, but as a fallback
+  if (!summaryData) { 
     return (
       <Card className="shadow-lg">
         <CardHeader>
@@ -87,6 +91,8 @@ export default function ProcessSummaryPage() {
     );
   }
 
+  const documentTable = summaryData.summaryJson?.documentTable as DocumentEntryInSummary[] | undefined;
+
   return (
     <Card className="shadow-xl w-full">
       <CardHeader>
@@ -95,7 +101,7 @@ export default function ProcessSummaryPage() {
             <CardTitle className="font-headline text-2xl md:text-3xl">Step 1: Process Summary</CardTitle>
         </div>
         <CardDescription>
-          Review the extracted summary and process number for Process: <strong>{summaryData.processNumber}</strong>.
+          Review the extracted process number and document table for Process: <strong>{summaryData.processNumber}</strong>.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -103,25 +109,68 @@ export default function ProcessSummaryPage() {
           <Label htmlFor="processNumber" className="text-base font-medium">Process Number</Label>
           <Input id="processNumber" value={summaryData.processNumber} readOnly className="bg-muted/50 text-lg"/>
         </div>
-        <div>
-          <Label htmlFor="summaryText" className="text-base font-medium">Extracted Summary</Label>
-          <Textarea
-            id="summaryText"
-            value={summaryData.summaryText || "No summary text extracted."}
-            readOnly
-            rows={10}
-            className="bg-muted/50 text-base"
-          />
-        </div>
-        {summaryData.summaryJson && (
+        
+        {summaryData.summaryText && ( // Display if summaryText still exists and has content (optional field now)
+            <div>
+              <Label htmlFor="summaryText" className="text-base font-medium">Generic Summary Text (if any)</Label>
+              <Textarea
+                id="summaryText"
+                value={summaryData.summaryText}
+                readOnly
+                rows={5}
+                className="bg-muted/50 text-sm"
+              />
+            </div>
+          )}
+
+        {documentTable && documentTable.length > 0 ? (
           <div>
-            <Label htmlFor="summaryJson" className="text-base font-medium">Full JSON Output (from AI)</Label>
+            <Label className="text-base font-medium flex items-center mb-2">
+              <List className="h-5 w-5 mr-2 text-primary" /> Extracted Document Table
+            </Label>
+            <Card className="border bg-card">
+              <ScrollArea className="max-h-[400px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Tipo do Documento</TableHead>
+                      <TableHead>Polo</TableHead>
+                      <TableHead>Data da Assinatura</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {documentTable.map((doc, index) => (
+                      <TableRow key={doc.id + '-' + index}>
+                        <TableCell className="font-mono text-xs">{doc.id}</TableCell>
+                        <TableCell>{doc.type}</TableCell>
+                        <TableCell>{doc.polo}</TableCell>
+                        <TableCell>{doc.signatureDate}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </Card>
+          </div>
+        ) : (
+          <div>
+            <Label className="text-base font-medium">Extracted Document Table</Label>
+            <p className="text-sm text-muted-foreground p-4 border rounded-md bg-muted/50">
+              No document table data was extracted or the table is empty.
+            </p>
+          </div>
+        )}
+
+        {summaryData.summaryJson && (
+          <div className="mt-4">
+            <Label htmlFor="summaryJson" className="text-base font-medium">Raw JSON Output (from AI)</Label>
             <Textarea
               id="summaryJson"
               value={JSON.stringify(summaryData.summaryJson, null, 2)}
               readOnly
               rows={15}
-              className="font-code text-xs bg-muted/50"
+              className="font-code text-xs bg-muted/50 mt-1"
             />
           </div>
         )}

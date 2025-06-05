@@ -1,7 +1,7 @@
 
 
 import { initializeApp, getApp, getApps, type FirebaseApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as signOutFirebase, type User as FirebaseUserType } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as signOutFirebaseAuth, type User as FirebaseUserType } from "firebase/auth";
 import { 
   getFirestore, 
   doc, 
@@ -18,13 +18,6 @@ import {
   // deleteDoc, // Not currently used, can be removed if not planned
   // writeBatch // Not currently used, can be removed if not planned
 } from "firebase/firestore";
-// import type { ProcessSummary as AppProcessSummary, DocumentAnalysis as AppDocumentAnalysis } from "@/types";
-// Ajuste para evitar conflito de nomenclatura com os tipos Firebase, se necessário.
-// Se os tipos em @/types já são chamados AppProcessSummary e AppDocumentAnalysis, então a importação acima está ok.
-// Por agora, vou assumir que os tipos em @/types são ProcessSummary e DocumentAnalysis.
-import type { Process as AppProcessSummary, DocumentRecord as AppDocumentAnalysis } from "@/types";
-
-
 // =====================================================================================
 // GUIA DE SOLUÇÃO DE PROBLEMAS DE AUTENTICAÇÃO E CONFIGURAÇÃO DO FIREBASE
 // =====================================================================================
@@ -98,12 +91,18 @@ import type { Process as AppProcessSummary, DocumentRecord as AppDocumentAnalysi
 //      }
 //    }
 //    Certifique-se de que você está salvando um campo 'userId' em cada documento da coleção 'processes'.
+//    Publique as regras após editá-las.
 //
 // APIs Habilitadas no Google Cloud Console:
 // - Certifique-se de que "Identity Toolkit API" (Firebase Authentication) e "Cloud Firestore API"
 //   estão HABILITADAS no seu projeto Google Cloud.
 //
 // =====================================================================================
+
+// Ajuste para evitar conflito de nomenclatura com os tipos Firebase, se necessário.
+import type { Process as AppProcessSummary, DocumentRecord as AppDocumentAnalysis, ProcessSummaryData } from "@/types";
+import type { ExtractSummaryFromPdfOutput } from "@/ai/flows/extract-summary-from-pdf";
+
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -138,37 +137,33 @@ export const signInWithGoogle = async (): Promise<FirebaseUserType> => {
       errorCode === 'auth/cancelled-popup-request' ||
       errorCode === 'auth/popup-blocked'
     ) {
-      // Log como info ou warning, não como erro crítico, pois são ações do usuário ou do navegador
       console.info('Firebase sign-in user/browser action:', errorCode, error.message);
     } else {
       console.error("Error signing in with Google (from firebase.ts):", error);
     }
-    throw error; // Re-throw para que o useAuth possa tratar o estado de loading/erro
+    throw error;
   }
 };
 
-// export const signOut = async (): Promise<void> => { // Nome original era signOut, alterado para signOutFirebase
-export { signOutFirebase }; // Exporta a função signOutFirebase (que é o alias de import de 'firebase/auth')
+export { signOutFirebaseAuth }; 
 
-export const saveSummary = async (processNumber: string, summaryText: string, summaryJson: any, userId: string): Promise<AppProcessSummary> => {
+export const saveSummary = async (processNumber: string, summaryJsonData: ExtractSummaryFromPdfOutput, userId: string): Promise<AppProcessSummary> => {
   try {
-    const processData: Omit<AppProcessSummary, 'id' | 'createdAt' | 'updatedAt'> & { createdAt: any, status: string } = { // Tipagem mais precisa
+    // summaryJsonData é o objeto completo retornado pela flow, contendo processNumber e documentTable
+    const processData: Omit<AppProcessSummary, 'id' | 'createdAt' | 'updatedAt'> & { createdAt: any, status: string } = {
       processNumber,
-      summaryText,
-      summaryJson,
+      summaryJson: summaryJsonData, // Salva o objeto { processNumber, documentTable }
+      // summaryText não é mais fornecido diretamente pela flow de extração de sumário
       userId,
       createdAt: serverTimestamp(),
-      status: 'summary_completed', // status inicial
+      status: 'summary_completed', 
     };
     const docRef = await addDoc(collection(db, "processes"), processData);
-    // Para retornar o objeto completo, precisamos de uma leitura ou construir a data localmente
     return { 
       id: docRef.id, 
       ...processData,
-      // O serverTimestamp() não retorna a data imediatamente no cliente.
-      // Para fins de retorno imediato, podemos usar new Date(), mas a data real no DB será a do servidor.
       createdAt: new Date(), 
-    } as AppProcessSummary; // Ajustar a tipagem conforme a estrutura real de AppProcessSummary
+    } as AppProcessSummary;
   } catch (error) {
     console.error("Error saving summary to Firestore:", error);
     throw error;
@@ -177,24 +172,23 @@ export const saveSummary = async (processNumber: string, summaryText: string, su
 
 export const saveDocumentAnalysis = async (processId: string, fileName: string, analysisPrompt: string, analysisResult: any): Promise<AppDocumentAnalysis> => {
   try {
-    const analysisData: Omit<AppDocumentAnalysis, 'id' | 'uploadedAt'> & { uploadedAt: any } = { // Tipagem mais precisa
+    const analysisData: Omit<AppDocumentAnalysis, 'id' | 'uploadedAt'> & { uploadedAt: any } = { 
       processId,
       fileName,
-      analysisPromptUsed: analysisPrompt, // Corrigindo nome do campo se necessário
-      analysisResultJson: analysisResult, // Corrigindo nome do campo se necessário
-      status: 'completed', // Assumindo que o salvamento significa que foi completado
+      analysisPromptUsed: analysisPrompt, 
+      analysisResultJson: analysisResult, 
+      status: 'completed', 
       uploadedAt: serverTimestamp(),
     };
     const docRef = await addDoc(collection(db, "processes", processId, "documentAnalyses"), analysisData);
     
-    // Atualiza o status do processo pai
     await setDoc(doc(db, "processes", processId), { status: 'documents_completed', updatedAt: serverTimestamp() }, { merge: true });
 
     return { 
       id: docRef.id, 
       ...analysisData,
       uploadedAt: new Date(), 
-    } as AppDocumentAnalysis; // Ajustar a tipagem
+    } as AppDocumentAnalysis;
   } catch (error) {
     console.error("Error saving document analysis to Firestore:", error);
     throw error;
@@ -205,12 +199,9 @@ const convertTimestampToDate = (timestamp: any): Date => {
   if (timestamp instanceof Timestamp) {
     return timestamp.toDate();
   }
-  // Se já for um Date (ex: vindo de um estado após conversão), retorne-o.
   if (timestamp instanceof Date) {
     return timestamp;
   }
-  // Fallback para objetos que podem ter segundos e nanossegundos (comum em snapshots diretos)
-  // Este fallback é importante se o serverTimestamp() ainda não foi convertido para Date.
   return timestamp && typeof timestamp.seconds === 'number' ? new Date(timestamp.seconds * 1000) : new Date(); 
 };
 
@@ -226,8 +217,7 @@ export const getDocumentAnalyses = async (processId: string): Promise<AppDocumen
         id: docSnap.id,
         ...data,
         uploadedAt: convertTimestampToDate(data.uploadedAt),
-        // analysedAt: data.analysedAt ? convertTimestampToDate(data.analysedAt) : undefined, // Se houver analysedAt
-      } as AppDocumentAnalysis; // Ajustar a tipagem
+      } as AppDocumentAnalysis; 
     });
   } catch (error) {
     console.error("Error fetching document analyses from Firestore:", error);
@@ -238,8 +228,6 @@ export const getDocumentAnalyses = async (processId: string): Promise<AppDocumen
 export const getProcesses = async (userId: string): Promise<AppProcessSummary[]> => {
   try {
     const processesCol = collection(db, "processes");
-    // Para esta consulta funcionar, você precisará de um índice composto no Firestore
-    // em (userId, createdAt desc). O Firebase geralmente fornece um link no console de erro para criar o índice.
     const q = query(processesCol, where("userId", "==", userId), orderBy("createdAt", "desc"));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(docSnap => {
@@ -249,7 +237,7 @@ export const getProcesses = async (userId: string): Promise<AppProcessSummary[]>
         ...data,
         createdAt: convertTimestampToDate(data.createdAt),
         updatedAt: data.updatedAt ? convertTimestampToDate(data.updatedAt) : undefined,
-      } as AppProcessSummary; // Ajustar a tipagem
+      } as AppProcessSummary; 
     });
   } catch (error) {
     console.error("Error fetching processes from Firestore:", error);
@@ -268,7 +256,7 @@ export const getProcessSummary = async (processId: string): Promise<AppProcessSu
         ...data,
         createdAt: convertTimestampToDate(data.createdAt),
         updatedAt: data.updatedAt ? convertTimestampToDate(data.updatedAt) : undefined,
-      } as AppProcessSummary; // Ajustar a tipagem
+      } as AppProcessSummary; 
     } else {
       console.warn(`No such process summary found for ID: ${processId}`);
       return null;
@@ -284,8 +272,5 @@ export {
   auth, 
   db, 
   googleProvider,
-  Timestamp // Exportar Timestamp pode ser útil
+  Timestamp 
 };
-
-// Adicione aqui outras funções do Firebase que você possa precisar, como upload de arquivos para o Storage, etc.
-
