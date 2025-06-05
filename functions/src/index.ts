@@ -75,11 +75,12 @@ export const processUploadedDocumentForAnalysis = functions.storage
     }
 
     logger.info(
-      `Processing ${originalFileName} for process ${processId} by user ${userId}`,
+      `Processing ${originalFileName} for process ${processId} ` +
+      `by user ${userId}`,
     );
 
     // Atualmente, a Cloud Function não pode chamar diretamente a flow Genkit
-    // `analyzeDocumentBatch` que está definida no código Next.js com 'use server'.
+    // `analyzeDocumentBatch` que está definida no código Next.js com "use server".
     // A integração da chamada real à IA Genkit aqui é um passo futuro.
     // Para agora, vamos simular a análise e salvar um resultado mockado.
 
