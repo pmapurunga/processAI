@@ -1,9 +1,16 @@
-"use client"; // AuthProvider uses client-side hooks
+
+"use client"; 
 
 import type {Metadata} from 'next';
 import './globals.css';
-import { Toaster } from "@/components/ui/toaster";
-import { AuthProvider } from "@/hooks/use-auth"; // Import AuthProvider
+// import { Toaster } from "@/components/ui/toaster"; // Original import
+import { AuthProvider } from "@/hooks/use-auth"; 
+import dynamic from 'next/dynamic';
+
+// Dynamically import Toaster with SSR turned off
+const Toaster = dynamic(() => import('@/components/ui/toaster').then(mod => mod.Toaster), {
+  ssr: false,
+});
 
 // Metadata should be defined as an export, not an object if layout is client component.
 // However, for simplicity in this fix, we'll keep it as is.
