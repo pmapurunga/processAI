@@ -105,7 +105,7 @@ export const processUploadedDocumentForAnalysis = functions.storage
       "TipoDocumentoOriginal": "Documento (Simulado pela CF)",
       "PoloInferido": "Ativo (Simulado pela CF)",
       "NomeArquivoOriginal": originalFileName,
-      "ResumoGeralConteudoArquivo": `Este é um resumo simulado do conteúdo ` +
+      "ResumoGeralConteudoArquivo": "Este é um resumo simulado do conteúdo " +
         `do arquivo ${originalFileName} gerado pela Cloud Function.`,
       "InformacoesProcessuaisRelevantes": "Nenhuma informação processual " +
         "real, pois esta é uma simulação.",
@@ -223,5 +223,4 @@ export const processUploadedDocumentForAnalysis = functions.storage
 // - As permissões da conta de serviço da função precisam permitir
 //   leitura/escrita no Firestore e Storage. E permissões para a API de IA,
 //   se usada.
-
-    
+//
