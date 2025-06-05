@@ -1,13 +1,15 @@
 "use client";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { AppSidebar } from "@/components/layout/AppSidebar";
-import { AuthProvider, useAuth } from "@/hooks/use-auth";
+// AuthProvider is removed from here, as it's now in the root layout.
+// useAuth will pick up context from the root AuthProvider.
+import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading } = useAuth(); // This will now use context from RootLayout's AuthProvider
   const router = useRouter();
 
   useEffect(() => {
@@ -39,9 +41,9 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
 
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
+  // The <AuthProvider> wrapper is removed from here.
+  // AppLayoutContent will inherit the auth context from the RootLayout.
   return (
-    <AuthProvider>
-      <AppLayoutContent>{children}</AppLayoutContent>
-    </AuthProvider>
+    <AppLayoutContent>{children}</AppLayoutContent>
   );
 }

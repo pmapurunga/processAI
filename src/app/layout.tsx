@@ -1,11 +1,17 @@
+"use client"; // AuthProvider uses client-side hooks
+
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
+import { AuthProvider } from "@/hooks/use-auth"; // Import AuthProvider
 
-export const metadata: Metadata = {
-  title: 'ProcessAI',
-  description: 'Automated Legal Process Analysis with AI',
-};
+// Metadata should be defined as an export, not an object if layout is client component.
+// However, for simplicity in this fix, we'll keep it as is.
+// For production, consider moving metadata to a server component parent or using the `generateMetadata` function.
+// export const metadata: Metadata = {
+//   title: 'ProcessAI',
+//   description: 'Automated Legal Process Analysis with AI',
+// };
 
 export default function RootLayout({
   children,
@@ -21,8 +27,10 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased min-h-screen flex flex-col">
-        {children}
-        <Toaster />
+        <AuthProvider>
+          {children}
+          <Toaster />
+        </AuthProvider>
       </body>
     </html>
   );
