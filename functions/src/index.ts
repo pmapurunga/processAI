@@ -13,13 +13,11 @@ import {onRequest} from "firebase-functions/v2/https";
 import * as functions from "firebase-functions";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
-// import {Storage} from "@google-cloud/storage"; // admin.storage() é preferível dentro de functions
 
 // Initialize Firebase Admin SDK.
 if (admin.apps.length === 0) {
   admin.initializeApp();
 }
-// const storage = new Storage(); // Use admin.storage() para o bucket padrão
 const db = admin.firestore();
 const storageAdmin = admin.storage();
 
@@ -37,9 +35,12 @@ export const processUploadedDocumentForAnalysis = functions.storage
     const contentType = object.contentType; // File content type.
     const bucketName = object.bucket;
 
-    logger.info(`New file uploaded: ${filePath} in bucket ${bucketName}`, {contentType, metadata: object.metadata});
+    logger.info(
+      `New file uploaded: ${filePath} in bucket ${bucketName}`,
+      {contentType, metadata: object.metadata},
+    );
 
-    // Exit if this is triggered on a file that is not in the expected path for analysis
+    // Exit if this is triggered on a file that is not in the expected path
     if (!filePath || !filePath.startsWith("pendingAnalysis/")) {
       logger.log("File is not in pendingAnalysis/ path, ignoring.");
       return null;
@@ -47,7 +48,9 @@ export const processUploadedDocumentForAnalysis = functions.storage
 
     // Exit if not a PDF (though client should ensure this)
     if (!contentType || !contentType.includes("pdf")) {
-      logger.warn(`File ${filePath} is not a PDF, content type: ${contentType}. Skipping analysis.`);
+      const warningMsg = `File ${filePath} is not a PDF, content type: ` +
+                         `${contentType}. Skipping analysis.`;
+      logger.warn(warningMsg);
       // Optionally delete the non-PDF file
       // await storageAdmin.bucket(bucketName).file(filePath).delete();
       return null;
@@ -56,49 +59,64 @@ export const processUploadedDocumentForAnalysis = functions.storage
     const customMetadata = object.metadata || {};
     const processId = customMetadata.processId;
     const analysisPromptUsed = customMetadata.analysisPromptUsed;
-    const userId = customMetadata.userId; // Important for security rules and context
-    const originalFileName = customMetadata.originalFileName || filePath.split("/").pop() || "unknown.pdf";
+    const userId = customMetadata.userId;
+    const originalFileName = customMetadata.originalFileName ||
+                             filePath.split("/").pop() ||
+                             "unknown.pdf";
 
     if (!processId || !analysisPromptUsed || !userId) {
-      logger.error("Missing required metadata (processId, analysisPromptUsed, or userId) for file:", filePath, customMetadata);
+      const errorMsg = "Missing required metadata (processId, " +
+                       "analysisPromptUsed, or userId) for file:";
+      logger.error(errorMsg, filePath, customMetadata);
       // Optionally move to an error folder or just delete
       await storageAdmin.bucket(bucketName).file(filePath).delete();
       logger.log(`Deleted ${filePath} due to missing metadata.`);
       return null;
     }
-    
-    logger.info(`Processing ${originalFileName} for process ${processId} by user ${userId}`);
 
-    // Atualmente, a Cloud Function não pode chamar diretamente a flow Genkit `analyzeDocumentBatch`
-    // que está definida no código Next.js com 'use server'.
+    logger.info(
+      `Processing ${originalFileName} for process ${processId} by user ${userId}`,
+    );
+
+    // Atualmente, a Cloud Function não pode chamar diretamente a flow Genkit
+    // `analyzeDocumentBatch` que está definida no código Next.js com 'use server'.
     // A integração da chamada real à IA Genkit aqui é um passo futuro.
     // Para agora, vamos simular a análise e salvar um resultado mockado.
 
-    // TODO: Passo 1: Baixar o arquivo (opcional se a IA puder ler direto do GCS URI, mas geralmente se baixa)
-    // const fileBuffer = await storageAdmin.bucket(bucketName).file(filePath).download();
-    // const pdfDataUri = `data:${contentType};base64,${fileBuffer[0].toString('base64')}`;
-    // logger.info(`File ${originalFileName} downloaded, data URI created (length: ${pdfDataUri.length})`);
+    // TODO: Passo 1: Baixar o arquivo (opcional se a IA puder ler direto do
+    // GCS URI, mas geralmente se baixa)
+    // const fileBuffer = await storageAdmin.bucket(bucketName).file(filePath)
+    //   .download();
+    // const pdfDataUri = `data:${contentType};base64,` +
+    //   `${fileBuffer[0].toString("base64")}`;
+    // logger.info(`File ${originalFileName} downloaded, data URI created ` +
+    //   `(length: ${pdfDataUri.length})`);
 
-    // TODO: Passo 2: Chamar a IA para análise (usando pdfDataUri e analysisPromptUsed)
-    // Esta é a parte que precisaria de uma flow Genkit adaptada para Cloud Functions
-    // ou uma chamada direta ao SDK do Google AI.
-    logger.info(`Simulating AI analysis for ${originalFileName} with prompt: "${analysisPromptUsed}"`);
+    // TODO: Passo 2: Chamar a IA para análise (usando pdfDataUri e
+    // analysisPromptUsed)
+    // Esta é a parte que precisaria de uma flow Genkit adaptada para Cloud
+    // Functions ou uma chamada direta ao SDK do Google AI.
+    const simulatingMsg = `Simulating AI analysis for ${originalFileName} ` +
+                          `with prompt: "${analysisPromptUsed}"`;
+    logger.info(simulatingMsg);
     const simulatedAnalysisResultJson = {
-      IdDocumentoOriginal: originalFileName.split('.')[0], // Mocked
-      TipoDocumentoOriginal: "Documento (Simulado pela CF)",
-      PoloInferido: "Ativo (Simulado pela CF)",
-      NomeArquivoOriginal: originalFileName,
-      ResumoGeralConteudoArquivo: `Este é um resumo simulado do conteúdo do arquivo ${originalFileName} gerado pela Cloud Function.`,
-      InformacoesProcessuaisRelevantes: "Nenhuma informação processual real, pois esta é uma simulação.",
-      DocumentosMedicosEncontradosNesteArquivo: [
+      "IdDocumentoOriginal": originalFileName.split(".")[0], // Mocked
+      "TipoDocumentoOriginal": "Documento (Simulado pela CF)",
+      "PoloInferido": "Ativo (Simulado pela CF)",
+      "NomeArquivoOriginal": originalFileName,
+      "ResumoGeralConteudoArquivo": `Este é um resumo simulado do conteúdo ` +
+        `do arquivo ${originalFileName} gerado pela Cloud Function.`,
+      "InformacoesProcessuaisRelevantes": "Nenhuma informação processual " +
+        "real, pois esta é uma simulação.",
+      "DocumentosMedicosEncontradosNesteArquivo": [
         {
-          TipoDocumentoMedico: "Atestado Médico (Simulado)",
-          DataDocumentoMedico: new Date().toISOString().split('T')[0],
-          ProfissionalServico: "Dr. Simulado",
-          ResumoConteudoMedico: "Diagnóstico simulado: Condição X.",
-          "Pagina(s)NoOriginal": "pg 1 (simulado)"
-        }
-      ]
+          "TipoDocumentoMedico": "Atestado Médico (Simulado)",
+          "DataDocumentoMedico": new Date().toISOString().split("T")[0],
+          "ProfissionalServico": "Dr. Simulado",
+          "ResumoConteudoMedico": "Diagnóstico simulado: Condição X.",
+          "Pagina(s)NoOriginal": "pg 1 (simulado)",
+        },
+      ],
     };
     logger.info("AI analysis simulation complete.");
 
@@ -106,36 +124,46 @@ export const processUploadedDocumentForAnalysis = functions.storage
     try {
       const documentAnalysisData = {
         processId,
-        fileName: originalFileName, // Usar o nome original do arquivo do cliente
+        fileName: originalFileName,
         analysisPromptUsed,
         analysisResultJson: simulatedAnalysisResultJson,
-        status: "completed" as const, // 'completed' | 'error'
-        uploadedAt: admin.firestore.FieldValue.serverTimestamp(), // Hora do upload original (aproximada pelo gatilho)
-        analyzedAt: admin.firestore.FieldValue.serverTimestamp(), // Hora da "análise"
-        processedBy: "cloudFunction", // Indicar que foi processado pela CF
+        status: "completed" as const,
+        uploadedAt: admin.firestore.FieldValue.serverTimestamp(),
+        analyzedAt: admin.firestore.FieldValue.serverTimestamp(),
+        processedBy: "cloudFunction",
       };
 
-      await db.collection("processes").doc(processId).collection("documentAnalyses").add(documentAnalysisData);
-      logger.info(`Analysis result for ${originalFileName} saved to Firestore for process ${processId}.`);
+      await db.collection("processes").doc(processId)
+        .collection("documentAnalyses").add(documentAnalysisData);
+      logger.info(
+        `Analysis result for ${originalFileName} saved to Firestore for ` +
+        `process ${processId}.`,
+      );
 
       // Passo 3.1: Atualizar o status do processo pai
-      // Isso é uma simplificação. Pode ser necessário verificar se todas as análises foram concluídas.
+      // Isso é uma simplificação. Pode ser necessário verificar se todas as
+      // análises foram concluídas.
       await db.collection("processes").doc(processId).set({
-        status: 'documents_completed', // Ou 'chat_ready' se for o caso
+        status: "documents_completed", // Ou "chat_ready" se for o caso
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      }, { merge: true });
+      }, {merge: true});
       logger.info(`Process ${processId} status updated.`);
-
     } catch (error) {
-      logger.error(`Error saving analysis for ${originalFileName} to Firestore:`, error);
-      // Não deletar o arquivo do Storage se o salvamento no Firestore falhar, para permitir nova tentativa ou depuração.
+      logger.error(
+        `Error saving analysis for ${originalFileName} to Firestore:`,
+        error,
+      );
+      // Não deletar o arquivo do Storage se o salvamento no Firestore falhar,
+      // para permitir nova tentativa ou depuração.
       return null;
     }
 
     // Passo 4: Deletar o arquivo do Storage após processamento bem-sucedido
     try {
       await storageAdmin.bucket(bucketName).file(filePath).delete();
-      logger.info(`Successfully processed and deleted ${filePath} from Storage.`);
+      logger.info(
+        `Successfully processed and deleted ${filePath} from Storage.`,
+      );
     } catch (error) {
       logger.error(`Error deleting file ${filePath} from Storage:`, error);
       // Mesmo que a deleção falhe, a análise foi salva.
@@ -144,15 +172,18 @@ export const processUploadedDocumentForAnalysis = functions.storage
     return null;
   });
 
-// Para usar Firebase Functions para processamento assíncrono, você consideraria gatilhos como:
+// Para usar Firebase Functions para processamento assíncrono, você consideraria
+// gatilhos como:
 //
-// 1. Gatilho do Cloud Storage (onObjectFinalized): (Exemplo acima implementado)
+// 1. Gatilho do Cloud Storage (onObjectFinalized):
+//    (Exemplo acima implementado)
 //    Útil para processar arquivos após o upload.
 //
 // 2. Gatilho do Firestore (onDocumentWritten, onDocumentCreated, etc.):
 //    Útil para reagir a mudanças nos seus dados do Firestore.
 //    Exemplo de assinatura:
-//    export const processNewProcessEntry = onDocumentWritten("processes/{processId}", async (event) => {
+//    export const processNewProcessEntry = onDocumentWritten(
+//      "processes/{processId}", async (event) => {
 //      if (!event.data?.after.exists) {
 //        logger.info(`Process ${event.params.processId} deleted.`);
 //        return;
@@ -160,27 +191,36 @@ export const processUploadedDocumentForAnalysis = functions.storage
 //      const processData = event.data.after.data();
 //      logger.info(`Process ${event.params.processId} written:`, processData);
 //
-//      // Lógica a ser executada quando um documento de processo é criado ou atualizado.
+//      // Lógica a ser executada quando um documento de processo é criado ou
+//      // atualizado.
 //
 //      return;
 //    });
 //
 // 3. Funções Chamáveis (onCall):
-//    Permitem que seu aplicativo cliente chame diretamente uma função como se fosse uma API RPC.
+//    Permitem que seu aplicativo cliente chame diretamente uma função como se
+//    fosse uma API RPC.
 //    Exemplo de assinatura:
 //    export const myCallableFunction = onCall((request) => {
 //      // request.auth contém informações sobre o usuário autenticado, se houver.
 //      // request.data contém os dados enviados pelo cliente.
 //      const text = request.data.text;
-//      logger.info(`Callable function received text: ${text}, by user: ${request.auth?.uid}`);
-//      return { message: `Received: ${text}` };
+//      const logMsg = `Callable function received text: ${text}, by user: ` +
+//                     `${request.auth?.uid}`;
+//      logger.info(logMsg);
+//      return {message: `Received: ${text}`};
 //    });
 
 // Lembre-se que:
-// - As Cloud Functions têm seu próprio ambiente. Se você usar Genkit dentro delas,
-//   certifique-se de que as chaves de API ou a autenticação do Google Cloud (via conta de serviço da função)
-//   estejam configuradas corretamente para os serviços de IA que o Genkit utiliza.
-// - Adicione quaisquer dependências específicas para suas funções ao `functions/package.json`
-//   e execute `npm install` dentro do diretório `functions/` antes de fazer o deploy.
-// - As permissões da conta de serviço da função precisam permitir leitura/escrita no Firestore e Storage.
-//   E permissões para a API de IA, se usada.
+// - As Cloud Functions têm seu próprio ambiente. Se você usar Genkit dentro
+//   delas, certifique-se de que as chaves de API ou a autenticação do Google
+//   Cloud (via conta de serviço da função) estejam configuradas corretamente
+//   para os serviços de IA que o Genkit utiliza.
+// - Adicione quaisquer dependências específicas para suas funções ao
+//   `functions/package.json` e execute `npm install` dentro do diretório
+//   `functions/` antes de fazer o deploy.
+// - As permissões da conta de serviço da função precisam permitir
+//   leitura/escrita no Firestore e Storage. E permissões para a API de IA,
+//   se usada.
+
+    
