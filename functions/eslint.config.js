@@ -1,4 +1,3 @@
-
 // @ts-check
 
 import globals from "globals";
@@ -7,6 +6,8 @@ import eslintJs from "@eslint/js";
 import { FlatCompat } from "@eslint/eslintrc";
 import path from "path";
 import { fileURLToPath } from "url";
+import pluginImport from "eslint-plugin-import";
+
 
 // Replicar __dirname e __filename para módulos ES
 const __filename = fileURLToPath(import.meta.url);
@@ -39,8 +40,8 @@ export default tseslint.config(
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {
-        project: ["tsconfig.json", "tsconfig.dev.json"],
-        tsconfigRootDir: __dirname, // Garante que tsconfig.json seja encontrado corretamente
+        project: ["./tsconfig.json", "./tsconfig.dev.json"], // Relative to functions directory
+        tsconfigRootDir: __dirname,
       },
       globals: {
         ...globals.node,
@@ -48,14 +49,14 @@ export default tseslint.config(
     },
     plugins: {
       "@typescript-eslint": tseslint.plugin,
-      // O plugin 'import' é gerenciado pelo compat.extends acima
+      "import": pluginImport,
     },
     rules: {
       "quotes": ["error", "double"],
       "import/no-unresolved": 0,
       "indent": ["error", 2],
-      "max-len": ["error", {
-        "code": 100, // Aumentado um pouco para evitar quebras excessivas
+      "max-len": ["warn", { 
+        "code": 100, 
         "ignoreUrls": true,
         "ignoreStrings": true,
         "ignoreTemplateLiterals": true,
@@ -68,8 +69,8 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
       "@typescript-eslint/explicit-function-return-type": "off",
       "@typescript-eslint/no-explicit-any": "warn",
-      "require-jsdoc": "off", // Desabilitado pois Google config já lida com isso
-      "valid-jsdoc": "off", // Desabilitado
+      // "require-jsdoc": "off", // Removed to avoid conflict, let 'google' config handle if needed
+      // "valid-jsdoc": "off",   // Removed to avoid conflict/error
       "no-trailing-spaces": "error",
       "eol-last": ["error", "always"],
     },

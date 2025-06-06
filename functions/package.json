@@ -1,4 +1,3 @@
-
 {
   "name": "functions",
   "scripts": {
@@ -15,6 +14,7 @@
     "node": ">=20"
   },
   "main": "lib/index.js",
+  "type": "module",
   "dependencies": {
     "@google-cloud/storage": "^7.11.0",
     "firebase-admin": "^12.6.0",
