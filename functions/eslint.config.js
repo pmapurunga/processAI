@@ -1,3 +1,4 @@
+
 // @ts-check
 
 import globals from "globals";
@@ -14,7 +15,7 @@ const __dirname = path.dirname(__filename);
 
 const compat = new FlatCompat({
   baseDirectory: __dirname,
-  resolvePluginsRelativeTo: __dirname, // Important for FlatCompat to find plugins
+  resolvePluginsRelativeTo: __dirname,
 });
 
 export default tseslint.config(
@@ -60,6 +61,8 @@ export default tseslint.config(
       "comma-dangle": ["error", "always-multiline"],
       "no-trailing-spaces": "error",
       "eol-last": ["error", "always"],
+      "require-jsdoc": "off",
+      "valid-jsdoc": "off",
     },
   },
 
@@ -74,7 +77,7 @@ export default tseslint.config(
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {
-        project: ["./tsconfig.json", "./tsconfig.dev.json"], // Explicitly list tsconfig files
+        project: ["./tsconfig.json", "./tsconfig.dev.json"],
         tsconfigRootDir: __dirname,
       },
       globals: {
@@ -104,38 +107,45 @@ export default tseslint.config(
 
       "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
       "@typescript-eslint/explicit-function-return-type": "off",
-      "@typescript-eslint/no-explicit-any": "warn",
-
-      // Explicitly turn off JSDoc rules for TS files
+      "@typescript-eslint/no-explicit-any": "warn", // Mantenha como warn para te alertar
       "require-jsdoc": "off",
       "valid-jsdoc": "off",
-
-      "import/no-unresolved": 0,
+      "import/no-unresolved": "off", // Desabilita para TS, tsc já faz isso
     },
     settings: {
-        'import/resolver': {
+        "import/resolver": {
             typescript: {
-                alwaysTryTypes: true,
-                project: ['./tsconfig.json', './tsconfig.dev.json'],
+                alwaysTryTypes: true, // Tenta resolver para arquivos de tipo .d.ts
+                project: ["./tsconfig.json", "./tsconfig.dev.json"],
             },
             node: true,
         },
-        'import/parsers': {
-            '@typescript-eslint/parser': ['.ts', '.tsx'],
+        "import/parsers": {
+            "@typescript-eslint/parser": [".ts", ".tsx"],
         },
     },
   },
   
   // 5. Configuration for the eslint.config.js file itself
   {
-    files: ["eslint.config.js"],
+    files: ["eslint.config.js"], // Aplica a este arquivo
     languageOptions: {
       globals: {
-        ...globals.node,
+        ...globals.node, // Para 'module', 'require', '__dirname', etc.
+        require: "readonly", // Se estiver usando require
+        module: "readonly", // Se estiver usando module.exports
+        __dirname: "readonly",
+        process: "readonly",
       },
     },
     rules: {
-      "max-len": "off",
+      "indent": ["error", 2],
+      "quotes": ["error", "double"],
+      "comma-dangle": ["error", "always-multiline"],
+      "no-trailing-spaces": "error",
+      "eol-last": ["error", "always"],
+      "max-len": "off", // Desabilitar max-len para o próprio config
+      "sort-keys": "off", // Desabilitar se você não quiser ordenar chaves
     },
   }
 );

@@ -4,6 +4,7 @@
 import * as functions from "firebase-functions";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
+import type { ObjectMetadata } from "firebase-functions/v1/storage"; // Importar tipo correto
 
 if (admin.apps.length === 0) {
   admin.initializeApp();
@@ -25,10 +26,10 @@ export const helloWorld = functions.https.onRequest((request, response) => {
  */
 export const processUploadedDocumentForAnalysis = functions.storage
   .object()
-  .onFinalize(async (object) => {
-    const filePath = object.name;
-    const contentType = object.contentType;
-    const bucketName = object.bucket;
+  .onFinalize(async (object: ObjectMetadata) => {
+    const filePath = object.name; // string | undefined
+    const contentType = object.contentType; // string | undefined
+    const bucketName = object.bucket; // string
 
     if (!filePath || !contentType) {
       logger.warn("Caminho ou tipo de conteúdo ausente.", {
@@ -50,29 +51,31 @@ export const processUploadedDocumentForAnalysis = functions.storage
       return null;
     }
 
-    const customMetadata = object.metadata || {};
-    const processId = customMetadata.processId;
-    const analysisPrompt = customMetadata.analysisPromptUsed;
-    const userId = customMetadata.userId;
+    const customMetadata = object.metadata ?? {}; // Record<string, string> | undefined
+    const processId = customMetadata.processId; // string | undefined
+    const analysisPrompt = customMetadata.analysisPromptUsed; // string | undefined
+    const userId = customMetadata.userId; // string | undefined
     const originalName =
-      customMetadata.originalFileName ||
-      filePath.split("/").pop() ||
+      customMetadata.originalFileName ??
+      filePath.split("/").pop() ??
       "unknown.pdf";
 
     if (!processId || !analysisPrompt || !userId) {
       logger.error("Metadados ausentes:", { filePath, customMetadata });
-      await storageAdmin.bucket(bucketName).file(filePath).delete();
-      logger.log(`Deletado ${filePath} (metadados ausentes).`);
+      try {
+        await storageAdmin.bucket(bucketName).file(filePath).delete();
+        logger.log(`Deletado ${filePath} (metadados ausentes).`);
+      } catch (deleteError) {
+        logger.error(`Erro ao deletar ${filePath} (metadados ausentes):`, deleteError);
+      }
       return null;
     }
 
     logger.info(`Processando ${originalName} para proc ${processId}`);
 
-    // TODO: Implementar lógica real de análise de IA aqui.
-    // Por enquanto, usamos um resultado mockado.
     logger.info(`Simulando análise de IA para ${originalName}...`);
     const simulatedJson = {
-      IdDocOriginal: originalName.split(".")[0] || "mockId",
+      IdDocOriginal: originalName.split(".")[0] ?? "mockId",
       TipoDocOriginal: "Doc (Simulado CF)",
       PoloInferido: "Ativo (Simulado CF)",
       NomeArqOriginal: originalName,
@@ -124,7 +127,7 @@ export const processUploadedDocumentForAnalysis = functions.storage
         `Erro ao salvar análise para ${originalName} no Firestore:`,
         error,
       );
-      return null;
+      return null; // Não retorne o erro diretamente para a função do Cloud
     }
 
     try {
@@ -132,6 +135,7 @@ export const processUploadedDocumentForAnalysis = functions.storage
       logger.info(`Processado e deletado ${filePath} do Storage.`);
     } catch (error) {
       logger.error(`Erro ao deletar ${filePath} do Storage:`, error);
+      // Não precisa retornar null aqui, pois o principal já foi feito
     }
 
     return null;
