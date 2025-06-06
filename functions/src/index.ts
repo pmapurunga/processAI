@@ -1,10 +1,8 @@
 
-"use server";
-
 import * as functions from "firebase-functions";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
-import type { ObjectMetadata } from "firebase-functions/v1/storage"; // Importar tipo correto
+import type { ObjectMetadata } from "firebase-functions/v1/storage";
 
 if (admin.apps.length === 0) {
   admin.initializeApp();
@@ -26,17 +24,19 @@ export const helloWorld = functions.https.onRequest((request, response) => {
  */
 export const processUploadedDocumentForAnalysis = functions.storage
   .object()
-  .onFinalize(async (object: ObjectMetadata) => {
-    // Use optional chaining and nullish coalescing for safer access
-    const filePath = object.name ?? undefined;
-    const contentType = object.contentType ?? undefined;
-    const bucketName = object.bucket; // string
+  .onFinalize(async (object: ObjectMetadata): Promise<null> => {
+    if (!object) {
+      logger.warn("Objeto do evento de Storage ausente.");
+      return null;
+    }
 
-    // Ensure object and its properties are accessible before proceeding
-    if (!object) return null;
-    
+    const filePath: string | undefined = object.name;
+    const contentType: string | undefined = object.contentType;
+    const bucketName: string = object.bucket;
+    const customMetadata: Record<string, string> | undefined = object.metadata;
+
     if (!filePath || !contentType) {
-      logger.warn("Caminho ou tipo de conteúdo ausente.", {
+      logger.warn("Caminho do arquivo ou tipo de conteúdo ausente.", {
         filePath,
         contentType,
       });
@@ -55,33 +55,37 @@ export const processUploadedDocumentForAnalysis = functions.storage
       return null;
     }
 
-    const customMetadata = object.metadata ?? {}; // Record<string, string> | undefined
-    const processId = customMetadata.processId; // string | undefined
-    const analysisPrompt = customMetadata.analysisPromptUsed; // string | undefined
-    const userId = customMetadata.userId; // string | undefined
+    const processId = customMetadata?.processId;
+    const analysisPrompt = customMetadata?.analysisPromptUsed;
+    const userId = customMetadata?.userId;
     const originalName =
-      customMetadata.originalFileName ??
+      customMetadata?.originalFileName ??
       filePath.split("/").pop() ??
       "unknown.pdf";
 
     if (!processId || !analysisPrompt || !userId) {
-      logger.error("Metadados ausentes:", { filePath, customMetadata });
+      logger.error("Metadados essenciais ausentes:", { filePath, customMetadata });
       try {
         await storageAdmin.bucket(bucketName).file(filePath).delete();
         logger.log(`Deletado ${filePath} (metadados ausentes).`);
-      } catch (deleteError: unknown) { // Catch error as unknown
-        if (deleteError instanceof Error) { // Check if it's an Error instance
-          logger.error(`Erro ao deletar ${filePath} (metadados ausentes):`, deleteError);
+      } catch (deleteError: unknown) {
+        if (deleteError instanceof Error) {
+          logger.error(
+            `Erro ao deletar ${filePath} (metadados ausentes):`,
+            deleteError.message,
+          );
         } else {
-          logger.error(`Erro ao deletar ${filePath} (metadados ausentes):`, "Unknown error");
+          logger.error(
+            `Erro desconhecido ao deletar ${filePath} (metadados ausentes).`,
+          );
         }
       }
       return null;
     }
 
-    logger.info(`Processando ${originalName} para proc ${processId}`);
-
+    logger.info(`Processando ${originalName} para processo ${processId}`);
     logger.info(`Simulando análise de IA para ${originalName}...`);
+
     const simulatedJson = {
       IdDocOriginal: originalName.split(".")[0] ?? "mockId",
       TipoDocOriginal: "Doc (Simulado CF)",
@@ -123,27 +127,23 @@ export const processUploadedDocumentForAnalysis = functions.storage
         .collection("processes").doc(processId)
         .set(
           {
-            // Ensure processId is not undefined before setting
-            ...(processId && { id: processId }), 
-            // Add a creation timestamp if it's a new process, otherwise update
-            createdAt: admin.firestore.FieldValue.serverTimestamp(), 
-            // Always update the updatedAt timestamp
+            id: processId,
             status: "documents_completed",
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           },
           { merge: true },
         );
       logger.info(`Processo ${processId} status atualizado.`);
+
     } catch (error) {
       if (error instanceof Error) {
         logger.error(
           `Erro ao salvar análise para ${originalName} no Firestore:`,
-          error,
+          error.message,
         );
       } else {
         logger.error(
-          `Erro ao salvar análise para ${originalName} no Firestore:`,
-          "Unknown error",
+          `Erro desconhecido ao salvar análise para ${originalName} no Firestore.`,
         );
       }
       return null;
@@ -152,11 +152,16 @@ export const processUploadedDocumentForAnalysis = functions.storage
     try {
       await storageAdmin.bucket(bucketName).file(filePath).delete();
       logger.info(`Processado e deletado ${filePath} do Storage.`);
-    } catch (error: unknown) { // Catch error as unknown
-      // Log the error but continue since the Firestore write was successful
-      logger.error(`Erro ao deletar ${filePath} do Storage:`, error);
-      // Não precisa retornar null aqui, pois o principal já foi feito
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        logger.error(
+          `Erro ao deletar ${filePath} do Storage:`, error.message,
+        );
+      } else {
+        logger.error(
+          `Erro desconhecido ao deletar ${filePath} do Storage.`,
+        );
+      }
     }
-
     return null;
   });
