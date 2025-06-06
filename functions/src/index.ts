@@ -23,7 +23,8 @@ export const processUploadedDocumentForAnalysis = functions.storage
     const bucketName = object.bucket;
 
     if (!filePath || !contentType) {
-      logger.warn("File path or content type missing.", {filePath, contentType});
+      logger.warn("File path or content type missing.",
+ {filePath, contentType});
       return null;
     }
 
@@ -76,9 +77,7 @@ export const processUploadedDocumentForAnalysis = functions.storage
         },
       ],
     };
-    logger.info("AI analysis simulation complete.");
 
-    // Save result to Firestore
     try {
       const analysisEntry = {
         processId,
