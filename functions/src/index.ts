@@ -27,10 +27,14 @@ export const helloWorld = functions.https.onRequest((request, response) => {
 export const processUploadedDocumentForAnalysis = functions.storage
   .object()
   .onFinalize(async (object: ObjectMetadata) => {
-    const filePath = object.name; // string | undefined
-    const contentType = object.contentType; // string | undefined
+    // Use optional chaining and nullish coalescing for safer access
+    const filePath = object.name ?? undefined;
+    const contentType = object.contentType ?? undefined;
     const bucketName = object.bucket; // string
 
+    // Ensure object and its properties are accessible before proceeding
+    if (!object) return null;
+    
     if (!filePath || !contentType) {
       logger.warn("Caminho ou tipo de conteúdo ausente.", {
         filePath,
@@ -65,8 +69,12 @@ export const processUploadedDocumentForAnalysis = functions.storage
       try {
         await storageAdmin.bucket(bucketName).file(filePath).delete();
         logger.log(`Deletado ${filePath} (metadados ausentes).`);
-      } catch (deleteError) {
-        logger.error(`Erro ao deletar ${filePath} (metadados ausentes):`, deleteError);
+      } catch (deleteError: unknown) { // Catch error as unknown
+        if (deleteError instanceof Error) { // Check if it's an Error instance
+          logger.error(`Erro ao deletar ${filePath} (metadados ausentes):`, deleteError);
+        } else {
+          logger.error(`Erro ao deletar ${filePath} (metadados ausentes):`, "Unknown error");
+        }
       }
       return null;
     }
@@ -112,10 +120,14 @@ export const processUploadedDocumentForAnalysis = functions.storage
       logger.info(`Análise para ${originalName} salva para ${processId}.`);
 
       await db
-        .collection("processes")
-        .doc(processId)
+        .collection("processes").doc(processId)
         .set(
           {
+            // Ensure processId is not undefined before setting
+            ...(processId && { id: processId }), 
+            // Add a creation timestamp if it's a new process, otherwise update
+            createdAt: admin.firestore.FieldValue.serverTimestamp(), 
+            // Always update the updatedAt timestamp
             status: "documents_completed",
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           },
@@ -123,17 +135,25 @@ export const processUploadedDocumentForAnalysis = functions.storage
         );
       logger.info(`Processo ${processId} status atualizado.`);
     } catch (error) {
-      logger.error(
-        `Erro ao salvar análise para ${originalName} no Firestore:`,
-        error,
-      );
-      return null; // Não retorne o erro diretamente para a função do Cloud
+      if (error instanceof Error) {
+        logger.error(
+          `Erro ao salvar análise para ${originalName} no Firestore:`,
+          error,
+        );
+      } else {
+        logger.error(
+          `Erro ao salvar análise para ${originalName} no Firestore:`,
+          "Unknown error",
+        );
+      }
+      return null;
     }
 
     try {
       await storageAdmin.bucket(bucketName).file(filePath).delete();
       logger.info(`Processado e deletado ${filePath} do Storage.`);
-    } catch (error) {
+    } catch (error: unknown) { // Catch error as unknown
+      // Log the error but continue since the Firestore write was successful
       logger.error(`Erro ao deletar ${filePath} do Storage:`, error);
       // Não precisa retornar null aqui, pois o principal já foi feito
     }
