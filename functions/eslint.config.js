@@ -1,4 +1,3 @@
-
 // @ts-check
 
 import eslintJs from "@eslint/js";
@@ -29,7 +28,6 @@ export default tseslint.config(
   // Applied only to non-TypeScript JS files in the root of functions or similar.
   {
     files: ["*.js", "*.mjs", "*.cjs"], // More specific to avoid src/
-    excludedFiles: ["eslint.config.js"], // Exclude this config file from these general JS rules
     languageOptions: {
       globals: {
         ...globals.node,
@@ -156,8 +154,10 @@ export default tseslint.config(
       "import/no-unresolved": ["error", { "commonjs": true, "amd": true, "ignore": ["typescript-eslint"] }],
     },
     settings: {
-      "import/resolver": {
-        node: true,
+      "import": {
+        "resolver": {
+          node: true,
+        },
       },
     },
   },
