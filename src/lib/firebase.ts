@@ -36,7 +36,7 @@ import {
 // Causa: O domínio de onde seu app está sendo servido (ex: NOME_DO_HOST.cloudworkstations.dev)
 //        NÃO está na lista de "Domínios autorizados" nas configurações de Autenticação do Firebase.
 // Solução no Firebase Console:
-// 1. Vá para Firebase Console > Projeto (processai-145cd) > Authentication > Settings.
+// 1. Vá para Firebase Console > Projeto (processai-v9qza) > Authentication > Settings.
 // 2. Em "Authorized domains", adicione o domínio EXATO.
 //    NÃO inclua "https://" ou "/" no final.
 //
@@ -47,7 +47,7 @@ import {
 // 1. Firebase Console > Authentication > Sign-in method:
 //    - Provedor "Google" HABILITADO?
 //    - "E-mail de suporte do projeto" selecionado para o provedor Google?
-// 2. Google Cloud Console (Projeto: processai-145cd) > APIs & Serviços > Tela de consentimento OAuth:
+// 2. Google Cloud Console (Projeto: processai-v9qza) > APIs & Serviços > Tela de consentimento OAuth:
 //    - Tela de consentimento configurada? (Nome do app, E-mail de suporte, Domínios autorizados, Contato do desenvolvedor).
 //    - Se "Status da Publicação" = "Em teste", seu e-mail de login é um "Usuário de teste"?
 //
@@ -56,16 +56,16 @@ import {
 // Causa: A Chave de API usada pelo Firebase SDK (valor de NEXT_PUBLIC_FIREBASE_API_KEY)
 //        tem "Restrições de aplicativos" > "Referenciadores HTTP (websites)" ATIVADAS
 //        no Google Cloud Console, e o domínio de origem da solicitação (ex: NOME_DO_HOST.cloudworkstations.dev
-//        OU processai-145cd.firebaseapp.com) NÃO está na lista de permissões dessa Chave de API.
+//        OU processai-v9qza.firebaseapp.com) NÃO está na lista de permissões dessa Chave de API.
 // Solução no Google Cloud Console:
-// 1. Vá para Google Cloud Console > Projeto (processai-145cd) > APIs & Serviços > Credenciais.
+// 1. Vá para Google Cloud Console > Projeto (processai-v9qza) > APIs & Serviços > Credenciais.
 // 2. Encontre a Chave de API correspondente a NEXT_PUBLIC_FIREBASE_API_KEY.
 // 3. Clique no nome da chave para editar.
 // 4. Em "Restrições de aplicativos":
 //    - Se "Referenciadores HTTP (websites)" estiver selecionado, ADICIONE os domínios necessários:
 //      - Domínio do Cloud Workstations (ex: XXXXX.cloudworkstations.dev)
-//      - `processai-145cd.firebaseapp.com` (domínio de hospedagem padrão do Firebase)
-//      - `processai-145cd.web.app` (outro domínio de hospedagem padrão do Firebase)
+//      - `processai-v9qza.firebaseapp.com` (domínio de hospedagem padrão do Firebase)
+//      - `processai-v9qza.web.app` (outro domínio de hospedagem padrão do Firebase)
 //      - `localhost` (se usado para desenvolvimento local)
 //      Lembre-se: adicione apenas o nome do host, sem "https://" ou barras finais.
 // 5. Salve as alterações e aguarde a propagação (alguns minutos).
@@ -74,7 +74,7 @@ import {
 // -----------------------------------------------------------------------------
 // Causa: As Regras de Segurança do Firestore estão bloqueando a operação de leitura ou escrita.
 // Solução no Firebase Console:
-// 1. Vá para Firebase Console > Projeto (processai-145cd) > Firestore Database > Aba "Regras".
+// 1. Vá para Firebase Console > Projeto (processai-v9qza) > Firestore Database > Aba "Regras".
 // 2. Verifique suas regras. Para desenvolvimento, você pode usar temporariamente (NÃO PARA PRODUÇÃO):
 //    rules_version = '2';
 //    service cloud.firestore {
@@ -113,7 +113,7 @@ import {
 //
 // APIs Habilitadas no Google Cloud Console:
 // - Certifique-se de que "Identity Toolkit API" (Firebase Authentication) e "Cloud Firestore API"
-//   estão HABILITADAS no seu projeto Google Cloud.
+//   estão HABILITADAS no seu projeto Google Cloud (processai-v9qza).
 //
 // =====================================================================================
 
@@ -366,3 +366,4 @@ export {
   googleProvider,
   Timestamp 
 };
+

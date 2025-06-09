@@ -1,3 +1,5 @@
 {
-  "firebase_hosting": {}
+  "firebase_hosting": {},
+  "cloud_run_deploy": {},
+  "gemini_api": {}
 }
