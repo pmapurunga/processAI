@@ -28,92 +28,69 @@ import {
 } from "firebase/storage";
 
 // =====================================================================================
-// GUIA DE SOLUÇÃO DE PROBLEMAS DE AUTENTICAÇÃO E CONFIGURAÇÃO DO FIREBASE
+// GUIA DE SOLUÇÃO DE PROBLEMAS DE AUTENTICAÇÃO E CONFIGURAÇÃO DO FIREBASE (Projeto: processai-v9qza)
 // =====================================================================================
 //
 // Erro Comum 1: "auth/requests-from-referer...-are-blocked" (Firebase Auth)
 // -------------------------------------------------------------------------
-// Causa: O domínio de onde seu app está sendo servido (ex: NOME_DO_HOST.cloudworkstations.dev)
-//        NÃO está na lista de "Domínios autorizados" nas configurações de Autenticação do Firebase.
-// Solução no Firebase Console:
-// 1. Vá para Firebase Console > Projeto (processai-v9qza) > Authentication > Settings.
-// 2. Em "Authorized domains", adicione o domínio EXATO.
-//    NÃO inclua "https://" ou "/" no final.
+// Causa: O domínio de onde seu app está sendo servido (ex: SEU_DOMINIO.cloudworkstations.dev,
+//        SEU_DOMINIO.web.app, localhost) NÃO está na lista de "Domínios autorizados"
+//        nas configurações de Autenticação do Firebase para o projeto `processai-v9qza`.
+// Solução no Firebase Console (para o projeto `processai-v9qza`):
+// 1. Vá para Firebase Console > Projeto `processai-v9qza` > Authentication > Settings.
+// 2. Em "Authorized domains", clique em "Add domain".
+// 3. Adicione o domínio EXATO que aparece na mensagem de erro (sem https:// ou porta).
+//    Exemplos:
+//    - `6000-nome-do-cluster.cloudworkstations.dev` (para Cloud Workstations, remova a porta :6000)
+//    - `studio--processai-v9qza.us-central1.hosted.app` (para Firebase Hosting Preview)
+//    - `processai-v9qza.web.app` (para Firebase Hosting)
+//    - `localhost` (para desenvolvimento local)
 //
 // Erro Comum 2: "The requested action is invalid." (no popup de login do Google)
 // ----------------------------------------------------------------------------
-// Causa: Problema de configuração no Firebase Console ou Google Cloud Console.
+// Causa: Problema de configuração no Firebase Console ou Google Cloud Console para `processai-v9qza`.
 // Solução:
-// 1. Firebase Console > Authentication > Sign-in method:
+// 1. Firebase Console (`processai-v9qza`) > Authentication > Sign-in method:
 //    - Provedor "Google" HABILITADO?
 //    - "E-mail de suporte do projeto" selecionado para o provedor Google?
-// 2. Google Cloud Console (Projeto: processai-v9qza) > APIs & Serviços > Tela de consentimento OAuth:
+// 2. Google Cloud Console (Projeto: `processai-v9qza`) > APIs & Serviços > Tela de consentimento OAuth:
 //    - Tela de consentimento configurada? (Nome do app, E-mail de suporte, Domínios autorizados, Contato do desenvolvedor).
 //    - Se "Status da Publicação" = "Em teste", seu e-mail de login é um "Usuário de teste"?
 //
 // Erro Comum 3: 403 Forbidden - "Requests from referer ... are blocked." (API_KEY_HTTP_REFERRER_BLOCKED)
 // ----------------------------------------------------------------------------------------------------
-// Causa: A Chave de API usada pelo Firebase SDK (valor de NEXT_PUBLIC_FIREBASE_API_KEY)
+// Causa: A Chave de API usada pelo Firebase SDK (valor de NEXT_PUBLIC_FIREBASE_API_KEY para `processai-v9qza`)
 //        tem "Restrições de aplicativos" > "Referenciadores HTTP (websites)" ATIVADAS
-//        no Google Cloud Console, e o domínio de origem da solicitação (ex: NOME_DO_HOST.cloudworkstations.dev
-//        OU processai-v9qza.firebaseapp.com) NÃO está na lista de permissões dessa Chave de API.
-// Solução no Google Cloud Console:
-// 1. Vá para Google Cloud Console > Projeto (processai-v9qza) > APIs & Serviços > Credenciais.
+//        no Google Cloud Console, e o domínio de origem da solicitação NÃO está na lista de permissões.
+// Solução no Google Cloud Console (Projeto: `processai-v9qza`):
+// 1. Vá para Google Cloud Console > Projeto `processai-v9qza` > APIs & Serviços > Credenciais.
 // 2. Encontre a Chave de API correspondente a NEXT_PUBLIC_FIREBASE_API_KEY.
 // 3. Clique no nome da chave para editar.
 // 4. Em "Restrições de aplicativos":
 //    - Se "Referenciadores HTTP (websites)" estiver selecionado, ADICIONE os domínios necessários:
-//      - Domínio do Cloud Workstations (ex: XXXXX.cloudworkstations.dev)
-//      - `processai-v9qza.firebaseapp.com` (domínio de hospedagem padrão do Firebase)
-//      - `processai-v9qza.web.app` (outro domínio de hospedagem padrão do Firebase)
+//      - Domínio do Cloud Workstations (ex: NOME_DO_CLUSTER.cloudworkstations.dev, sem a porta)
+//      - `processai-v9qza.firebaseapp.com`
+//      - `processai-v9qza.web.app`
+//      - `studio--processai-v9qza.us-central1.hosted.app`
 //      - `localhost` (se usado para desenvolvimento local)
-//      Lembre-se: adicione apenas o nome do host, sem "https://" ou barras finais.
 // 5. Salve as alterações e aguarde a propagação (alguns minutos).
 //
 // Erro Comum 4: "FirebaseError: Missing or insufficient permissions." (Firestore)
 // -----------------------------------------------------------------------------
-// Causa: As Regras de Segurança do Firestore estão bloqueando a operação de leitura ou escrita.
-// Solução no Firebase Console:
-// 1. Vá para Firebase Console > Projeto (processai-v9qza) > Firestore Database > Aba "Regras".
-// 2. Verifique suas regras. Para desenvolvimento, você pode usar temporariamente (NÃO PARA PRODUÇÃO):
-//    rules_version = '2';
-//    service cloud.firestore {
-//      match /databases/{database}/documents {
-//        match /{document=**} {
-//          allow read, write: if request.auth != null; // Permite se autenticado
-//        }
-//      }
-//    }
-// 3. Para produção, use regras granulares. Exemplo para sua estrutura:
-//    rules_version = '2';
-//    service cloud.firestore {
-//      match /databases/{database}/documents {
-//        match /processes/{processId} {
-//          allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-//          allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
-//
-//          match /documentAnalyses/{analysisId} {
-//            allow create: if request.auth != null && get(/databases/$(database)/documents/processes/$(processId)).data.userId == request.auth.uid;
-//            allow read, update, delete: if request.auth != null && get(/databases/$(database)/documents/processes/$(processId)).data.userId == request.auth.uid;
-//          }
-//        }
-//      }
-//    }
-//    Certifique-se de que você está salvando um campo 'userId' em cada documento da coleção 'processes'.
-//    Publique as regras após editá-las.
+// Causa: As Regras de Segurança do Firestore para `processai-v9qza` estão bloqueando a operação.
+// Solução no Firebase Console (Projeto: `processai-v9qza`) > Firestore Database > Aba "Regras".
 //
 // Erro Comum 5: "FirebaseError: The query requires an index." (Firestore)
 // ------------------------------------------------------------------------
-// Causa: Uma consulta composta (ex: filtrar por um campo e ordenar por outro)
-//        requer um índice composto que não existe.
-// Solução no Firebase Console:
-// 1. A mensagem de erro no console do navegador geralmente fornece um LINK DIRETO para criar o índice.
-// 2. Clique nesse link. Ele o levará à UI de criação de índice no Firebase Console com os campos pré-preenchidos.
-// 3. Revise e clique em "Criar Índice". A criação pode levar alguns minutos.
+// Causa: Uma consulta composta requer um índice composto que não existe em `processai-v9qza`.
+// Solução no Firebase Console (Projeto: `processai-v9qza`) > Firestore Database > Aba "Índices".
 //
-// APIs Habilitadas no Google Cloud Console:
-// - Certifique-se de que "Identity Toolkit API" (Firebase Authentication) e "Cloud Firestore API"
-//   estão HABILITADAS no seu projeto Google Cloud (processai-v9qza).
+// APIs Habilitadas no Google Cloud Console (para `processai-v9qza`):
+// - "Identity Toolkit API" (Firebase Authentication)
+// - "Cloud Firestore API"
+// - "Cloud Storage"
+// - "Document AI API"
+// - "Vertex AI API"
 //
 // =====================================================================================
 
@@ -125,7 +102,7 @@ import type { ExtractSummaryFromPdfOutput } from "@/ai/flows/extract-summary-fro
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID, // Deve ser 'processai-v9qza' via .env
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
@@ -172,7 +149,6 @@ export const saveSummary = async (processNumber: string, summaryJsonData: Extrac
     const processData: Omit<AppProcessSummary, 'id' | 'createdAt' | 'updatedAt'> & { createdAt: any, status: string } = {
       processNumber,
       summaryJson: summaryJsonData, // Salva o objeto { processNumber, documentTable }
-      // summaryText não é mais fornecido diretamente pela flow de extração de sumário
       userId,
       createdAt: serverTimestamp(),
       status: 'summary_completed', 
@@ -189,7 +165,6 @@ export const saveSummary = async (processNumber: string, summaryJsonData: Extrac
   }
 };
 
-// Esta função é chamada pela Server Action `analyzeDocumentBatch`
 export const saveDocumentAnalysis = async (processId: string, fileName: string, analysisPrompt: string, analysisResult: any): Promise<AppDocumentAnalysis> => {
   try {
     const analysisData: Omit<AppDocumentAnalysis, 'id' | 'uploadedAt'> & { uploadedAt: any } = { 
@@ -224,7 +199,6 @@ export const uploadFileForProcessAnalysis = (
   onProgress: (progress: number) => void
 ): Promise<string> => {
   return new Promise((resolve, reject) => {
-    // Usar um ID único para o nome do arquivo no storage para evitar colisões, mas manter o original nos metadados
     const uniqueFileName = `${Date.now()}-${file.name}`;
     const filePath = `pendingAnalysis/${userId}/${processId}/${uniqueFileName}`;
     const fileRef = storageRef(storage, filePath);
@@ -232,7 +206,7 @@ export const uploadFileForProcessAnalysis = (
     const metadata: SettableMetadata = {
       customMetadata: {
         processId: processId,
-        analysisPromptUsed: analysisPrompt, // Nome corrigido para corresponder ao da Cloud Function
+        analysisPromptUsed: analysisPrompt,
         userId: userId,
         originalFileName: file.name 
       }
@@ -253,10 +227,10 @@ export const uploadFileForProcessAnalysis = (
       async () => {
         try {
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          resolve(downloadURL); // URL de download, embora a CF não precise dela diretamente. Sinaliza sucesso.
+          resolve(downloadURL); 
         } catch (error) {
            console.error("Error getting download URL after upload:", error);
-           reject(error); // Rejeita se não conseguir obter a URL, indicando problema pós-upload
+           reject(error); 
         }
       }
     );
@@ -271,8 +245,6 @@ const convertTimestampToDate = (timestamp: any): Date => {
   if (timestamp instanceof Date) {
     return timestamp;
   }
-  // Tenta converter de objeto { seconds, nanoseconds } se não for Timestamp direto
-  // Isso é comum quando os dados vêm de serialização ou de versões mais antigas do SDK admin
   return timestamp && typeof timestamp.seconds === 'number' ? new Date(timestamp.seconds * 1000) : new Date(); 
 };
 
@@ -280,7 +252,7 @@ const convertTimestampToDate = (timestamp: any): Date => {
 export const getDocumentAnalyses = async (processId: string): Promise<AppDocumentAnalysis[]> => {
   try {
     const analysesCol = collection(db, "processes", processId, "documentAnalyses");
-    const q = query(analysesCol, orderBy("uploadedAt", "desc")); // Ou analyzedAt se preferir
+    const q = query(analysesCol, orderBy("uploadedAt", "desc")); 
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(docSnap => {
       const data = docSnap.data();
@@ -293,8 +265,6 @@ export const getDocumentAnalyses = async (processId: string): Promise<AppDocumen
     });
   } catch (error) {
     console.error("Error fetching document analyses from Firestore:", error);
-    // Lançar o erro original pode ser útil para a UI lidar com tipos específicos de erro,
-    // como a necessidade de um índice.
     throw error;
   }
 };
@@ -302,9 +272,6 @@ export const getDocumentAnalyses = async (processId: string): Promise<AppDocumen
 export const getProcesses = async (userId: string): Promise<AppProcessSummary[]> => {
   try {
     const processesCol = collection(db, "processes");
-    // ATENÇÃO: Esta consulta requer um índice composto no Firestore:
-    // Coleção: processes, Campos: userId (Ascendente), createdAt (Descendente)
-    // Se o índice não existir, o Firebase lançará um erro com um link para criá-lo.
     const q = query(processesCol, where("userId", "==", userId), orderBy("createdAt", "desc"));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(docSnap => {
@@ -318,7 +285,6 @@ export const getProcesses = async (userId: string): Promise<AppProcessSummary[]>
     });
   } catch (error) {
     console.error("Error fetching processes from Firestore:", error);
-    // Lançar o erro original para que a UI possa detectar erros de índice.
     throw error;
   }
 };
@@ -345,7 +311,6 @@ export const getProcessSummary = async (processId: string): Promise<AppProcessSu
   }
 };
 
-// Função para deletar arquivo do Firebase Storage (exemplo, pode não ser usada diretamente pelo cliente)
 export const deleteFileFromStorage = async (filePath: string): Promise<void> => {
   const fileRef = storageRef(storage, filePath);
   try {
@@ -362,7 +327,7 @@ export {
   app, 
   auth, 
   db, 
-  storage, // Exportar a instância do Storage
+  storage, 
   googleProvider,
   Timestamp 
 };
