@@ -1,5 +1,4 @@
 
-
 import { initializeApp, getApp, getApps, type FirebaseApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as signOutFirebaseAuth, type User as FirebaseUserType } from "firebase/auth";
 import { 
@@ -41,7 +40,7 @@ import {
 // 2. Em "Authorized domains", clique em "Add domain".
 // 3. Adicione o domínio EXATO que aparece na mensagem de erro (sem https:// ou porta).
 //    Exemplos:
-//    - `6000-nome-do-cluster.cloudworkstations.dev` (para Cloud Workstations, remova a porta :6000)
+//    - `6000-firebase-studio-1749115397750.cluster-etsqrqvqyvd4erxx7qq32imrjk.cloudworkstations.dev` (para o erro atual)
 //    - `studio--processai-v9qza.us-central1.hosted.app` (para Firebase Hosting Preview)
 //    - `processai-v9qza.web.app` (para Firebase Hosting)
 //    - `localhost` (para desenvolvimento local)
@@ -68,7 +67,7 @@ import {
 // 3. Clique no nome da chave para editar.
 // 4. Em "Restrições de aplicativos":
 //    - Se "Referenciadores HTTP (websites)" estiver selecionado, ADICIONE os domínios necessários:
-//      - Domínio do Cloud Workstations (ex: NOME_DO_CLUSTER.cloudworkstations.dev, sem a porta)
+//      - `6000-firebase-studio-1749115397750.cluster-etsqrqvqyvd4erxx7qq32imrjk.cloudworkstations.dev`
 //      - `processai-v9qza.firebaseapp.com`
 //      - `processai-v9qza.web.app`
 //      - `studio--processai-v9qza.us-central1.hosted.app`
@@ -245,7 +244,16 @@ const convertTimestampToDate = (timestamp: any): Date => {
   if (timestamp instanceof Date) {
     return timestamp;
   }
-  return timestamp && typeof timestamp.seconds === 'number' ? new Date(timestamp.seconds * 1000) : new Date(); 
+  // Fallback for serialized Timestamp-like objects
+  if (timestamp && typeof timestamp.seconds === 'number' && typeof timestamp.nanoseconds === 'number') {
+    return new Date(timestamp.seconds * 1000 + timestamp.nanoseconds / 1000000);
+  }
+  // If it's already a string that can be parsed into a date (less ideal but common from some APIs)
+  if (typeof timestamp === 'string' && !isNaN(new Date(timestamp).getTime())) {
+    return new Date(timestamp);
+  }
+  // Default or error case
+  return new Date(); 
 };
 
 
@@ -331,4 +339,3 @@ export {
   googleProvider,
   Timestamp 
 };
-
