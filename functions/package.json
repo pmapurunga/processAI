@@ -1,7 +1,8 @@
 {
   "name": "functions",
+  "type": "module",
   "scripts": {
-    "lint": "eslint .",
+    "lint": "eslint --ext .js,.ts .",
     "build": "tsc",
     "build:watch": "tsc --watch",
     "serve": "npm run build && firebase emulators:start --only functions",
@@ -11,25 +12,26 @@
     "logs": "firebase functions:log"
   },
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "main": "lib/index.js",
-  "type": "module",
   "dependencies": {
-    "@genkit-ai/googleai": "^1.8.0",
-    "@google-cloud/documentai": "^9.0.0",
-    "dotenv": "^16.4.5",
     "firebase-admin": "^12.6.0",
     "firebase-functions": "^6.0.1",
-    "genkit": "^1.8.0"
+    "genkit": "^1.8.0",
+    "@genkit-ai/googleai": "^1.8.0",
+    "zod": "^3.22.4",
+    "@google-cloud/documentai": "^9.0.0",
+    "dotenv": "^16.4.5"
   },
   "devDependencies": {
-    "@eslint/js": "^9.28.0",
-    "eslint": "^9.28.0",
-    "eslint-plugin-import": "^2.29.1",
-    "globals": "^16.2.0",
-    "typescript": "^5.7.3",
-    "typescript-eslint": "^7.3.1"
+    "@typescript-eslint/eslint-plugin": "^5.12.0",
+    "@typescript-eslint/parser": "^5.12.0",
+    "eslint": "^8.9.0",
+    "eslint-config-google": "^0.14.0",
+    "eslint-plugin-import": "^2.25.4",
+    "firebase-functions-test": "^3.1.0",
+    "typescript": "^5.7.3"
   },
   "private": true
 }
