@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, FormEvent, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,24 +10,31 @@ import { Textarea } from "@/components/ui/textarea";
 import { PdfUploader } from "@/components/process/PdfUploader";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ListChecks, AlertCircle, CheckCircle, UploadCloud, FileText, Trash2, Send, FileUp } from "lucide-react";
-// analyzeDocumentBatch Server Action não é mais usada diretamente aqui
-// import { analyzeDocumentBatch, type AnalyzeDocumentBatchInput, type AnalyzeDocumentBatchServerOutput } from "@/ai/flows/analyze-document-batch";
-import { getDocumentAnalyses, getProcessSummary, type DocumentAnalysis, type ProcessSummary, uploadFileForProcessAnalysis } from "@/lib/firebase"; 
+import { Loader2, ListChecks, AlertCircle, CheckCircle, UploadCloud, FileText, Trash2, Send, FileUp, RefreshCw } from "lucide-react";
+import { 
+  getDocumentAnalyses, // Still useful for initial load or manual refresh
+  getProcessSummary, 
+  type DocumentAnalysis, 
+  type ProcessSummary, 
+  uploadFileForProcessAnalysis,
+  db // Import db instance
+} from "@/lib/firebase"; 
+import { collection, query, orderBy, onSnapshot, Unsubscribe } from "firebase/firestore"; // Firestore listener imports
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"; 
 import Link from "next/link"; 
 
-export const maxDuration = 300; // Ainda pode ser útil para outras Server Actions na página, mas não para a análise principal
+export const maxDuration = 300; 
 
 interface FileToUploadForAsync {
+  id: string; // Unique ID for the file in the queue, e.g., timestamp + name
   file: File;
-  dataUri?: string; // Data URI pode não ser mais necessário aqui, mas mantido por enquanto
   status: 'pending' | 'uploading' | 'completed_upload' | 'error_upload' | 'processing_async' | 'analysis_complete' | 'analysis_error';
   progress?: number;
   message?: string; 
-  analysisResult?: any; // Preenchido quando a análise assíncrona estiver completa e for lida do Firestore
+  analysisResult?: any; 
+  analysisErrorMessage?: string;
 }
 
 export default function DocumentAnalysisPage() {
@@ -79,57 +86,101 @@ Formato JSON desejado para CADA arquivo processado NESTE lote:
 `);
   const [filesToUpload, setFilesToUpload] = useState<FileToUploadForAsync[]>([]);
   const [previouslyAnalyzedDocs, setPreviouslyAnalyzedDocs] = useState<DocumentAnalysis[]>([]);
-  const [isUploading, setIsUploading] = useState(false); // Renomeado de isAnalyzing para isUploading
-  const [isLoadingExisting, setIsLoadingExisting] = useState(true);
+  const [isUploading, setIsUploading] = useState(false); 
+  const [isLoadingInitialData, setIsLoadingInitialData] = useState(true);
   const [globalError, setGlobalError] = useState<string | null>(null);
-
-  // Função para buscar documentos analisados existentes e atualizar a lista.
-  const fetchAnalyzedDocuments = async () => {
-    if (processId && user) {
-      setIsLoadingExisting(true);
-      try {
-        const docs = await getDocumentAnalyses(processId);
-        setPreviouslyAnalyzedDocs(docs);
-      } catch (err) {
-        console.error("Error loading existing documents:", err);
-        toast({ title: "Error", description: "Could not load existing documents.", variant: "destructive" });
-      } finally {
-        setIsLoadingExisting(false);
-      }
-    }
-  };
+  const unsubscribeRef = useRef<Unsubscribe | null>(null);
 
   useEffect(() => {
     if (processId && user) {
+      setIsLoadingInitialData(true);
       getProcessSummary(processId).then(summary => { 
         if (!summary) {
           toast({ title: "Error", description: "Process summary not found.", variant: "destructive" });
           router.push("/dashboard"); 
+          return;
         }
         setProcessSummary(summary);
+      }).catch(err => {
+        console.error("Error fetching process summary:", err);
+        toast({ title: "Error", description: "Failed to load process summary.", variant: "destructive" });
+        router.push("/dashboard");
       });
-      fetchAnalyzedDocuments(); // Chamar a função para buscar documentos existentes
+
+      // Initial fetch of existing documents
+      getDocumentAnalyses(processId).then(docs => {
+        setPreviouslyAnalyzedDocs(docs);
+      }).catch(err => {
+        console.error("Error loading initial existing documents:", err);
+        toast({ title: "Error", description: "Could not load existing documents.", variant: "destructive" });
+      }).finally(() => {
+        setIsLoadingInitialData(false);
+      });
+
+      // Setup Firestore listener
+      const analysesCol = collection(db, "processes", processId, "documentAnalyses");
+      const q = query(analysesCol, orderBy("uploadedAt", "desc"));
+      
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const updatedAnalyses = querySnapshot.docs.map(docSnap => {
+          const data = docSnap.data();
+          return {
+            id: docSnap.id,
+            ...data,
+            // Ensure timestamps are converted if needed, though they should be Dates from getDocumentAnalyses or serverTimestamp
+            uploadedAt: data.uploadedAt?.toDate ? data.uploadedAt.toDate() : new Date(data.uploadedAt),
+            analyzedAt: data.analyzedAt?.toDate ? data.analyzedAt.toDate() : (data.analyzedAt ? new Date(data.analyzedAt) : undefined),
+          } as DocumentAnalysis;
+        });
+        
+        setPreviouslyAnalyzedDocs(updatedAnalyses);
+
+        // Update status of files in filesToUpload queue
+        setFilesToUpload(prevFiles => 
+          prevFiles.map(queuedFile => {
+            if (queuedFile.status === 'processing_async') {
+              const matchedAnalysis = updatedAnalyses.find(analysis => analysis.fileName === queuedFile.file.name);
+              if (matchedAnalysis) {
+                if (matchedAnalysis.status === 'completed') {
+                  return { 
+                    ...queuedFile, 
+                    status: 'analysis_complete' as 'analysis_complete', 
+                    message: 'Analysis complete!', 
+                    analysisResult: matchedAnalysis.analysisResultJson 
+                  };
+                } else if (matchedAnalysis.status === 'error') {
+                  return { 
+                    ...queuedFile, 
+                    status: 'analysis_error' as 'analysis_error', 
+                    message: `Analysis error: ${matchedAnalysis.errorMessage || 'Unknown error'}`,
+                    analysisErrorMessage: matchedAnalysis.errorMessage 
+                  };
+                }
+              }
+            }
+            return queuedFile;
+          })
+        );
+      }, (error) => {
+        console.error("Error with Firestore listener:", error);
+        toast({ title: "Listener Error", description: "Could not listen for real-time document updates.", variant: "destructive" });
+      });
+      
+      unsubscribeRef.current = unsubscribe;
+
+      return () => {
+        if (unsubscribeRef.current) {
+          unsubscribeRef.current();
+        }
+      };
     }
   }, [processId, user, toast, router]);
 
-  // Opcional: Listener do Firestore para atualizações em tempo real (mais avançado)
-  // useEffect(() => {
-  //   if (processId) {
-  //     const analysesCol = collection(db, "processes", processId, "documentAnalyses");
-  //     const q = query(analysesCol, orderBy("uploadedAt", "desc"));
-  //     const unsubscribe = onSnapshot(q, (querySnapshot) => {
-  //       const docs = querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as DocumentAnalysis));
-  //       setPreviouslyAnalyzedDocs(docs);
-  //       // Atualizar status dos filesToUpload se eles foram processados
-  //     });
-  //     return () => unsubscribe();
-  //   }
-  // }, [processId]);
 
-
-  const handleFilesSelect = (_files: FileList | null) => { // Data URIs não são mais passados aqui
+  const handleFilesSelect = (_files: FileList | null) => {
     if (_files) {
       const newFiles = Array.from(_files).map(file => ({
+        id: `${Date.now()}-${file.name}`, // Unique ID for queue item
         file,
         status: 'pending' as 'pending',
         progress: 0,
@@ -138,8 +189,8 @@ Formato JSON desejado para CADA arquivo processado NESTE lote:
     }
   };
 
-  const removeFileToUpload = (index: number) => {
-    setFilesToUpload(files => files.filter((_, i) => i !== index));
+  const removeFileToUpload = (idToRemove: string) => {
+    setFilesToUpload(files => files.filter(f => f.id !== idToRemove));
   };
   
   const handleSubmitUploads = async (event: FormEvent) => {
@@ -152,60 +203,61 @@ Formato JSON desejado para CADA arquivo processado NESTE lote:
     setIsUploading(true);
     setGlobalError(null);
 
-    const pendingFiles = filesToUpload.filter(f => f.status === 'pending');
     let successfulUploads = 0;
     let failedUploads = 0;
 
-    for (let i = 0; i < filesToUpload.length; i++) {
-      const currentFile = filesToUpload[i];
-      if (currentFile.status !== 'pending') continue;
+    // Process only pending files by mapping over the current state
+    const uploadPromises = filesToUpload.map(async (queuedFile, index) => {
+      if (queuedFile.status !== 'pending') {
+        return queuedFile; // Keep non-pending files as they are
+      }
 
-      setFilesToUpload(prev => prev.map((f, idx) => idx === i ? { ...f, status: 'uploading', progress: 0, message: "Uploading..." } : f));
+      setFilesToUpload(prev => prev.map((f) => f.id === queuedFile.id ? { ...f, status: 'uploading', progress: 0, message: "Uploading..." } : f));
       
       try {
         await uploadFileForProcessAnalysis(
-          currentFile.file,
+          queuedFile.file,
           processId,
           analysisPrompt,
           user.uid,
           (progress) => {
-            setFilesToUpload(prev => prev.map((f, idx) => idx === i ? { ...f, progress } : f));
+             setFilesToUpload(prev => prev.map((f) => f.id === queuedFile.id ? { ...f, progress } : f));
           }
         );
-        setFilesToUpload(prev => prev.map((f, idx) => idx === i ? { ...f, status: 'completed_upload', progress: 100, message: "Upload successful. Awaiting async analysis." } : f));
         successfulUploads++;
+        return { ...queuedFile, status: 'processing_async' as 'processing_async', progress: 100, message: "Upload successful. Awaiting async analysis." };
       } catch (err) {
-        console.error(`Error uploading file ${currentFile.file.name}:`, err);
+        console.error(`Error uploading file ${queuedFile.file.name}:`, err);
         const errorMsg = err instanceof Error ? err.message : "Unknown upload error.";
-        setFilesToUpload(prev => prev.map((f, idx) => idx === i ? { ...f, status: 'error_upload', message: errorMsg, progress: 0 } : f));
         failedUploads++;
+        return { ...queuedFile, status: 'error_upload' as 'error_upload', message: errorMsg, progress: 0 };
       }
-    }
+    });
+
+    const updatedFiles = await Promise.all(uploadPromises);
+    setFilesToUpload(updatedFiles);
 
     setIsUploading(false);
 
     if (successfulUploads > 0) {
-      toast({ title: "Uploads Complete", description: `${successfulUploads} file(s) uploaded for asynchronous analysis.`, className: "bg-green-500 text-white" });
+      toast({ title: "Uploads Sent", description: `${successfulUploads} file(s) sent for asynchronous analysis. Status will update automatically.`, className: "bg-green-500 text-white" });
     }
     if (failedUploads > 0) {
        toast({ title: "Upload Issues", description: `${failedUploads} file(s) failed to upload. Check file status.`, variant: "destructive" });
     }
-    
-    // Após uploads, limpar a lista de arquivos pendentes ou movê-los para uma seção "processando"
-    // setFilesToUpload(prev => prev.filter(f => f.status !== 'completed_upload' && f.status !== 'error_upload'));
-    // Ou, para manter na lista e mostrar status "processing_async"
-    setFilesToUpload(prev => prev.map(f => f.status === 'completed_upload' ? {...f, status: 'processing_async', message: 'Sent for async analysis...'} : f));
-
-
-    // É uma boa prática recarregar os documentos analisados após um tempo ou fornecer um botão de atualização
-    // fetchAnalyzedDocuments(); // Ou instruir o usuário a atualizar
   };
   
-  // Determinar se o botão "Proceed to Chat" deve estar habilitado
-  // Isso agora dependeria do status do processo pai, que a Cloud Function deve atualizar.
   const canProceedToChat = processSummary?.status === 'documents_completed' || processSummary?.status === 'chat_ready';
+  const pendingFileCount = filesToUpload.filter(f => f.status === 'pending').length;
 
-  const pendingFileCount = filesToUpload.filter(f=>f.status === 'pending').length;
+  if (isLoadingInitialData) {
+    return (
+      <div className="flex flex-col items-center justify-center p-10 h-[calc(100vh-200px)]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-lg text-muted-foreground">Loading document analysis data...</p>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmitUploads}>
@@ -217,7 +269,7 @@ Formato JSON desejado para CADA arquivo processado NESTE lote:
           </div>
           <CardDescription>
             Upload multiple documents related to Process: <strong>{processSummary?.processNumber || processId}</strong>. 
-            Provide a prompt to guide the AI analysis for each document. Documents will be processed asynchronously.
+            Provide a prompt to guide the AI analysis for each document. Documents will be processed asynchronously and update in real-time.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -252,34 +304,35 @@ Formato JSON desejado para CADA arquivo processado NESTE lote:
             <div className="space-y-3">
               <h4 className="text-md font-semibold">Files Queue ({filesToUpload.length}):</h4>
               <ScrollArea className="h-64 border rounded-md p-3 bg-secondary/20">
-                {filesToUpload.map((item, index) => (
-                  <div key={index} className="mb-2 p-3 border rounded-md bg-card shadow-sm">
+                {filesToUpload.map((item) => (
+                  <div key={item.id} className="mb-2 p-3 border rounded-md bg-card shadow-sm">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2 truncate">
                         <FileText className="h-5 w-5 text-primary flex-shrink-0" />
                         <span className="text-sm font-medium truncate" title={item.file.name}>{item.file.name}</span>
                       </div>
                        {item.status === 'pending' && !isUploading && (
-                        <Button variant="ghost" size="icon" onClick={() => removeFileToUpload(index)} disabled={isUploading}>
+                        <Button variant="ghost" size="icon" onClick={() => removeFileToUpload(item.id)} disabled={isUploading}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                        )}
                     </div>
-                    {(item.status === 'uploading' || item.status === 'completed_upload') && item.progress !== undefined && 
-                      <Progress value={item.progress} className="w-full h-1.5 mt-1" />
+                    {(item.status === 'uploading' || item.status === 'completed_upload' || item.status === 'processing_async') && item.progress !== undefined && 
+                      <Progress value={item.status === 'processing_async' || item.status === 'analysis_complete' || item.status === 'analysis_error' ? 100 : item.progress} className="w-full h-1.5 mt-1" />
                     }
-                    {item.status === 'completed_upload' && <p className="text-xs text-green-600 mt-1 flex items-center"><CheckCircle className="h-3 w-3 mr-1"/>{item.message || "Upload successful."}</p>}
-                    {item.status === 'processing_async' && <p className="text-xs text-blue-600 mt-1 flex items-center"><Loader2 className="h-3 w-3 mr-1 animate-spin"/>{item.message || "Awaiting async analysis..."}</p>}
-                    {item.status === 'error_upload' && <p className="text-xs text-destructive mt-1 flex items-center"><AlertCircle className="h-3 w-3 mr-1"/>Error: {item.message || "Unknown upload error"}</p>}
                     {item.status === 'pending' && <p className="text-xs text-muted-foreground mt-1">Pending upload...</p>}
                     {item.status === 'uploading' && <p className="text-xs text-blue-600 mt-1">{item.message || `Uploading... ${item.progress?.toFixed(0)}%`}</p>}
+                    {item.status === 'processing_async' && <p className="text-xs text-blue-600 mt-1 flex items-center"><Loader2 className="h-3 w-3 mr-1 animate-spin"/>{item.message || "Awaiting async analysis..."}</p>}
+                    {item.status === 'error_upload' && <p className="text-xs text-destructive mt-1 flex items-center"><AlertCircle className="h-3 w-3 mr-1"/>Error: {item.message || "Unknown upload error"}</p>}
+                    {item.status === 'analysis_complete' && <p className="text-xs text-green-600 mt-1 flex items-center"><CheckCircle className="h-3 w-3 mr-1"/>{item.message || "Analysis complete!"}</p>}
+                    {item.status === 'analysis_error' && <p className="text-xs text-destructive mt-1 flex items-center"><AlertCircle className="h-3 w-3 mr-1"/>{item.message || "Analysis failed."}</p>}
                   </div>
                 ))}
               </ScrollArea>
             </div>
           )}
           
-          {isLoadingExisting && <div className="flex justify-center p-4"><Loader2 className="h-6 w-6 animate-spin text-primary"/> <span className="ml-2">Loading existing documents...</span></div>}
+          {isLoadingInitialData && !processId && <div className="flex justify-center p-4"><Loader2 className="h-6 w-6 animate-spin text-primary"/> <span className="ml-2">Loading document data...</span></div>}
 
           {previouslyAnalyzedDocs.length > 0 && (
             <div className="space-y-3">
@@ -289,14 +342,15 @@ Formato JSON desejado para CADA arquivo processado NESTE lote:
                   <div key={doc.id} className="mb-2 p-2 border rounded-md bg-card shadow-sm text-sm flex items-center space-x-2">
                      <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0"/>
                      <span className="font-medium truncate" title={doc.fileName}>{doc.fileName}</span>
-                     <span className="text-xs text-muted-foreground">(Analyzed: {doc.analyzedAt instanceof Date ? doc.analyzedAt.toLocaleDateString() : (doc.analyzedAt ? new Date((doc.analyzedAt as any).seconds * 1000).toLocaleDateString() : 'N/A')})</span>
-                     <span className="text-xs text-muted-foreground">Processed by: { (doc as any).processedBy || 'N/A'}</span>
+                     <span className="text-xs text-muted-foreground">(Analyzed: {doc.analyzedAt instanceof Date ? doc.analyzedAt.toLocaleDateString() : 'N/A'})</span>
+                     {/*@ts-ignore*/}
+                     <span className="text-xs text-muted-foreground">Status: {doc.status}{doc.processedBy ? ` by ${doc.processedBy}`: ''}</span>
                   </div>
                 ))}
               </ScrollArea>
-               <Button variant="outline" size="sm" onClick={fetchAnalyzedDocuments} disabled={isLoadingExisting}>
-                Refresh Analyzed List
-              </Button>
+               {/* <Button variant="outline" size="sm" onClick={fetchAnalyzedDocuments} disabled={isLoadingInitialData}>
+                <RefreshCw className="mr-2 h-3 w-3"/> Refresh Analyzed List (Manual)
+              </Button> */}
             </div>
           )}
 
@@ -331,3 +385,4 @@ Formato JSON desejado para CADA arquivo processado NESTE lote:
   );
 }
 
+    
