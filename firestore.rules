@@ -1,9 +1,33 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      // Permite leitura e escrita para qualquer usuário autenticado
-      allow read, write: if request.auth != null;
+
+    // Processes collection
+    match /processes/{processId} {
+      // Allow authenticated user to create a process if the new document's userId matches their own.
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+
+      // Allow authenticated user to read, update, or delete a process if their UID matches the document's userId.
+      allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+
+      // DocumentAnalyses subcollection
+      match /documentAnalyses/{analysisId} {
+        // Allow read/write to documentAnalyses if the user owns the parent process document.
+        // This check ensures that the user attempting the operation is the owner of the parent process.
+        // It also correctly allows creation, as the parent document (process/{processId}) would already exist
+        // and its ownership can be verified.
+        allow read, write: if request.auth != null && get(/databases/$(database)/documents/processes/$(processId)).data.userId == request.auth.uid;
+      }
     }
+
+    // Default deny all other paths if not explicitly allowed above.
+    // This can be omitted if all accessible paths are covered with specific rules,
+    // as access is denied by default if no rule matches.
+    // However, keeping it can be a good explicit safeguard.
+    // match /{document=**} {
+    //   allow read, write: if false;
+    // }
+    // For this specific case, since we only have 'processes' defined, it's fine to rely on default deny.
   }
 }
