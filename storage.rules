@@ -1,0 +1,32 @@
+
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow users to upload files to their own "pendingAnalysis" folder structure.
+    // The path is structured as: pendingAnalysis/{userId}/{processId}/{fileName}
+    match /pendingAnalysis/{userId}/{processId}/{allPaths=**} {
+      // Allow write (upload) if the userId in the path matches the authenticated user's ID
+      // and the uploaded file size is reasonable (e.g., < 20MB to prevent abuse).
+      // The application currently checks for 15MB on the client-side.
+      allow write: if request.auth != null && request.auth.uid == userId
+                      && request.resource.size < 20 * 1024 * 1024;
+
+      // Allow read by the owner. This might be useful if the client needs to
+      // re-access the file or its metadata, though often only the backend Cloud Function
+      // (with admin privileges) needs to read these files directly after upload.
+      allow read: if request.auth != null && request.auth.uid == userId;
+
+      // Deleting might be done by a Cloud Function with admin privileges after processing.
+      // If clients need to delete their own pending files, add:
+      // allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Default deny all other paths if not explicitly allowed.
+    // match /{allPaths=**} {
+    //   allow read, write: if false;
+    // }
+    // Note: Implicit denial is active if no rule matches. Explicitly denying everything else
+    // can be good for clarity but is not strictly necessary if other rules are well-defined.
+  }
+}
