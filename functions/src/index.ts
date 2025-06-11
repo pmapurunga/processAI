@@ -3,15 +3,17 @@ import * as dotenv from "dotenv";
 dotenv.config(); // Carrega variáveis de .env para o ambiente, útil para teste local
 
 import * as logger from "firebase-functions/logger";
-import * as admin from "firebase-admin";
-import { initializeApp, getApps, App as AdminApp } from "firebase-admin/app";
+// Importações não utilizadas de admin e AdminApp foram removidas
+import { initializeApp, getApps } from "firebase-admin/app";
 import { getFirestore, Timestamp as AdminTimestamp } from "firebase-admin/firestore"; // Import AdminTimestamp
 import { getStorage as getAdminStorage } from "firebase-admin/storage"; // Import getAdminStorage
 import { onObjectFinalized, StorageEvent } from "firebase-functions/v2/storage";
 import { DocumentProcessorServiceClient as DocumentAIClient } from "@google-cloud/documentai";
-import { genkit,اي, generate, configureGenkit } from "genkit"; // Import 'ai' directly
+// Corrigida a importação do Genkit para usar genkit/core
+import { ai, generate, configureGenkit } from "genkit/core";
 import { googleAI } from "@genkit-ai/googleai";
-import { z } from "genkit/zod"; // Import Zod from genkit
+// Corrigida a importação do Zod - assume que zod está instalado diretamente
+import { z } from "zod";
 
 // Inicialização do Firebase Admin SDK (apenas uma vez)
 if (!getApps().length) {
@@ -43,19 +45,27 @@ type AnalyzeTextContentInputLocal = z.infer<typeof AnalyzeTextContentInputSchema
 const AnalyzeTextContentOutputSchemaLocal = z.object({
   analysisJsonString: z.string().describe("A JSON string representing the structured analysis."),
 });
-type AnalyzeTextContentOutputLocal = z.infer<typeof AnalyzeTextContentOutputSchemaLocal>;
+// Removido o tipo 'AnalyzeTextContentOutputLocal' não utilizado
+// type AnalyzeTextContentOutputLocal = z.infer<typeof AnalyzeTextContentOutputSchemaLocal>;
 
-const analyzeTextContentFlowLocal = اي.defineFlow( // Use 'اي'
+// Corrigido o uso de ai.defineFlow e adicionada tipagem ao input
+const analyzeTextContentFlowLocal = ai.defineFlow(
   {
     name: "analyzeTextContentFlowInFunction",
     inputSchema: AnalyzeTextContentInputSchemaLocal,
     outputSchema: AnalyzeTextContentOutputSchemaLocal,
   },
-  async (input) => {
+  async (input: AnalyzeTextContentInputLocal) => { // Adicionada tipagem explícita
     const { customAnalysisPrompt, textContent } = input;
-    const llmResponse = await generate({ // Use generate direto
-      model: googleAI.getModel("gemini-1.5-pro-latest"), // ou outro modelo Gemini
-      prompt: `${customAnalysisPrompt}\n\nAnalise o seguinte texto:\n\n${textContent}\n\nRetorne a análise SOMENTE como uma string JSON válida.`,
+    const llmResponse = await generate({
+      model: "googleai/gemini-1.5-pro-latest", // Referência ao modelo pelo ID correto
+      prompt: `${customAnalysisPrompt}
+
+Analise o seguinte texto:
+
+${textContent}
+
+Retorne a análise SOMENTE como uma string JSON válida.`,
       output: {
         format: "json", // Solicita saída JSON se o modelo suportar explicitamente
         schema: AnalyzeTextContentOutputSchemaLocal, // Ajuda a guiar o modelo

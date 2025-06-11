@@ -1,3 +1,4 @@
+
 {
   "functions": [
     {
@@ -11,7 +12,7 @@
         "*.local"
       ],
       "predeploy": [
-        "cd functions && npm install && npm run build"
+        "cd functions && rm -rf lib && npm install --legacy-peer-deps && npm run build"
       ]
     }
   ],
