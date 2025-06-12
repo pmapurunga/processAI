@@ -1,4 +1,3 @@
-
 import * as dotenv from "dotenv";
 dotenv.config(); // Carrega variáveis de .env para o ambiente, útil para teste local
 
@@ -9,10 +8,8 @@ import { getFirestore, Timestamp as AdminTimestamp } from "firebase-admin/firest
 import { getStorage as getAdminStorage } from "firebase-admin/storage"; // Import getAdminStorage
 import { onObjectFinalized, StorageEvent } from "firebase-functions/v2/storage";
 import { DocumentProcessorServiceClient as DocumentAIClient } from "@google-cloud/documentai";
-// Corrigida a importação do Genkit para usar genkit/core
-import { ai, generate, configureGenkit } from "genkit/core";
+import { genkit } from "genkit";
 import { googleAI } from "@genkit-ai/googleai";
-// Corrigida a importação do Zod - assume que zod está instalado diretamente
 import { z } from "zod";
 
 // Inicialização do Firebase Admin SDK (apenas uma vez)
@@ -22,13 +19,10 @@ if (!getApps().length) {
 const db = getFirestore();
 const adminStorage = getAdminStorage(); // Use a instância de storage do Admin SDK
 
-// Configuração do Genkit (local para esta Cloud Function)
-// As credenciais da conta de serviço da Cloud Function devem ser usadas automaticamente pelo googleAI()
-configureGenkit({
+const ai = genkit({
   plugins: [googleAI()],
-  logLevel: "debug",
-  enableTracingAndMetrics: true,
 });
+
 
 // Constantes para Document AI (devem ser configuradas como variáveis de ambiente na Cloud Function)
 const PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT || "processai-v9qza"; // Fallback para o novo ID
@@ -57,7 +51,7 @@ const analyzeTextContentFlowLocal = ai.defineFlow(
   },
   async (input: AnalyzeTextContentInputLocal) => { // Adicionada tipagem explícita
     const { customAnalysisPrompt, textContent } = input;
-    const llmResponse = await generate({
+    const llmResponse = await ai.generate({
       model: "googleai/gemini-1.5-pro-latest", // Referência ao modelo pelo ID correto
       prompt: `${customAnalysisPrompt}
 
@@ -72,10 +66,10 @@ Retorne a análise SOMENTE como uma string JSON válida.`,
       },
       config: {
         temperature: 0.3, // Ajuste conforme necessário
-         safetySettings: [ // Adicionado safetySettings como exemplo
+        safetySettings: [ // Adicionado safetySettings como exemplo
           {
-            category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
-            threshold: 'BLOCK_ONLY_HIGH',
+            category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+            threshold: "BLOCK_ONLY_HIGH",
           },
         ],
       },
@@ -91,7 +85,7 @@ Retorne a análise SOMENTE como uma string JSON válida.`,
       return { analysisJsonString: JSON.stringify({ error: "Generated analysis was not valid JSON.", details: analysisJsonString }) };
     }
     return { analysisJsonString };
-  }
+  },
 );
 
 
@@ -214,19 +208,18 @@ export const processUploadedDocumentForAnalysis = onObjectFinalized(
           customAnalysisPrompt: analysisPromptUsed,
         };
         const genkitOutput = await analyzeTextContentFlowLocal(genkitInput);
-        
+
         // Tenta parsear a string JSON retornada pelo Genkit
         try {
-            analysisResultJson = JSON.parse(genkitOutput.analysisJsonString);
-            logger.info(`Successfully received and parsed analysis from Genkit for ${originalFileName}.`);
+          analysisResultJson = JSON.parse(genkitOutput.analysisJsonString);
+          logger.info(`Successfully received and parsed analysis from Genkit for ${originalFileName}.`);
         } catch (parseError) {
-            logger.error(`Failed to parse JSON from Genkit output for ${originalFileName}:`, parseError, "Raw output:", genkitOutput.analysisJsonString);
-            analysisResultJson = { 
-                error: "Failed to parse JSON from AI analysis.", 
-                rawOutput: genkitOutput.analysisJsonString 
-            };
+          logger.error(`Failed to parse JSON from Genkit output for ${originalFileName}:`, parseError, "Raw output:", genkitOutput.analysisJsonString);
+          analysisResultJson = {
+            error: "Failed to parse JSON from AI analysis.",
+            rawOutput: genkitOutput.analysisJsonString,
+          };
         }
-
       } catch (genkitError) {
         logger.error(`Error during Genkit analysis for ${originalFileName}:`, genkitError);
         analysisResultJson = {
@@ -254,7 +247,7 @@ export const processUploadedDocumentForAnalysis = onObjectFinalized(
         // return null; // Comentado para permitir que o arquivo seja limpo e o processo atualizado
       }
     }
-    
+
     // Salvar a análise (bem-sucedida ou com erro interno do Genkit)
     try {
       const analysisEntry = {
@@ -275,10 +268,9 @@ export const processUploadedDocumentForAnalysis = onObjectFinalized(
       // Atualizar o status do processo pai, mesmo se algumas análises tiverem erro interno
       await db.collection("processes").doc(processId).set(
         { id: processId, status: "documents_completed", updatedAt: AdminTimestamp.now() },
-        { merge: true }
+        { merge: true },
       );
       logger.info(`Process ${processId} status updated to documents_completed.`);
-
     } catch (saveError) {
       logger.error(`Error saving final analysis for ${originalFileName} to Firestore:`, saveError);
       return null; // Falha crítica ao salvar no DB
@@ -293,5 +285,5 @@ export const processUploadedDocumentForAnalysis = onObjectFinalized(
     }
 
     return null;
-  }
+  },
 );
