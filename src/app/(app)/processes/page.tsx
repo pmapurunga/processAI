@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -48,11 +47,11 @@ export default function ProcessesListPage() {
           }
         })
         .finally(() => setIsLoading(false));
-    } else if (!user && !isLoading) { 
+    } else { // Handle case where user is not logged in initially
         setProcesses([]); 
         setIsLoading(false);
     }
-  }, [user, isLoading]); 
+  }, [user]); // Removed isLoading from dependency array
 
   const renderIndexErrorMessage = () => {
     if (!indexError) return null;

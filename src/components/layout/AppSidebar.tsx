@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn }
 from "@/lib/utils";
 import { Home, FilePlus, ListOrdered, Settings, ChevronDown, ChevronUp } from "lucide-react";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // Import useEffect
 import {
   Accordion,
   AccordionContent,
@@ -15,6 +15,12 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 
+// Define a type for your process objects
+interface Process {
+  id: string;
+  name: string;
+  // Add other process properties if needed
+}
 
 interface NavLinkProps {
   href: string;
@@ -47,13 +53,19 @@ const NavLink: React.FC<NavLinkProps> = ({ href, icon: Icon, label, isSubItem })
 
 
 export function AppSidebar() {
-  // Example recent processes - this would come from your state/API
-  const [recentProcesses] = useState([
-    // { id: "123", name: "Processo 12345-67.2023" },
-    // { id: "456", name: "Processo 98765-43.2022" },
-  ]);
+  const [recentProcesses, setRecentProcesses] = useState<Process[]>([]); // Initialize as empty array, allow setting state
   const [isRecentOpen, setIsRecentOpen] = useState(true);
 
+  // TODO: Fetch recent processes from Firestore here and update the recentProcesses state
+  // Example using useEffect:
+  // useEffect(() => {
+  //   const fetchProcesses = async () => {
+  //     // Fetch logic here
+  //     const processes = [...] // result from Firestore
+  //     setRecentProcesses(processes);
+  //   };
+  //   fetchProcesses();
+  // }, []); // Add dependencies if needed
 
   return (
     <aside className="hidden md:flex md:flex-col md:w-64 border-r bg-card fixed top-16 bottom-0 left-0 z-40">
