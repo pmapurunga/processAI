@@ -1,186 +1,119 @@
 "use client";
 
-import React, { useState, useCallback, ChangeEvent } from 'react';
-import { Input } from "@/components/ui/input";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { UploadCloud, FileText, XCircle, Loader2 } from 'lucide-react';
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast"; // Usando o hook de toast existente
 
 interface PdfUploaderProps {
-  onFileSelect: (file: File | null, dataUri: string | null) => void;
-  onFilesSelect?: (files: FileList | null, dataUris: { name: string; dataUri: string }[]) => void;
-  multiple?: boolean;
-  ctaText?: string;
-  idSuffix?: string;
-  isProcessing?: boolean;
+  processId: string; // O componente agora exige um processId
+  onUploadSuccess?: (result: any) => void; // Callback opcional para quando o upload for bem-sucedido
 }
 
-export function PdfUploader({ onFileSelect, onFilesSelect, multiple = false, ctaText, idSuffix = "", isProcessing = false }: PdfUploaderProps) {
+export function PdfUploader({ processId, onUploadSuccess }: PdfUploaderProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const { toast } = useToast();
 
-  const handleFileChange = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
-    setError(null);
-    const files = event.target.files;
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files) {
+      setSelectedFile(event.target.files[0]);
+    }
+  };
 
-    if (multiple && onFilesSelect) {
-      if (files && files.length > 0) {
-        setSelectedFiles(files);
-        const dataUrisArray: { name: string; dataUri: string }[] = [];
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i];
-          if (file.type !== "application/pdf") {
-            setError(`File "${file.name}" is not a PDF. Please upload PDF files only.`);
-            onFilesSelect(null, []);
-            setSelectedFiles(null);
-            return;
-          }
-          if (file.size > 15 * 1024 * 1024) { // 15MB limit
-             setError(`File "${file.name}" exceeds the 15MB size limit.`);
-             onFilesSelect(null, []);
-             setSelectedFiles(null);
-             return;
-          }
-          try {
-            const dataUri = await readFileAsDataURL(file);
-            dataUrisArray.push({ name: file.name, dataUri });
-          } catch (e) {
-             setError(`Error reading file "${file.name}".`);
-             onFilesSelect(null, []);
-             setSelectedFiles(null);
-             return;
-          }
-        }
-        onFilesSelect(files, dataUrisArray);
-      } else {
-        setSelectedFiles(null);
-        onFilesSelect(null, []);
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!selectedFile) {
+      toast({
+        title: "Nenhum arquivo selecionado",
+        description: "Por favor, selecione um arquivo PDF para enviar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!processId) {
+      toast({
+        title: "Erro de Configuração",
+        description: "O ID do Processo não foi encontrado. Não é possível enviar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    
+    // 1. Criar o objeto FormData
+    const formData = new FormData();
+    formData.append("file", selectedFile); // O nome 'file' deve corresponder ao esperado no backend
+    formData.append("processId", processId); // O nome 'processId' deve corresponder
+
+    // 2. Enviar a requisição para a sua Cloud Function
+    // !!! SUBSTITUA PELA URL REAL DA SUA FUNÇÃO !!!
+    const functionUrl = "https://<SUA_REGIAO>-<SEU_PROJETO>.cloudfunctions.net/processPdfEndpoint";
+
+    try {
+      const response = await fetch(functionUrl, {
+        method: "POST",
+        body: formData, // O browser define o 'Content-Type' como 'multipart/form-data' automaticamente
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Falha no upload do arquivo.");
       }
-    } else if (!multiple && onFileSelect) {
-      const file = files?.[0];
-      if (file) {
-        if (file.type !== "application/pdf") {
-          setError("Invalid file type. Please upload a PDF.");
-          onFileSelect(null, null);
-          setSelectedFile(null);
-          return;
-        }
-        if (file.size > 15 * 1024 * 1024) { // 15MB limit
-          setError("File exceeds the 15MB size limit.");
-          onFileSelect(null, null);
-          setSelectedFile(null);
-          return;
-        }
-        setSelectedFile(file);
-        try {
-          const dataUri = await readFileAsDataURL(file);
-          onFileSelect(file, dataUri);
-        } catch (e) {
-          setError("Error reading file.");
-          onFileSelect(null, null);
-          setSelectedFile(null);
-        }
-      } else {
-        setSelectedFile(null);
-        onFileSelect(null, null);
+
+      toast({
+        title: "Upload Concluído!",
+        description: `Arquivo '${selectedFile.name}' processado e texto extraído.`,
+      });
+      
+      if (onUploadSuccess) {
+        onUploadSuccess(result);
+      }
+
+    } catch (error) {
+      console.error("Erro no upload:", error);
+      toast({
+        title: "Erro no Upload",
+        description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+      setSelectedFile(null);
+      // Limpa o input de arquivo
+      const fileInput = document.getElementById('pdf-upload') as HTMLInputElement;
+      if (fileInput) {
+        fileInput.value = "";
       }
     }
-     // Reset the input value to allow re-uploading the same file after an error or clearing
-    event.target.value = '';
-
-  }, [onFileSelect, onFilesSelect, multiple]);
-
-  const readFileAsDataURL = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = (error) => reject(error);
-      reader.readAsDataURL(file);
-    });
   };
-
-  const clearSelection = () => {
-    setSelectedFile(null);
-    setSelectedFiles(null);
-    setError(null);
-    if (!multiple && onFileSelect) onFileSelect(null, null);
-    if (multiple && onFilesSelect) onFilesSelect(null, []);
-  };
-  
-  const inputId = `pdf-upload-${idSuffix}`;
 
   return (
-    <div className="w-full space-y-4">
-      <label
-        htmlFor={inputId}
-        className={`flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer bg-card hover:bg-secondary/50 transition-colors
-          ${error ? 'border-destructive' : 'border-primary/50'}
-          ${isProcessing ? 'opacity-50 pointer-events-none' : ''}`}
-      >
-        <div className="flex flex-col items-center justify-center pt-5 pb-6">
-          {isProcessing ? (
-            <Loader2 className="w-10 h-10 mb-3 text-primary animate-spin" />
-          ) : (
-            <UploadCloud className="w-10 h-10 mb-3 text-primary" />
-          )}
-          <p className="mb-2 text-sm text-foreground">
-            <span className="font-semibold">Click to upload</span> or drag and drop
-          </p>
-          <p className="text-xs text-muted-foreground">PDF only (MAX. 15MB {multiple ? 'per file' : ''})</p>
-          {ctaText && <p className="text-xs text-primary mt-1">{ctaText}</p>}
+    <div className="border rounded-lg p-6 space-y-4">
+      <h3 className="text-lg font-medium">Enviar PDF do Processo Completo</h3>
+      <p className="text-sm text-muted-foreground">
+        Envie o arquivo PDF completo. O sistema irá extrair o texto e prepará-lo para o chat.
+      </p>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid w-full max-w-sm items-center gap-1.5">
+          <Label htmlFor="pdf-upload">Arquivo PDF</Label>
+          <Input 
+            id="pdf-upload" 
+            type="file" 
+            accept=".pdf" 
+            onChange={handleFileChange} 
+            disabled={isUploading}
+          />
         </div>
-        <Input
-          id={inputId}
-          type="file"
-          className="hidden"
-          accept="application/pdf"
-          onChange={handleFileChange}
-          multiple={multiple}
-          disabled={isProcessing}
-        />
-      </label>
-
-      {error && (
-        <Alert variant="destructive">
-          <XCircle className="h-4 w-4" />
-          <AlertTitle>Upload Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      {!multiple && selectedFile && !error && (
-        <div className="p-3 border rounded-md bg-secondary/30 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <FileText className="h-5 w-5 text-primary" />
-            <span className="text-sm text-foreground truncate max-w-xs sm:max-w-sm md:max-w-md">{selectedFile.name}</span>
-            <span className="text-xs text-muted-foreground">({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)</span>
-          </div>
-          <Button variant="ghost" size="icon" onClick={clearSelection} disabled={isProcessing}>
-            <XCircle className="h-4 w-4 text-destructive" />
-          </Button>
-        </div>
-      )}
-      
-      {multiple && selectedFiles && selectedFiles.length > 0 && !error && (
-        <div className="space-y-2">
-          <h4 className="text-sm font-medium text-foreground">{selectedFiles.length} file(s) selected:</h4>
-          <ul className="max-h-48 overflow-y-auto space-y-1 pr-2">
-            {Array.from(selectedFiles).map((file, index) => (
-              <li key={index} className="p-2 border rounded-md bg-secondary/30 flex items-center justify-between text-sm">
-                <div className="flex items-center space-x-2">
-                  <FileText className="h-5 w-5 text-primary flex-shrink-0" />
-                  <span className="text-foreground truncate ">{file.name}</span>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
-                </div>
-              </li>
-            ))}
-          </ul>
-           <Button variant="outline" size="sm" onClick={clearSelection} disabled={isProcessing} className="mt-2">
-            Clear All
-          </Button>
-        </div>
-      )}
+        <Button type="submit" disabled={isUploading || !selectedFile}>
+          {isUploading ? "Enviando..." : "Enviar e Processar"}
+        </Button>
+      </form>
     </div>
   );
 }

@@ -1,290 +1,170 @@
 import * as dotenv from "dotenv";
-dotenv.config(); // Carrega variáveis de .env para o ambiente, útil para teste local
+dotenv.config();
 
 import * as logger from "firebase-functions/logger";
-// Importações não utilizadas de admin e AdminApp foram removidas
-import { initializeApp, getApps } from "firebase-admin/app";
-import { getFirestore, Timestamp as AdminTimestamp } from "firebase-admin/firestore"; // Import AdminTimestamp
-import { getStorage as getAdminStorage } from "firebase-admin/storage"; // Import getAdminStorage
-import { onObjectFinalized, StorageEvent } from "firebase-functions/v2/storage";
-import { DocumentProcessorServiceClient as DocumentAIClient } from "@google-cloud/documentai";
-import { genkit } from "genkit";
-import { googleAI } from "@genkit-ai/googleai";
-import { z } from "zod";
+import * as functionsV1 from "firebase-functions/v1"; // Import V1 para HTTP
+import { onDocumentCreated } from "firebase-functions/v2/firestore"; // Import V2 para Triggers
 
-// Inicialização do Firebase Admin SDK (apenas uma vez)
+import { initializeApp, getApps } from "firebase-admin/app";
+import { getFirestore, Timestamp as AdminTimestamp } from "firebase-admin/firestore";
+import { DocumentProcessorServiceClient as DocumentAIClient } from "@google-cloud/documentai";
+
+// eslint-disable-next-line import/named
+import { configureGenkit } from "@genkit-ai/core"; // CORREÇÃO: Desabilitar linter para esta linha
+import { embed } from "@genkit-ai/ai";
+import { googleAI } from "@genkit-ai/googleai";
+import busboy from "busboy";
+
+// Inicialização do Firebase Admin SDK
 if (!getApps().length) {
   initializeApp();
 }
 const db = getFirestore();
-const adminStorage = getAdminStorage(); // Use a instância de storage do Admin SDK
 
-const ai = genkit({
+// Inicializa o Genkit globalmente
+configureGenkit({
   plugins: [googleAI()],
+  logLevel: "debug",
+  enableTracingAndMetrics: true,
 });
 
-
-// Constantes para Document AI (devem ser configuradas como variáveis de ambiente na Cloud Function)
-const PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT || "processai-v9qza"; // Fallback para o novo ID
+// Constantes
+const PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT || "processai-v9qza";
 const LOCATION = process.env.DOCUMENT_AI_LOCATION; // ex: "us"
-const PROCESSOR_ID = process.env.DOCUMENT_AI_PROCESSOR_ID; // Seu ID de processador
+const PROCESSOR_ID = process.env.DOCUMENT_AI_PROCESSOR_ID;
 
 
-// Definição do Flow Genkit para análise de texto (diretamente aqui para simplicidade)
-const AnalyzeTextContentInputSchemaLocal = z.object({
-  textContent: z.string().describe("The full text content extracted from a document."),
-  customAnalysisPrompt: z.string().describe("A user-defined prompt to guide the AI analysis."),
-});
-type AnalyzeTextContentInputLocal = z.infer<typeof AnalyzeTextContentInputSchemaLocal>;
+// Parte 1: Função HTTP para receber o PDF e extrair texto
+export const processPdfEndpoint = functionsV1
+  .runWith({ timeoutSeconds: 540, memory: "1GiB" })
+  .https.onRequest(async (req: functionsV1.Request, res: functionsV1.Response) => {
+    if (req.method !== "POST") {
+      logger.warn("Method Not Allowed", { method: req.method });
+      return res.status(405).send("Method Not Allowed");
+    }
+    if (!LOCATION || !PROCESSOR_ID) {
+      logger.error("Missing Document AI environment variables");
+      return res.status(500).send({ success: false, error: "Server configuration error." });
+    }
 
-const AnalyzeTextContentOutputSchemaLocal = z.object({
-  analysisJsonString: z.string().describe("A JSON string representing the structured analysis."),
-});
-// Removido o tipo 'AnalyzeTextContentOutputLocal' não utilizado
-// type AnalyzeTextContentOutputLocal = z.infer<typeof AnalyzeTextContentOutputSchemaLocal>;
+    const bb = busboy({ headers: req.headers });
+    let fileBuffer: Buffer | undefined;
+    let fileName: string | undefined;
+    let mimeType: string | undefined;
+    let processId: string | undefined;
 
-// Corrigido o uso de ai.defineFlow e adicionada tipagem ao input
-const analyzeTextContentFlowLocal = ai.defineFlow(
-  {
-    name: "analyzeTextContentFlowInFunction",
-    inputSchema: AnalyzeTextContentInputSchemaLocal,
-    outputSchema: AnalyzeTextContentOutputSchemaLocal,
-  },
-  async (input: AnalyzeTextContentInputLocal) => { // Adicionada tipagem explícita
-    const { customAnalysisPrompt, textContent } = input;
-    const llmResponse = await ai.generate({
-      model: "googleai/gemini-1.5-pro-latest", // Referência ao modelo pelo ID correto
-      prompt: `${customAnalysisPrompt}
-
-Analise o seguinte texto:
-
-${textContent}
-
-Retorne a análise SOMENTE como uma string JSON válida.`,
-      output: {
-        format: "json", // Solicita saída JSON se o modelo suportar explicitamente
-        schema: AnalyzeTextContentOutputSchemaLocal, // Ajuda a guiar o modelo
-      },
-      config: {
-        temperature: 0.3, // Ajuste conforme necessário
-        safetySettings: [ // Adicionado safetySettings como exemplo
-          {
-            category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-            threshold: "BLOCK_ONLY_HIGH",
-          },
-        ],
-      },
+    bb.on("field", (fieldname, val) => {
+      if (fieldname === "processId") {
+        processId = val as string;
+      }
     });
 
-    const analysisJsonString = llmResponse.output?.analysisJsonString || JSON.stringify({ error: "No analysis content generated or output format issue." });
-
-    // Validação básica se é uma string JSON (pode ser mais robusta)
-    try {
-      JSON.parse(analysisJsonString);
-    } catch (e) {
-      logger.error("Generated analysis is not valid JSON:", analysisJsonString, e);
-      return { analysisJsonString: JSON.stringify({ error: "Generated analysis was not valid JSON.", details: analysisJsonString }) };
-    }
-    return { analysisJsonString };
-  },
-);
-
-
-export const processUploadedDocumentForAnalysis = onObjectFinalized(
-  { timeoutSeconds: 540, memory: "1GiB" }, // Aumentar timeout e memória
-  async (event: StorageEvent): Promise<null> => {
-    logger.info("Function triggered by Storage event:", event.id);
-
-    if (!LOCATION || !PROCESSOR_ID) {
-      logger.error("Missing Document AI environment variables: DOCUMENT_AI_LOCATION or DOCUMENT_AI_PROCESSOR_ID");
-      return null;
-    }
-
-    const fileBucket = event.data.bucket;
-    const filePath = event.data.name;
-    const contentType = event.data.contentType;
-    const customMetadata = event.data.metadata;
-
-    if (!filePath || !contentType) {
-      logger.warn("File path or content type missing.", { filePath, contentType });
-      return null;
-    }
-    logger.info(`New file: ${filePath} in ${fileBucket}`);
-
-    if (!filePath.startsWith("pendingAnalysis/")) {
-      logger.log("File is not in pendingAnalysis/, ignoring.");
-      return null;
-    }
-    if (!contentType.includes("pdf")) {
-      logger.warn(`File ${filePath} is not PDF. Type: ${contentType}.`);
-      // Considerar deletar o arquivo não PDF do Storage
-      // await adminStorage.bucket(fileBucket).file(filePath).delete();
-      return null;
-    }
-
-    const processId = customMetadata?.processId;
-    const analysisPromptUsed = customMetadata?.analysisPromptUsed;
-    const userId = customMetadata?.userId;
-    const originalFileName = customMetadata?.originalFileName ?? filePath.split("/").pop() ?? "unknown.pdf";
-
-    if (!processId || !analysisPromptUsed || !userId) {
-      logger.error("Essential metadata missing (processId, analysisPromptUsed, or userId):", { filePath, customMetadata });
-      try {
-        await adminStorage.bucket(fileBucket).file(filePath).delete();
-        logger.log(`Deleted ${filePath} due to missing metadata.`);
-      } catch (deleteError) {
-        logger.error(`Error deleting ${filePath} (missing metadata):`, deleteError);
+    bb.on("file", (_fieldname, file, info) => {
+      const { filename, mimeType: fileMimeType } = info;
+      logger.info(`File received: ${filename}`);
+      if (!fileMimeType.includes("pdf") && !fileMimeType.includes("tiff")) {
+        file.resume(); return;
       }
-      return null;
+      fileName = filename;
+      mimeType = fileMimeType;
+      const chunks: Buffer[] = [];
+      file.on("data", (chunk) => chunks.push(chunk));
+      file.on("end", () => fileBuffer = Buffer.concat(chunks));
+    });
+
+    bb.on("finish", async () => {
+      if (!fileBuffer || !fileName || !mimeType || !processId) {
+        logger.error("File upload incomplete or missing processId.");
+        return res.status(400).send({ success: false, error: "File or processId missing." });
+      }
+
+      try {
+        const documentAIClient = new DocumentAIClient({ apiEndpoint: `${LOCATION}-documentai.googleapis.com` });
+        const name = `projects/${PROJECT_ID}/locations/${LOCATION}/processors/${PROCESSOR_ID}`;
+        const [docAiResult] = await documentAIClient.processDocument({
+          name,
+          rawDocument: { content: fileBuffer, mimeType: mimeType },
+        });
+
+        const extractedText = docAiResult.document?.text || "";
+        logger.info(`Extracted text from ${fileName}. Length: ${extractedText.length}`);
+
+        const docRef = db.collection("processes").doc(processId).collection("extracted_texts").doc();
+        // CORREÇÃO: Quebra de linha para o linter
+        await docRef.set({
+          processId,
+          fileName,
+          extractedAt: AdminTimestamp.now(),
+          textLength: extractedText.length,
+          textContent: extractedText,
+        });
+
+        logger.info(`Extracted text from ${fileName} saved to Firestore.`);
+        res.status(200).send({
+          success: true, message: "PDF processed successfully.", documentId: docRef.id,
+        });
+      } catch (error) {
+        logger.error(`Error processing file ${fileName} with Document AI:`, error);
+        res.status(500).send({ success: false, error: "Failed to process file with Document AI." });
+      }
+    });
+
+    req.pipe(bb);
+  });
+
+
+// Parte 2: Função acionada pelo Firestore para gerar embeddings
+function splitTextIntoChunks(text: string, chunkSize: number, chunkOverlap: number): string[] {
+  if (chunkOverlap >= chunkSize) throw new Error("chunkOverlap must be smaller than chunkSize.");
+  const chunks: string[] = [];
+  let i = 0;
+  while (i < text.length) {
+    chunks.push(text.slice(i, i + chunkSize));
+    i += chunkSize - chunkOverlap;
+  }
+  return chunks;
+}
+
+export const generateEmbeddingsForText = onDocumentCreated(
+  { document: "processes/{processId}/extracted_texts/{textDocId}", memory: "1GiB", timeoutSeconds: 540 },
+  async (event) => {
+    const snap = event.data;
+    if (!snap) {
+      logger.error("[Embeddings] No data associated with the event."); return;
+    }
+    const { textContent, processId, fileName } = snap.data();
+    if (!textContent || !processId || !fileName) {
+      logger.error("[Embeddings] Document data is missing required fields."); return;
     }
 
-    logger.info(`Starting processing for ${originalFileName}, process ID: ${processId}`);
-    let extractedText = "";
-
     try {
-      const bucket = adminStorage.bucket(fileBucket);
-      const file = bucket.file(filePath);
-      const [pdfContents] = await file.download();
-      logger.info(`Successfully downloaded ${originalFileName} from Storage.`);
+      const chunks = splitTextIntoChunks(textContent, 1500, 150);
+      logger.info(`[Embeddings] Text from "${fileName}" split into ${chunks.length} chunks.`);
 
-      const documentAIClient = new DocumentAIClient({ apiEndpoint: `${LOCATION}-documentai.googleapis.com` });
-      const name = `projects/${PROJECT_ID}/locations/${LOCATION}/processors/${PROCESSOR_ID}`;
-
-      logger.info(`Sending ${originalFileName} to Document AI processor: ${name}`);
-      const [docAiResult] = await documentAIClient.processDocument({
-        name,
-        rawDocument: {
-          content: pdfContents,
-          mimeType: contentType,
-        },
+      const embeddings = await embed({
+        embedder: "googleai/text-embedding-004",
+        content: chunks,
       });
 
-      if (docAiResult.document?.text) {
-        extractedText = docAiResult.document.text;
-        logger.info(`Successfully extracted text from ${originalFileName} using Document AI. Length: ${extractedText.length}`);
-      } else {
-        logger.warn(`Document AI did not return text for ${originalFileName}.`);
-        extractedText = ""; // Garante que não é nulo/undefined
-      }
-    } catch (docError) {
-      logger.error(`Error during Document AI processing for ${originalFileName}:`, docError);
-      // Salvar um erro na análise do Firestore
-      try {
-        await db.collection("processes").doc(processId).collection("documentAnalyses").add({
-          processId,
-          fileName: originalFileName,
-          analysisPromptUsed,
-          status: "error" as const,
-          errorMessage: `Document AI processing failed: ${docError instanceof Error ? docError.message : String(docError)}`,
-          uploadedAt: AdminTimestamp.now(), // Use AdminTimestamp
-          analyzedAt: AdminTimestamp.now(),
-          processedBy: "cloudFunctionError_DocAI",
+      if (embeddings.length !== chunks.length) throw new Error("Mismatch between chunks and embeddings count.");
+
+      const batch = db.batch();
+      for (let i = 0; i < chunks.length; i++) {
+        const chunkDocRef = db.collection("processes").doc(processId).collection("text_chunks").doc();
+        batch.set(chunkDocRef, {
+          processId, originalDocId: snap.id, originalFileName: fileName,
+          chunkNumber: i + 1, totalChunks: chunks.length,
+          chunkText: chunks[i], embedding: embeddings[i],
+          createdAt: AdminTimestamp.now(),
         });
-        await adminStorage.bucket(fileBucket).file(filePath).delete(); // Limpa o arquivo após falha
-      } catch (saveError) {
-        logger.error(`Failed to save DocAI error status for ${originalFileName}:`, saveError);
       }
-      return null;
+
+      await batch.commit();
+      logger.info(`[Embeddings] Successfully saved ${chunks.length} chunks for "${fileName}".`);
+      await snap.ref.update({ status: "embeddings_generated" });
+    } catch (error) {
+      logger.error(`[Embeddings] Failed to generate embeddings for "${fileName}".`, error);
+      await snap.ref.update({ status: "error_generating_embeddings", errorMessage: error instanceof Error ? error.message : String(error) });
     }
-
-    let analysisResultJson: any = { error: "Analysis not performed or failed before Genkit." };
-
-    if (extractedText.trim() === "") {
-      logger.warn(`No text extracted from ${originalFileName}. Using a default error message for analysisResultJson.`);
-      analysisResultJson = {
-        IdDocOriginal: originalFileName.split(".")[0] ?? "mockId",
-        TipoDocOriginal: "Doc (Determinar tipo)",
-        PoloInferido: "N/A (Sem Texto)",
-        NomeArqOriginal: originalFileName,
-        ResumoGeralConteudoArquivo: "Não foi possível extrair texto do documento para análise.",
-        InformacoesProcessuaisRelevantes: "N/A",
-        DocumentosMedicosEncontradosNesteArquivo: [],
-        error: "No text content to analyze.",
-      };
-    } else {
-      try {
-        logger.info(`Invoking Genkit flow for ${originalFileName} with prompt: "${analysisPromptUsed}"`);
-        const genkitInput: AnalyzeTextContentInputLocal = {
-          textContent: extractedText,
-          customAnalysisPrompt: analysisPromptUsed,
-        };
-        const genkitOutput = await analyzeTextContentFlowLocal(genkitInput);
-
-        // Tenta parsear a string JSON retornada pelo Genkit
-        try {
-          analysisResultJson = JSON.parse(genkitOutput.analysisJsonString);
-          logger.info(`Successfully received and parsed analysis from Genkit for ${originalFileName}.`);
-        } catch (parseError) {
-          logger.error(`Failed to parse JSON from Genkit output for ${originalFileName}:`, parseError, "Raw output:", genkitOutput.analysisJsonString);
-          analysisResultJson = {
-            error: "Failed to parse JSON from AI analysis.",
-            rawOutput: genkitOutput.analysisJsonString,
-          };
-        }
-      } catch (genkitError) {
-        logger.error(`Error during Genkit analysis for ${originalFileName}:`, genkitError);
-        analysisResultJson = {
-          error: `Genkit analysis failed: ${genkitError instanceof Error ? genkitError.message : String(genkitError)}`,
-        };
-        // Salvar um erro na análise do Firestore para Genkit
-        try {
-          await db.collection("processes").doc(processId).collection("documentAnalyses").add({
-            processId,
-            fileName: originalFileName,
-            analysisPromptUsed,
-            status: "error" as const,
-            analysisResultJson, // Salva o objeto de erro do Genkit
-            errorMessage: `Genkit analysis failed: ${genkitError instanceof Error ? genkitError.message : String(genkitError)}`,
-            uploadedAt: AdminTimestamp.now(),
-            analyzedAt: AdminTimestamp.now(),
-            processedBy: "cloudFunctionError_Genkit",
-          });
-          // Não deletar o arquivo aqui, pois o DocAI pode ter funcionado
-        } catch (saveError) {
-          logger.error(`Failed to save Genkit error status for ${originalFileName}:`, saveError);
-        }
-        // Decidir se retorna null ou continua para atualizar o status do processo pai
-        // Por ora, vamos retornar null se o Genkit falhar criticamente.
-        // return null; // Comentado para permitir que o arquivo seja limpo e o processo atualizado
-      }
-    }
-
-    // Salvar a análise (bem-sucedida ou com erro interno do Genkit)
-    try {
-      const analysisEntry : any = {
-        processId,
-        fileName: originalFileName,
-        analysisPromptUsed,
-        analysisResultJson, // Este é o objeto parseado ou o objeto de erro
-        status: analysisResultJson.error ? "error" : "completed" as const, // Define status baseado no resultado
-        errorMessage: analysisResultJson.error || undefined,
-        uploadedAt: AdminTimestamp.now(),
-        analyzedAt: AdminTimestamp.now(),
-        processedBy: "cloudFunction",
-      };
-
-      await db.collection("processes").doc(processId).collection("documentAnalyses").add(analysisEntry);
-      logger.info(`Analysis for ${originalFileName} (status: ${analysisEntry.status}) saved to Firestore for process ${processId}.`);
-
-      // Atualizar o status do processo pai, mesmo se algumas análises tiverem erro interno
-      await db.collection("processes").doc(processId).set(
-        { id: processId, status: "documents_completed", updatedAt: AdminTimestamp.now() },
-        { merge: true },
-      );
-      logger.info(`Process ${processId} status updated to documents_completed.`);
-    } catch (saveError) {
-      logger.error(`Error saving final analysis for ${originalFileName} to Firestore:`, saveError);
-      return null; // Falha crítica ao salvar no DB
-    }
-
-    // Deletar o arquivo do Storage após processamento bem-sucedido (ou erro tratado e registrado)
-    try {
-      await adminStorage.bucket(fileBucket).file(filePath).delete();
-      logger.info(`Processed and deleted ${filePath} from Storage.`);
-    } catch (deleteError) {
-      logger.error(`Error deleting ${filePath} from Storage after processing:`, deleteError);
-    }
-
-    return null;
   },
 );
