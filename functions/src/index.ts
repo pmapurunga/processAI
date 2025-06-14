@@ -29,6 +29,7 @@ const PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT || "processai-v9qza"; // Fal
 const LOCATION = process.env.DOCUMENT_AI_LOCATION; // ex: "us"
 const PROCESSOR_ID = process.env.DOCUMENT_AI_PROCESSOR_ID; // Seu ID de processador
 
+
 // Definição do Flow Genkit para análise de texto (diretamente aqui para simplicidade)
 const AnalyzeTextContentInputSchemaLocal = z.object({
   textContent: z.string().describe("The full text content extracted from a document."),
@@ -250,7 +251,7 @@ export const processUploadedDocumentForAnalysis = onObjectFinalized(
 
     // Salvar a análise (bem-sucedida ou com erro interno do Genkit)
     try {
-      const analysisEntry = {
+      const analysisEntry : any = {
         processId,
         fileName: originalFileName,
         analysisPromptUsed,

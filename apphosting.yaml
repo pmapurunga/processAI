@@ -8,13 +8,24 @@ runConfig:
   # memoryMiB: 512
 
 # Environment variables and secrets.
-# env:
-  # Configure environment variables.
-  # See https://firebase.google.com/docs/app-hosting/configure#user-defined-environment
-  # - variable: MESSAGE
-  #   value: Hello world!
+env:
+  # Add your Document AI environment variables here:
+  - variable: DOCUMENT_AI_LOCATION
+    value: "us" # e.g., "us", "eu", "southamerica-east1"
+    availability:
+      - RUNTIME
+  - variable: DOCUMENT_AI_PROCESSOR_ID
+    value: "516b53c39b09990f" # Replace with your actual Document AI Processor ID
+    availability:
+      - RUNTIME
+
+  # The variables from your .env.local are for client-side and local emulation,
+  # and generally not needed here for the Cloud Function.
+  # However, if any other backend function critically needs them, you can add them.
+  # For example:
+  # - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+  #   value: "AIzaSyDeBgbnLbXyk4d_6yBDk2e7rldYJqHXNM8"
   #   availability:
-  #     - BUILD
   #     - RUNTIME
 
   # Grant access to secrets in Cloud Secret Manager.
