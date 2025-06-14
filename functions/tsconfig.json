@@ -1,17 +1,30 @@
 {
   "compilerOptions": {
-    "module": "NodeNext",
+    "types": [
+      "node"
+    ],
+    "lib": [
+      "es2020",
+      "dom"
+    ],
     "esModuleInterop": true,
-    "moduleResolution": "nodenext",
+    "experimentalDecorators": true,
+    "module": "commonjs",
+    "moduleResolution": "node", // <-- MUDAR ESTA LINHA DE "nodenext" para "node"
     "noImplicitReturns": true,
     "noUnusedLocals": true,
     "outDir": "lib",
     "sourceMap": true,
     "strict": true,
-    "target": "es2017"
+    "skipLibCheck": true,
+    "target": "es2020",
+    "forceConsistentCasingInFileNames": true
   },
   "compileOnSave": true,
   "include": [
-    "src"
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
   ]
 }
