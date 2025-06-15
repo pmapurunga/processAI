@@ -7,10 +7,10 @@
       "es2020",
       "dom"
     ],
+    "moduleResolution": "node",
     "esModuleInterop": true,
     "experimentalDecorators": true,
     "module": "commonjs",
-    "moduleResolution": "node", // <-- MUDAR ESTA LINHA DE "nodenext" para "node"
     "noImplicitReturns": true,
     "noUnusedLocals": true,
     "outDir": "lib",

@@ -1,6 +1,7 @@
 {
   "name": "functions",
   "description": "Cloud Functions for Firebase",
+  "type": "module",
   "scripts": {
     "lint": "eslint . --fix",
     "build": "tsc",
@@ -16,17 +17,20 @@
   },
   "main": "lib/index.js",
   "dependencies": {
+    "@genkit-ai/ai": "latest",
+    "@genkit-ai/firebase": "^1.12.0",
+    "@genkit-ai/flow": "latest",
+    "@genkit-ai/googleai": "latest",
     "@google-cloud/aiplatform": "^3.2.0",
+    "@google-cloud/documentai": "^9.2.0",
     "@google-cloud/vision": "^4.3.0",
     "firebase-admin": "^12.1.0",
     "firebase-functions": "^5.0.1",
     "pdf-parse": "^1.1.1",
-    "@genkit-ai/flow": "latest",
-    "@genkit-ai/ai": "latest",
-    "@genkit-ai/googleai": "latest",
     "zod": "latest"
   },
   "devDependencies": {
+    "@types/pdf-parse": "^1.1.5",
     "@typescript-eslint/eslint-plugin": "^7.11.0",
     "@typescript-eslint/parser": "^7.11.0",
     "eslint": "^8.57.0",

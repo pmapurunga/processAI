@@ -1,7 +1,7 @@
-
 import { onObjectFinalized } from "firebase-functions/v2/storage";
 import { ingestDocumentFlow } from "./ingest-document";
 import * as admin from "firebase-admin";
+import { runFlow } from "@genkit-ai/flow";
 
 admin.initializeApp();
 
@@ -20,7 +20,7 @@ export const triggerDocumentIngestion = onObjectFinalized(
     const processId = pathParts[1];
 
     try {
-      await ingestDocumentFlow.run({
+      await runFlow(ingestDocumentFlow, {
         filePath: name,
         processId: processId,
       });
