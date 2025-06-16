@@ -1,4 +1,3 @@
-
 import { defineFlow } from '@genkit-ai/flow';
 import * as z from 'zod';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -9,29 +8,42 @@ import { IndexEndpointServiceClient } from '@google-cloud/aiplatform';
 const firestore = getFirestore();
 const indexEndpointServiceClient = new IndexEndpointServiceClient();
 
-// Configuration for Vertex AI Vector Search
-// TODO: Replace with your actual configuration or move to environment variables
-const project = 'your-gcp-project-id';
-const location = 'us-central1';
-const indexEndpointId = 'your-vector-search-index-endpoint-id';
-const deployedIndexId = 'your-deployed-index-id'; // This ID is found on your Index Endpoint page
+// Carrega as configurações das variáveis de ambiente
+const project = process.env.GCP_PROJECT;
+const location = process.env.GCP_LOCATION;
+const indexEndpointId = process.env.VERTEX_INDEX_ENDPOINT_ID;
+const deployedIndexId = process.env.VERTEX_DEPLOYED_INDEX_ID;
+
+// Validação para garantir que as variáveis de ambiente foram configuradas
+if (!project || !location || !indexEndpointId || !deployedIndexId) {
+  throw new Error(
+    'Variáveis de ambiente do Vertex AI não configuradas. ' +
+    'Execute "firebase functions:config:set" para gcp.project, gcp.location, vertex.index_endpoint_id, e vertex.deployed_index_id'
+  );
+}
 
 export const ragChatFlow = defineFlow(
   {
-    name: 'ragChat',
+    name: 'ragChatFlow',
     inputSchema: z.object({
       processId: z.string(),
       query: z.string(),
+      history: z.array(z.object({
+        role: z.enum(['user', 'model']),
+        content: z.string(),
+      })).optional(),
     }),
-    outputSchema: z.object({
-      response: z.string(),
-    }),
+    outputSchema: z.string(),
   },
   async (input) => {
     const { processId, query } = input;
 
     // 1. Generate an embedding for the user's query
-    const queryEmbedding = await embed(textEmbedding004, query);
+    const queryEmbeddingResponse = await embed({
+      embedder: textEmbedding004,
+      content: query,
+    });
+    const queryEmbedding = queryEmbeddingResponse.embedding;
 
     // 2. Find relevant text chunks using Vertex AI Vector Search
     const endpointName = indexEndpointServiceClient.indexEndpointPath(project, location, indexEndpointId);
@@ -41,16 +53,16 @@ export const ragChatFlow = defineFlow(
       deployedIndexId: deployedIndexId,
       queries: [{
         datapoint: {
-          feature_vector: queryEmbedding[0],
+          feature_vector: queryEmbedding,
         },
-        neighborCount: 5, // Retrieve the top 5 most similar chunks
+        neighborCount: 5,
       }],
     });
     
-    const neighborIds = findNeighborsResponse.nearestNeighbors?.[0]?.neighbors?.map(n => n.datapoint?.datapointId) ?? [];
+    const neighborIds = findNeighborsResponse.nearestNeighbors?.[0]?.neighbors?.map(n => n.datapoint?.datapointId).filter((id): id is string => !!id) ?? [];
 
     if (neighborIds.length === 0) {
-      return { response: "Não foi possível encontrar informações relevantes nos documentos." };
+      return "Não foi possível encontrar informações relevantes nos documentos.";
     }
 
     // 3. Retrieve the actual text of the chunks from Firestore
@@ -61,19 +73,17 @@ export const ragChatFlow = defineFlow(
 
     // 4. Construct the prompt for the Gemini model
     const prompt = `
-      You are "ProcessAI Consultor Jurídico", a precise and objective legal assistant.
-      Your role is to answer questions based ONLY on the context provided below.
-      If the answer is not found within the context, you must state: "Não encontrei essa informação nos documentos fornecidos."
-      Do not invent, infer, or use any external knowledge.
+      Você é "ProcessAI Consultor Jurídico", um assistente jurídico preciso e objetivo.
+      Sua função é responder perguntas baseando-se SOMENTE no contexto fornecido abaixo.
+      Se a resposta não for encontrada no contexto, você deve afirmar: "Não encontrei essa informação nos documentos fornecidos."
+      Não invente, infira ou utilize qualquer conhecimento externo.
 
-      Context:
+      Contexto:
       ---
-      ${relevantChunks.join('
-
-')}
+      ${relevantChunks.join('\n\n')}
       ---
 
-      User's Question:
+      Pergunta do Usuário:
       ${query}
     `;
 
@@ -86,6 +96,6 @@ export const ragChatFlow = defineFlow(
       },
     });
 
-    return { response: llmResponse.text() };
+    return llmResponse.text();
   }
 );

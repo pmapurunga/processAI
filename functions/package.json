@@ -15,12 +15,12 @@
   "engines": {
     "node": "18"
   },
-  "main": "lib/index.js",
   "dependencies": {
-    "@genkit-ai/ai": "latest",
+    "@genkit-ai/ai": "^1.12.0",
+    "@genkit-ai/core": "^1.12.0",
     "@genkit-ai/firebase": "^1.12.0",
     "@genkit-ai/flow": "latest",
-    "@genkit-ai/googleai": "latest",
+    "@genkit-ai/googleai": "^1.12.0",
     "@google-cloud/aiplatform": "^3.2.0",
     "@google-cloud/documentai": "^9.2.0",
     "@google-cloud/vision": "^4.3.0",
