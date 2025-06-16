@@ -1,21 +1,12 @@
 
-'use server';
-/**
- * @fileOverview Extracts the process number and a structured list of documents from a table within a PDF.
- *
- * - extractSummaryFromPdf - A function that handles the PDF extraction process.
- * - ExtractSummaryFromPdfInput - The input type for the extractSummaryFromPdf function.
- * - ExtractSummaryFromPdfOutput - The return type for the extractSummaryFromPdf function.
- */
-
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { z } from 'zod';
+import { ai } from '../genkit.js';
 
 const ExtractSummaryFromPdfInputSchema = z.object({
   pdfDataUri: z
     .string()
     .describe(
-      'A PDF document as a data URI that must include a MIME type and use Base64 encoding. Expected format: \'data:<mimetype>;base64,<encoded_data>\'.'      
+      "A PDF document as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
 });
 export type ExtractSummaryFromPdfInput = z.infer<typeof ExtractSummaryFromPdfInputSchema>;
@@ -33,10 +24,6 @@ const ExtractSummaryFromPdfOutputSchema = z.object({
   documentTable: z.array(DocumentEntrySchema).describe('Uma lista de documentos extraídos da tabela de sumário do PDF, cada um com Id, Tipo, Polo e Data da Assinatura.'),
 });
 export type ExtractSummaryFromPdfOutput = z.infer<typeof ExtractSummaryFromPdfOutputSchema>;
-
-export async function extractSummaryFromPdf(input: ExtractSummaryFromPdfInput): Promise<ExtractSummaryFromPdfOutput> {
-  return extractSummaryFromPdfFlow(input);
-}
 
 const prompt = ai.definePrompt({
   name: 'extractSummaryFromPdfPrompt',
@@ -57,7 +44,7 @@ const prompt = ai.definePrompt({
   PDF Document: {{media url=pdfDataUri}}`,
 });
 
-const extractSummaryFromPdfFlow = ai.defineFlow(
+export const extractSummaryFromPdfFlow = ai.defineFlow(
   {
     name: 'extractSummaryFromPdfFlow',
     inputSchema: ExtractSummaryFromPdfInputSchema,
@@ -68,4 +55,3 @@ const extractSummaryFromPdfFlow = ai.defineFlow(
     return output!;
   }
 );
-

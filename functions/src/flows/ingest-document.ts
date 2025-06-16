@@ -1,26 +1,35 @@
-import { defineFlow } from '@genkit-ai/flow';
-import * as z from 'zod';
+
 import { text } from 'pdf-parse';
 import { getStorage } from 'firebase-admin/storage';
 import { getFirestore } from 'firebase-admin/firestore';
 import { ImageAnnotatorClient } from '@google-cloud/vision';
-import { IndexEndpointServiceClient, IndexServiceClient } from '@google-cloud/aiplatform';
+import { IndexServiceClient } from '@google-cloud/aiplatform';
 import { embed } from '@genkit-ai/ai';
 import { textEmbedding004 } from '@genkit-ai/googleai';
 import * as admin from 'firebase-admin';
+import { defineFlow } from '@genkit-ai/flow';
+import * as z from 'zod';
 
 // Initialize Firebase and other clients
 const firestore = getFirestore();
 const visionClient = new ImageAnnotatorClient();
 const indexServiceClient = new IndexServiceClient();
-const indexEndpointServiceClient = new IndexEndpointServiceClient();
 
-// Configuration for Vertex AI Vector Search
-// TODO: Replace with your actual configuration or move to environment variables
-const project = 'your-gcp-project-id';
-const location = 'us-central1';
-const indexId = 'your-vector-search-index-id';
-const indexEndpointId = 'your-vector-search-index-endpoint-id';
+// Configuration for Vertex AI Vector Search from environment variables
+const project = process.env.GCP_PROJECT;
+const location = process.env.GCP_LOCATION;
+const indexId = process.env.VERTEX_INDEX_ID;
+
+if (!project || !location || !indexId) {
+  throw new Error(
+    'Missing Vertex AI environment variables. Please set GCP_PROJECT, GCP_LOCATION, and VERTEX_INDEX_ID.'
+  );
+}
+
+interface Datapoint {
+    datapoint_id: string;
+    feature_vector: number[];
+}
 
 // Define the schema for the document ingestion flow
 export const ingestDocumentFlow = defineFlow(
@@ -29,13 +38,13 @@ export const ingestDocumentFlow = defineFlow(
     inputSchema: z.object({
       filePath: z.string(),
       processId: z.string(),
+      bucket: z.string(),
     }),
     outputSchema: z.void(),
   },
   async (input) => {
-    const { filePath, processId } = input;
-    const bucket = getStorage().bucket();
-    const file = bucket.file(filePath);
+    const { filePath, processId, bucket } = input;
+    const file = getStorage().bucket(bucket).file(filePath);
 
     const [fileBuffer] = await file.download();
 
@@ -54,11 +63,16 @@ export const ingestDocumentFlow = defineFlow(
     const chunks = chunkText(extractedText);
 
     // 3. Generate embeddings for each chunk
-    const embeddings = await embed(textEmbedding004, chunks);
+    const embeddingsResponse = await embed({
+        embedder: textEmbedding004,
+        content: chunks,
+    });
+    const embeddings = embeddingsResponse.embeddings.map(e => e.embedding);
+
 
     // 4. Store text chunks in Firestore and prepare vectors for upload
     const batch = firestore.batch();
-    const datapoints: any[] = [];
+    const datapoints: Datapoint[] = [];
     chunks.forEach((chunk, index) => {
       const chunkId = `${processId}_${Date.now()}_${index}`;
       const docRef = firestore.collection('processes').doc(processId).collection('chunks').doc(chunkId);

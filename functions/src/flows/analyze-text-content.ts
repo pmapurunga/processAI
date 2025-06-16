@@ -1,15 +1,6 @@
 
-'use server';
-/**
- * @fileOverview A Genkit flow to analyze provided text content based on a custom prompt.
- *
- * - analyzeTextContent: An exported function that invokes the Genkit flow.
- * - AnalyzeTextContentInput: The Zod schema for the input.
- * - AnalyzeTextContentOutput: The Zod schema for the output (a JSON string).
- */
-
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { ai } from '../genkit.js';
+import { z } from 'zod';
 
 export const AnalyzeTextContentInputSchema = z.object({
   textContent: z.string().describe('The full text content extracted from a document.'),
@@ -21,10 +12,6 @@ export const AnalyzeTextContentOutputSchema = z.object({
   analysisJsonString: z.string().describe('A JSON string representing the structured analysis of the text content, generated according to the customAnalysisPrompt. This string should be parsable into a valid JSON object.'),
 });
 export type AnalyzeTextContentOutput = z.infer<typeof AnalyzeTextContentOutputSchema>;
-
-export async function analyzeTextContent(input: AnalyzeTextContentInput): Promise<AnalyzeTextContentOutput> {
-  return analyzeTextContentFlow(input);
-}
 
 const analysisPrompt = ai.definePrompt({
   name: 'analyzeTextContentPrompt',
@@ -42,8 +29,6 @@ Document Text Content:
 
 Return ONLY the JSON string as your analysis result.
 `,
-  // Example config to potentially reduce blocking for diverse user prompts, adjust as needed.
-  // Be mindful of safety implications.
   config: {
     safetySettings: [
       {
@@ -66,7 +51,7 @@ Return ONLY the JSON string as your analysis result.
   }
 });
 
-const analyzeTextContentFlow = ai.defineFlow(
+export const analyzeTextContentFlow = ai.defineFlow(
   {
     name: 'analyzeTextContentFlow',
     inputSchema: AnalyzeTextContentInputSchema,
@@ -77,12 +62,9 @@ const analyzeTextContentFlow = ai.defineFlow(
     if (!output) {
       throw new Error('AI analysis returned no output. This might be due to content filtering or an internal error.');
     }
-    // Basic check for JSON-like structure. Robust parsing should happen in the calling function.
     const trimmedOutput = output.analysisJsonString.trim();
     if (!((trimmedOutput.startsWith('{') && trimmedOutput.endsWith('}')) || (trimmedOutput.startsWith('[') && trimmedOutput.endsWith(']')))) {
       console.warn(`AI output for analyzeTextContentFlow might not be valid JSON: ${trimmedOutput}`);
-      // Depending on strictness, you might throw an error here or let the caller handle it.
-      // For now, we return it as is, as per schema.
     }
     return { analysisJsonString: trimmedOutput };
   }
