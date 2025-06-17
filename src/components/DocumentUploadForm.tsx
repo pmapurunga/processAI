@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -18,10 +19,11 @@ const ACCEPTED_FILE_TYPES = ['application/pdf'];
 
 const formSchema = z.object({
   pdfFile: z
-    .custom<FileList>((val) => val instanceof FileList && val.length > 0, "Please select a PDF file.")
-    .refine((files) => files?.[0]?.size <= MAX_FILE_SIZE, `Max file size is 100MB.`)
+    .instanceof(FileList, { message: "Please select a valid file." })
+    .refine((files) => files.length > 0, "Please select a PDF file.")
+    .refine((files) => files.length > 0 && files[0].size <= MAX_FILE_SIZE, `Max file size is 100MB.`)
     .refine(
-      (files) => ACCEPTED_FILE_TYPES.includes(files?.[0]?.type),
+      (files) => files.length > 0 && ACCEPTED_FILE_TYPES.includes(files[0].type),
       "Only .pdf files are accepted."
     ),
 });
@@ -39,7 +41,10 @@ export default function DocumentUploadForm() {
     defaultValues: {
       pdfFile: undefined,
     },
+    mode: 'onChange', // Validate on change for better UX with file inputs
   });
+
+  const { ref: pdfFileRef, ...pdfFileRest } = form.register('pdfFile');
 
   const onSubmit = (data: FormValues) => {
     startTransition(async () => {
@@ -54,7 +59,7 @@ export default function DocumentUploadForm() {
             description: result.message,
           });
           if (result.document) {
-            router.push(`/dashboard`); // Or to a specific document page: /chat/${result.document.id}
+            router.push(`/dashboard`); 
           } else {
             router.push('/dashboard');
           }
@@ -74,18 +79,6 @@ export default function DocumentUploadForm() {
         console.error("Upload error:", error);
       }
     });
-  };
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setFileName(file.name);
-      form.setValue('pdfFile', event.target.files as FileList); // Update react-hook-form state
-      form.trigger('pdfFile'); // Manually trigger validation
-    } else {
-      setFileName(null);
-      form.resetField('pdfFile');
-    }
   };
 
   return (
@@ -108,8 +101,22 @@ export default function DocumentUploadForm() {
               type="file"
               accept=".pdf"
               className="file:text-primary file:font-semibold hover:file:bg-primary/10 h-auto p-3"
-              {...form.register('pdfFile')}
-              onChange={handleFileChange}
+              {...pdfFileRest}
+              ref={pdfFileRef}
+              onChange={(event) => {
+                // Manually call react-hook-form's onChange and then our custom logic
+                pdfFileRest.onChange(event); 
+                
+                const files = event.target.files;
+                if (files && files.length > 0) {
+                  form.setValue('pdfFile', files, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+                  setFileName(files[0].name);
+                } else {
+                  // Clear the value if no file is selected or selection is cancelled
+                  form.setValue('pdfFile', new DataTransfer().files, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+                  setFileName(null);
+                }
+              }}
               disabled={isPending}
             />
             {fileName && <p className="text-sm text-muted-foreground mt-1">Selected: {fileName}</p>}
