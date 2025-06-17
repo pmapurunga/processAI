@@ -7,9 +7,9 @@ import { summarizeDocument } from '@/ai/flows/summarize-document';
 import { tuneAiPersona } from '@/ai/flows/tune-ai-persona';
 import type { DocumentMetadata, ChatMessage, PersonaConfig } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
-// Import auth and storage but they won't be directly used in the critical path of handlePdfUpload for this test
-import { auth, storage } from '@/lib/firebase'; 
-import { ref as storageRef, uploadBytes } from 'firebase/storage';
+// Intentionally removed:
+// import { auth, storage } from '@/lib/firebase'; 
+// import { ref as storageRef, uploadBytes } from 'firebase/storage';
 
 // --- Mock Data Store (Replace with actual Firestore interactions) ---
 let documents: DocumentMetadata[] = [
@@ -44,7 +44,7 @@ const uploadPdfSchema = z.object({
 });
 
 export async function handlePdfUpload(formData: FormData): Promise<{ success: boolean; message: string; document?: DocumentMetadata }> {
-  console.log("[SERVER ACTION DEBUG] handlePdfUpload called (SIMPLIFIED - NO FIREBASE UPLOAD).");
+  console.log("[SERVER ACTION DEBUG] handlePdfUpload called (SIMPLIFIED - NO FIREBASE UPLOAD / NO FIREBASE IMPORTS).");
 
   try {
     const file = formData.get('pdfFile') as File;
@@ -64,16 +64,15 @@ export async function handlePdfUpload(formData: FormData): Promise<{ success: bo
     console.log("[SERVER ACTION DEBUG] File name validated.");
 
     const newDocumentId = `doc${Date.now()}`;
-    const mockUserId = "SIMULATED_USER_ID_NO_FIREBASE_UPLOAD"; // Using a mock user ID
+    const mockUserId = "SIMULATED_USER_ID_NO_FIREBASE_UPLOAD"; 
 
-    // Create a mock document metadata object
     const newDocument: DocumentMetadata = {
       id: newDocumentId,
       name: file.name,
-      status: 'uploaded', // Initial status
+      status: 'uploaded', 
       uploadedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      storagePath: `simulated/pendingAnalysis/${mockUserId}/${newDocumentId}/${file.name}`, // Mock storage path
+      storagePath: `simulated/pendingAnalysis/${mockUserId}/${newDocumentId}/${file.name}`, 
       userId: mockUserId,
     };
 
@@ -81,8 +80,6 @@ export async function handlePdfUpload(formData: FormData): Promise<{ success: bo
     documents.push(newDocument); 
     console.log("[SERVER ACTION DEBUG] Mock document pushed to in-memory array.");
 
-    // Simulate processing delay as before for UI flow
-    // These setTimeouts run independently and don't block the Server Action return
     setTimeout(async () => {
       const docIndex = documents.findIndex(d => d.id === newDocument.id);
       if (docIndex > -1 && documents[docIndex]) { 
@@ -98,7 +95,6 @@ export async function handlePdfUpload(formData: FormData): Promise<{ success: bo
             documents[finalDocIndex].updatedAt = new Date().toISOString();
             console.log(`[SERVER ACTION DEBUG] Document ${newDocument.id} status changed to 'processed' (simulated).`);
             try {
-              // Still call summarizeDocument to keep that flow, it uses mock text
               const summaryResult = await summarizeDocument({ documentText: `Simulated full text content of ${documents[finalDocIndex].name} stored at ${documents[finalDocIndex].storagePath}` });
               documents[finalDocIndex].summary = summaryResult.summary;
               console.log(`[SERVER ACTION DEBUG] Summary generated for ${newDocument.id} (simulated).`);
@@ -109,34 +105,33 @@ export async function handlePdfUpload(formData: FormData): Promise<{ success: bo
             revalidatePath('/dashboard');
             revalidatePath(`/summary/${newDocument.id}`);
           }
-        }, 10000); // Simulate summary generation time
+        }, 10000); 
       }
-    }, 5000); // Simulate initial processing time
+    }, 5000); 
 
     revalidatePath('/dashboard');
-    console.log("[SERVER ACTION SUCCESS] handlePdfUpload completed (SIMULATED - NO FIREBASE UPLOAD). File:", newDocument.name);
+    console.log("[SERVER ACTION SUCCESS] handlePdfUpload completed (SIMPLIFIED - NO FIREBASE UPLOAD). File:", newDocument.name);
     return { 
       success: true, 
-      message: `${file.name} upload process SIMULATED. No actual Firebase upload occurred. Document added to mock list.`, 
-      document: newDocument // Ensure dates are ISO strings
+      message: `${file.name} upload process SIMULATED. No actual Firebase upload or SDKs involved directly in this action. Document added to mock list.`, 
+      document: newDocument 
     };
 
   } catch (error: any) {
-    console.error("[SERVER ACTION DEBUG] Critical error in handlePdfUpload's main try-catch block (SIMPLIFIED TEST).");
+    console.error("[SERVER ACTION DEBUG] Critical error in handlePdfUpload's main try-catch block (SIMPLIFIED TEST - NO FIREBASE IMPORTS).");
     
-    let clientMessage = "Upload failed during SIMPLIFIED TEST due to an unexpected server error. Please check server logs for detailed information.";
+    let clientMessage = "Upload failed during SIMPLIFIED TEST (NO FIREBASE IMPORTS) due to an unexpected server error. Please check server logs for detailed information.";
 
     if (error && typeof error.message === 'string') {
-      clientMessage = `Upload failed (SIMPLIFIED TEST): ${error.message}`;
+      clientMessage = `Upload failed (SIMPLIFIED TEST - NO FIREBASE IMPORTS): ${error.message}`;
     } else if (typeof error === 'string') {
-      clientMessage = `Upload failed (SIMPLIFIED TEST): ${error}`;
+      clientMessage = `Upload failed (SIMPLIFIED TEST - NO FIREBASE IMPORTS): ${error}`;
     }
     
-    // Log detailed error object for server-side debugging
     if (error && typeof error === 'object') {
-        console.error("[SERVER ACTION DEBUG] Detailed uploadError object (stringified SIMPLIFIED TEST):", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+        console.error("[SERVER ACTION DEBUG] Detailed uploadError object (stringified SIMPLIFIED TEST - NO FIREBASE IMPORTS):", JSON.stringify(error, Object.getOwnPropertyNames(error)));
     } else {
-        console.error("[SERVER ACTION DEBUG] uploadError (raw, non-object, SIMPLIFIED TEST):", error);
+        console.error("[SERVER ACTION DEBUG] uploadError (raw, non-object, SIMPLIFIED TEST - NO FIREBASE IMPORTS):", error);
     }
     
     return { success: false, message: clientMessage };
@@ -145,6 +140,7 @@ export async function handlePdfUpload(formData: FormData): Promise<{ success: bo
 
 
 // --- Chat Actions ---
+// WARNING: These actions might be broken by removal of Firebase SDK imports if they relied on them.
 export async function getChatMessages(documentId: string): Promise<ChatMessage[]> {
   return Promise.resolve(chatMessages[documentId] || []);
 }
@@ -219,6 +215,7 @@ export async function sendMessage(input: { documentId: string; message: string }
 }
 
 // --- Summarization Actions ---
+// WARNING: These actions might be broken by removal of Firebase SDK imports if they relied on them.
 export async function getDocumentSummary(documentId: string): Promise<string | null> {
   const document = await getDocumentById(documentId);
   if (!document || document.status !== 'processed') return null;
