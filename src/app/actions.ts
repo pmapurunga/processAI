@@ -67,8 +67,6 @@ export async function handlePdfUpload(formData: FormData): Promise<{ success: bo
   }
 
   const newDocumentId = `doc${Date.now()}`;
-  // Align with Firebase Storage rules: pendingAnalysis/{userId}/{processId}/{fileName}
-  // Using newDocumentId as processId for this example
   const filePath = `pendingAnalysis/${userId}/${newDocumentId}/${file.name}`; 
 
   try {
@@ -82,7 +80,7 @@ export async function handlePdfUpload(formData: FormData): Promise<{ success: bo
       uploadedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       storagePath: filePath, 
-      userId: userId, // Store userId with document metadata
+      userId: userId, 
     };
     documents.push(newDocument);
 
@@ -119,47 +117,31 @@ export async function handlePdfUpload(formData: FormData): Promise<{ success: bo
     return { success: true, message: `${file.name} uploaded successfully to ${filePath}. Processing started.`, document: newDocument };
 
   } catch (uploadError: any) {
-    console.error("Raw error during file upload:", uploadError);
-    let errorMessage = "Failed to upload file to storage. An unexpected error occurred.";
-
-    if (uploadError && typeof uploadError === 'object') {
-      if ('code' in uploadError && typeof uploadError.code === 'string') {
-        const firebaseErrorMessage = 'message' in uploadError && typeof uploadError.message === 'string' ? uploadError.message : 'No specific message.';
-        errorMessage = `Storage error (${uploadError.code}): ${firebaseErrorMessage}`;
-        
-        switch (uploadError.code) {
-          case 'storage/unauthorized':
-            errorMessage = "Permission denied. Please check your Firebase Storage security rules and ensure you are logged in.";
-            break;
-          case 'storage/canceled':
-            errorMessage = "Upload canceled by the user.";
-            break;
-          case 'storage/object-not-found':
-             errorMessage = "File path not found in storage. This is an internal error.";
-             break;
-          case 'storage/quota-exceeded':
-            errorMessage = "Storage quota exceeded. Please contact the administrator.";
-            break;
-          case 'storage/retry-limit-exceeded':
-            errorMessage = "Upload failed after multiple attempts. Please check your network connection and try again.";
-            break;
-        }
-      } else if ('message' in uploadError && typeof uploadError.message === 'string') {
-        errorMessage = `Upload failed: ${uploadError.message}`;
+    console.error("[SERVER ACTION DEBUG] Raw error in handlePdfUpload:", uploadError);
+    
+    let clientMessage = "Upload failed due to a server error. Check server logs for details.";
+    if (uploadError instanceof Error && uploadError.message) {
+      clientMessage = `Upload failed: ${uploadError.message}`;
+      if (typeof (uploadError as any).code === 'string') { 
+        clientMessage += ` (Code: ${(uploadError as any).code})`;
       }
     } else if (typeof uploadError === 'string') {
-      errorMessage = `Upload failed: ${uploadError}`;
+      clientMessage = `Upload failed: ${uploadError}`;
+    } else if (uploadError && typeof uploadError.message === 'string') { // Check for object with message
+       clientMessage = `Upload failed: ${String(uploadError.message)}`; // Ensure message is string
+       if (typeof (uploadError as any).code === 'string') { 
+        clientMessage += ` (Code: ${(uploadError as any).code})`;
+      }
     }
     
-    console.error("Processed error message for client:", errorMessage);
-    // Update document status to error if it was added to the mock list
-    const docIndex = documents.findIndex(d => d.id === newDocumentId);
-    if (docIndex > -1) {
-        documents[docIndex].status = 'error';
-        documents[docIndex].updatedAt = new Date().toISOString();
-        revalidatePath('/dashboard');
-    }
-    return { success: false, message: errorMessage };
+    // Temporarily comment out mock data updates in catch to isolate error reporting
+    // const docIndex = documents.findIndex(d => d.id === newDocumentId);
+    // if (docIndex > -1 && documents[docIndex]) {
+    //     documents[docIndex].status = 'error';
+    //     documents[docIndex].updatedAt = new Date().toISOString();
+    //     revalidatePath('/dashboard');
+    // }
+    return { success: false, message: clientMessage };
   }
 }
 
