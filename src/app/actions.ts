@@ -1,190 +1,177 @@
 
 'use server';
 
-import { z } from 'zod';
-// import { queryDocument } from '@/ai/flows/query-document'; // Temporarily unused
-// import { summarizeDocument } from '@/ai/flows/summarize-document'; // Temporarily unused
-// import { tuneAiPersona } from '@/ai/flows/tune-ai-persona'; // Temporarily unused
 import type { DocumentMetadata, ChatMessage, PersonaConfig } from '@/lib/types';
-import { revalidatePath } from 'next/cache';
+import { queryDocument } from '@/ai/flows/query-document';
+import { summarizeDocument } from '@/ai/flows/summarize-document';
+import { tuneAiPersona } from '@/ai/flows/tune-ai-persona';
 
-// --- Mock Data Store (Remains for other actions, but handlePdfUpload will be simplified) ---
+// Mock data store (simulando um banco de dados em memória)
 let documents: DocumentMetadata[] = [
-  { id: 'doc1', name: 'Annual Report 2023.pdf', status: 'processed', uploadedAt: new Date(Date.now() - 86400000 * 2).toISOString(), updatedAt: new Date().toISOString(), summary: 'This is a brief summary of the annual report.', userId: 'mockUser1' },
-  { id: 'doc2', name: 'Project Phoenix Proposal.pdf', status: 'processing', uploadedAt: new Date(Date.now() - 86400000).toISOString(), updatedAt: new Date().toISOString(), userId: 'mockUser1' },
-  { id: 'doc3', name: 'Research Paper on AI.pdf', status: 'error', uploadedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), userId: 'mockUser2' },
+  {
+    id: 'mock-doc-1',
+    name: 'Sample Document 1.pdf',
+    status: 'processed',
+    uploadedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // Yesterday
+    updatedAt: new Date().toISOString(),
+    summary: 'This is a mock summary for Sample Document 1.',
+    userId: 'mock-user-1',
+    storagePath: 'mock-path/Sample Document 1.pdf'
+  },
+  {
+    id: 'mock-doc-2',
+    name: 'Another Example.pdf',
+    status: 'processing',
+    uploadedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    summary: undefined,
+    userId: 'mock-user-1',
+    storagePath: 'mock-path/Another Example.pdf'
+  },
 ];
 
-let chatMessages: Record<string, ChatMessage[]> = {
-  doc1: [
-    { id: 'msg1', documentId: 'doc1', role: 'assistant', content: 'Hello! How can I help you with the Annual Report 2023?', timestamp: Date.now() - 10000 },
-  ],
-};
+let chatMessages: ChatMessage[] = [
+    {
+        id: 'msg1',
+        documentId: 'mock-doc-1',
+        role: 'assistant',
+        content: 'Hello! How can I help you with Sample Document 1?',
+        timestamp: Date.now() - 10000,
+    }
+];
 
 let personaConfig: PersonaConfig = {
-  description: "You are a helpful and professional AI assistant. Your responses should be concise, accurate, and based strictly on the provided document context. Maintain a formal and respectful tone.",
-  updatedAt: new Date().toISOString(),
+  description: 'You are a helpful AI assistant. Be friendly and concise.',
+  updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // Two days ago
 };
-// --- End Mock Data Store ---
 
-// --- Document Actions ---
+
+// --- Funções Restauradas com Lógica Mock ---
+
 export async function getDocuments(): Promise<DocumentMetadata[]> {
-  return Promise.resolve(documents.sort((a,b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()));
+  console.log('[SERVER ACTION DEBUG] getDocuments INVOKED (MOCK)');
+  return JSON.parse(JSON.stringify(documents)); // Retorna uma cópia para evitar mutação direta
 }
 
 export async function getDocumentById(id: string): Promise<DocumentMetadata | undefined> {
-  return Promise.resolve(documents.find(doc => doc.id === id));
+  console.log(`[SERVER ACTION DEBUG] getDocumentById INVOKED for id: ${id} (MOCK)`);
+  const doc = documents.find(d => d.id === id);
+  return doc ? JSON.parse(JSON.stringify(doc)) : undefined;
 }
 
-
-export async function handlePdfUpload(formData: FormData): Promise<{ success: boolean; message: string; documentId?: string }> {
-  console.log("[SERVER ACTION DEBUG] handlePdfUpload INVOKED (EXTREME SIMPLIFICATION - NOT ACCESSING formData).");
-  // DO NOT ACCESS `formData` AT ALL in this version.
-  // This is to test if the Server Action machinery itself can handle a FormData signature and return.
-  try {
-    // Intentionally empty try block. No formData access.
-  } catch (err: any) {
-    // This catch block should ideally not be hit if we're not doing anything risky.
-    console.error("[SERVER ACTION DEBUG] Unexpected error in EXTREMELY simplified handlePdfUpload:", err.message, err.stack);
-    return {
-        success: false,
-        message: `Server action handlePdfUpload encountered an unexpected internal error: ${err.message}`,
-    };
-  }
-
-  return {
-    success: true,
-    message: "Server action handlePdfUpload invoked (EXTREMELY SIMPLIFIED) and returned hardcoded success. FormData was NOT ACCESSED.",
-    documentId: "sim-doc-id-extreme"
-  };
-}
-
-
-// --- Chat Actions ---
 export async function getChatMessages(documentId: string): Promise<ChatMessage[]> {
-  return Promise.resolve(chatMessages[documentId] || []);
+  console.log(`[SERVER ACTION DEBUG] getChatMessages INVOKED for documentId: ${documentId} (MOCK)`);
+  const messages = chatMessages.filter(msg => msg.documentId === documentId);
+  return JSON.parse(JSON.stringify(messages));
 }
 
-const sendMessageSchema = z.object({
-  documentId: z.string(),
-  message: z.string().min(1),
-});
-
-export async function sendMessage(input: { documentId: string; message: string }): Promise<{ success: boolean; userMessage?: ChatMessage; aiMessage?: ChatMessage; error?: string }> {
-  const validation = sendMessageSchema.safeParse(input);
-  if (!validation.success) {
-    return { success: false, error: "Invalid input" };
-  }
-  const { documentId, message } = validation.data;
-
-  const document = await getDocumentById(documentId);
+export async function sendMessage(data: { documentId: string; message: string }): Promise<{
+  success: boolean;
+  userMessage?: ChatMessage;
+  aiMessage?: ChatMessage;
+  error?: string;
+}> {
+  console.log(`[SERVER ACTION DEBUG] sendMessage INVOKED for documentId: ${data.documentId} (MOCK)`);
+  
+  const document = documents.find(d => d.id === data.documentId);
   if (!document || document.status !== 'processed') {
-    return { success: false, error: "Document not found or not processed." };
+    return { success: false, error: 'Document not found or not processed.' };
   }
 
   const userMessage: ChatMessage = {
-    id: `msg${Date.now()}`,
-    documentId,
+    id: `user-${Date.now()}`,
+    documentId: data.documentId,
     role: 'user',
-    content: message,
+    content: data.message,
     timestamp: Date.now(),
   };
-
-  if (!chatMessages[documentId]) {
-    chatMessages[documentId] = [];
-  }
-  chatMessages[documentId].push(userMessage);
-
-  const mockDocumentChunks = [
-    `Content related to ${document.name}. Chunk 1.`,
-    `More content from ${document.name}. Chunk 2. Relevant to: ${message}.`,
-    `Persona instructions: ${personaConfig.description}`
-  ];
+  chatMessages.push(userMessage);
 
   try {
-    // const aiResponse = await queryDocument({ // queryDocument is temporarily commented out
-    //   query: message,
-    //   documentChunks: mockDocumentChunks,
-    // });
-    const mockAiResponse = { answer: `This is a mock AI response to: "${message}" for document ${document.name}. Persona: ${personaConfig.description}` };
-
+    // Simular chamada RAG com Genkit (assumindo que document.summary ou chunks estariam disponíveis)
+    constchunks = document.summary ? document.summary.split('. ') : ['Mock document content.'];
+    const aiResponse = await queryDocument({ query: data.message, documentChunks:chunks });
 
     const aiMessage: ChatMessage = {
-      id: `msg${Date.now() + 1}`,
-      documentId,
+      id: `ai-${Date.now()}`,
+      documentId: data.documentId,
       role: 'assistant',
-      // content: aiResponse.answer,
-      content: mockAiResponse.answer,
-      timestamp: Date.now(),
+      content: aiResponse.answer || "I'm having trouble responding right now.",
+      timestamp: Date.now() + 1, // Ensure AI message is later
     };
-    chatMessages[documentId].push(aiMessage);
-    revalidatePath(`/chat/${documentId}`);
-    return { success: true, userMessage, aiMessage };
-
-  } catch (error) {
-    console.error("Error querying document (or mock error):", error);
-    const errMessage = error instanceof Error ? error.message : "Unknown error";
-    const aiErrorMessage: ChatMessage = {
-      id: `msg${Date.now() + 1}`,
-      documentId,
+    chatMessages.push(aiMessage);
+    return { success: true, userMessage: JSON.parse(JSON.stringify(userMessage)), aiMessage: JSON.parse(JSON.stringify(aiMessage)) };
+  } catch (e) {
+    console.error("[SERVER ACTION DEBUG] sendMessage Genkit Error (MOCK):", e);
+    const errorMessage = e instanceof Error ? e.message : 'AI failed to respond.';
+    const aiMessage: ChatMessage = {
+      id: `ai-err-${Date.now()}`,
+      documentId: data.documentId,
       role: 'assistant',
-      content: `Sorry, I encountered an error processing your request: ${errMessage}`,
-      timestamp: Date.now(),
+      content: `Sorry, I encountered an error: ${errorMessage}`,
+      timestamp: Date.now() + 1,
     };
-    chatMessages[documentId].push(aiErrorMessage);
-    revalidatePath(`/chat/${documentId}`);
-    return { success: false, userMessage, aiMessage: aiErrorMessage, error: `Failed to get AI response: ${errMessage}` };
+    chatMessages.push(aiMessage);
+    return { success: true, userMessage: JSON.parse(JSON.stringify(userMessage)), aiMessage: JSON.parse(JSON.stringify(aiMessage)), error: `AI error: ${errorMessage}` };
   }
 }
 
-// --- Summarization Actions ---
-export async function getDocumentSummary(documentId: string): Promise<string | null> {
-  const document = await getDocumentById(documentId);
-  if (!document || document.status !== 'processed') return null;
-
-  if (document.summary) return document.summary;
-
-  try {
-    // const summaryResult = await summarizeDocument({ documentText: `Full text content of ${document.name}.` }); // summarizeDocument is temporarily commented out
-    const mockSummary = `This is a mock summary for ${document.name}. Actual summarization is pending.`;
-    const docIndex = documents.findIndex(d => d.id === documentId);
-    if (docIndex > -1) {
-      documents[docIndex].summary = mockSummary; // summaryResult.summary;
-      documents[docIndex].updatedAt = new Date().toISOString();
-      revalidatePath(`/summary/${documentId}`);
-      revalidatePath('/dashboard');
-    }
-    return mockSummary; // summaryResult.summary;
-  } catch (error) {
-    console.error("Error generating summary (or mock error):", error);
-    return "Could not generate summary at this time (mock error).";
-  }
-}
-
-// --- AI Persona Actions ---
 export async function getAiPersona(): Promise<PersonaConfig> {
-  return Promise.resolve(personaConfig);
+  console.log('[SERVER ACTION DEBUG] getAiPersona INVOKED (MOCK)');
+  return JSON.parse(JSON.stringify(personaConfig));
 }
 
-const updatePersonaSchema = z.object({
-  description: z.string().min(10, "Persona description is too short."),
-});
-export async function updateAiPersonaConfig(description: string): Promise<{ success: boolean; message: string; persona?: PersonaConfig }> {
-  const validation = updatePersonaSchema.safeParse({ description });
-  if (!validation.success) {
-    return { success: false, message: validation.error.flatten().fieldErrors.description?.[0] || "Invalid description" };
-  }
-  
+export async function updateAiPersonaConfig(description: string): Promise<{
+  success: boolean;
+  message: string;
+  persona?: PersonaConfig;
+}> {
+  console.log('[SERVER ACTION DEBUG] updateAiPersonaConfig INVOKED (MOCK)');
   try {
-    // const result = await tuneAiPersona({ personaDescription: description }); // tuneAiPersona is temporarily commented out
-    const mockResult = { updatedPersonaDescription: description };
-    personaConfig.description = mockResult.updatedPersonaDescription; // result.updatedPersonaDescription;
+    const tunedResult = await tuneAiPersona({ personaDescription: description });
+    personaConfig.description = tunedResult.updatedPersonaDescription;
     personaConfig.updatedAt = new Date().toISOString();
-    revalidatePath('/admin/persona');
-    return { success: true, message: "AI Persona updated successfully (mock).", persona: personaConfig };
-  } catch (error) {
-    console.error("Error updating AI persona (or mock error):", error);
-    const errMessage = error instanceof Error ? error.message : "Unknown error";
-    return { success: false, message: `Failed to update AI persona (mock error): ${errMessage}` };
+    return { success: true, message: 'AI Persona updated successfully via Genkit (MOCK).', persona: JSON.parse(JSON.stringify(personaConfig)) };
+  } catch (e) {
+    console.error("[SERVER ACTION DEBUG] updateAiPersonaConfig Genkit Error (MOCK):", e);
+    const errorMessage = e instanceof Error ? e.message : 'Failed to tune persona via Genkit.';
+    return { success: false, message: `Error: ${errorMessage}` };
   }
+}
+
+export async function getDocumentSummary(documentId: string): Promise<string | null> {
+  console.log(`[SERVER ACTION DEBUG] getDocumentSummary INVOKED for documentId: ${documentId} (MOCK)`);
+  const document = documents.find(d => d.id === documentId);
+  if (document && document.summary) {
+    return document.summary;
+  }
+  if (document && document.status === 'processed' && !document.summary) {
+    // Simulate generating summary if not present
+    try {
+      const summaryResult = await summarizeDocument({ documentText: "This is mock document text for " + document.name });
+      document.summary = summaryResult.summary;
+      return document.summary;
+    } catch (e) {
+      console.error("[SERVER ACTION DEBUG] getDocumentSummary Genkit Error (MOCK):", e);
+      return "Error generating summary.";
+    }
+  }
+  return null;
+}
+
+// --- handlePdfUpload (extremamente simplificada) ---
+export async function handlePdfUpload(formData: FormData): Promise<{ success: boolean; message: string; documentId?: string }> {
+  console.log("[SERVER ACTION DEBUG] handlePdfUpload INVOKED (EXTREMELY SIMPLIFIED - FormData NOT ACCESSED).");
+  // Não acessaremos `formData` de forma alguma nesta versão.
+  // O objetivo é testar se a própria infraestrutura da Server Action consegue lidar com
+  // uma assinatura FormData e retornar uma resposta.
+  
+  // Removido o try...catch intencionalmente para ver se o erro ocorre antes mesmo disso.
+  // Se a action falhar antes de retornar, o Next.js pode enviar a "unexpected response".
+
+  return {
+    success: true,
+    message: "Server action handlePdfUpload invoked (EXTREMELY SIMPLIFIED - FormData NOT ACCESSED) and returned hardcoded success.",
+    documentId: "sim-doc-id-very-extreme"
+  };
 }
