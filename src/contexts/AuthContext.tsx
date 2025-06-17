@@ -6,8 +6,8 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import type { User } from 'firebase/auth';
 import {
   onAuthStateChanged,
-  signInWithRedirect, // Alterado de signInWithPopup
-  getRedirectResult,   // Adicionado para processar o resultado do redirect
+  signInWithPopup, // Alterado de volta para signInWithPopup
+  // getRedirectResult, // Não é mais necessário para popup
   signOut as firebaseSignOut,
 } from 'firebase/auth';
 import { auth, googleAuthProvider } from '@/lib/firebase';
@@ -30,34 +30,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<Error | null>(null);
   const router = useRouter();
 
-  const isAdmin = !!user;
+  const isAdmin = !!user; // Simplificado, pode ser ajustado se houver lógica de admin real
 
   useEffect(() => {
-    const processAuth = async () => {
-      try {
-        const result = await getRedirectResult(auth);
-        if (result) {
-          // Usuário logado com sucesso via redirect.
-          // onAuthStateChanged abaixo irá definir o usuário e loading.
-          setError(null); // Limpa erros anteriores se o redirect foi bem-sucedido.
-        }
-      } catch (redirectError) {
-        // Erro durante o processo de login por redirecionamento.
-        console.error("Google Sign-In Redirect Error:", redirectError);
-        setError(redirectError as Error);
-      }
-      // Não defina setLoading(false) aqui, deixe onAuthStateChanged cuidar disso.
-    };
-
-    processAuth(); // Processa o resultado do redirect ao carregar o app.
-
+    // Apenas onAuthStateChanged é necessário para o fluxo de popup e estado inicial
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      setLoading(false); // Estado de autenticação determinado (usuário ou null)
+      setLoading(false);
+      setError(null); // Limpa erros se o estado de autenticação for resolvido
     }, (err) => {
-      // Erro ao observar o estado de autenticação (raro, mas possível)
       console.error("onAuthStateChanged Error:", err);
       setError(err);
+      setUser(null);
       setLoading(false);
     });
 
@@ -68,16 +52,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     setError(null);
     try {
-      await signInWithRedirect(auth, googleAuthProvider);
-      // Após esta chamada, a página será redirecionada para o Google.
-      // A execução do código aqui para, e o resultado será tratado
-      // por getRedirectResult e onAuthStateChanged quando a página recarregar.
-    } catch (initiationError) {
-      // Este catch só será acionado se houver um erro ao *iniciar* o redirecionamento
-      // (ex: Firebase não configurado corretamente, rede offline no momento da chamada inicial)
-      console.error("Google Sign-In (redirect initiation) Error:", initiationError);
-      setError(initiationError as Error);
-      setLoading(false); // Houve uma falha ao iniciar o processo, então pare de carregar.
+      const result = await signInWithPopup(auth, googleAuthProvider);
+      // O usuário é definido pelo onAuthStateChanged, mas podemos limpar o erro aqui
+      // setUser(result.user); // Opcional, onAuthStateChanged já fará isso
+      if (result.user) {
+        router.push('/dashboard'); // Redireciona após login bem-sucedido
+      }
+    } catch (popupError) {
+      console.error("Google Sign-In Popup Error:", popupError);
+      setError(popupError as Error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -86,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       await firebaseSignOut(auth);
-      setUser(null);
+      setUser(null); // Garante que o estado do usuário seja limpo imediatamente
       router.push('/login');
     } catch (err) {
       setError(err as Error);
