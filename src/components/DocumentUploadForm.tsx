@@ -8,22 +8,23 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Label } from '@/components/ui/label'; // Label ainda é usado, mas FormLabel é preferível dentro de FormField
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { handlePdfUpload } from '@/app/actions';
 import { UploadCloud, Loader2 } from 'lucide-react';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
 const ACCEPTED_FILE_TYPES = ['application/pdf'];
 
 const formSchema = z.object({
   pdfFile: z
-    .instanceof(FileList, { message: "Please select a valid file." })
-    .refine((files) => files.length > 0, "Please select a PDF file.")
-    .refine((files) => files.length > 0 && files[0].size <= MAX_FILE_SIZE, `Max file size is 100MB.`)
+    .instanceof(FileList)
+    .refine((files) => files.length > 0, "Please select a PDF file.") // Garante que o FileList não está vazio
+    .refine((files) => files[0].size <= MAX_FILE_SIZE, `Max file size is 100MB.`) // files[0] é seguro devido ao refine anterior
     .refine(
-      (files) => files.length > 0 && ACCEPTED_FILE_TYPES.includes(files[0].type),
+      (files) => ACCEPTED_FILE_TYPES.includes(files[0].type), // files[0] é seguro
       "Only .pdf files are accepted."
     ),
 });
@@ -41,10 +42,8 @@ export default function DocumentUploadForm() {
     defaultValues: {
       pdfFile: undefined,
     },
-    mode: 'onChange', // Validate on change for better UX with file inputs
+    mode: 'onChange', 
   });
-
-  const { ref: pdfFileRef, ...pdfFileRest } = form.register('pdfFile');
 
   const onSubmit = (data: FormValues) => {
     startTransition(async () => {
@@ -93,49 +92,54 @@ export default function DocumentUploadForm() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="pdfFile" className="text-base">PDF File</Label>
-            <Input
-              id="pdfFile"
-              type="file"
-              accept=".pdf"
-              className="file:text-primary file:font-semibold hover:file:bg-primary/10 h-auto p-3"
-              {...pdfFileRest}
-              ref={pdfFileRef}
-              onChange={(event) => {
-                // Manually call react-hook-form's onChange and then our custom logic
-                pdfFileRest.onChange(event); 
-                
-                const files = event.target.files;
-                if (files && files.length > 0) {
-                  form.setValue('pdfFile', files, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
-                  setFileName(files[0].name);
-                } else {
-                  // Clear the value if no file is selected or selection is cancelled
-                  form.setValue('pdfFile', new DataTransfer().files, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
-                  setFileName(null);
-                }
-              }}
-              disabled={isPending}
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <FormField
+              control={form.control}
+              name="pdfFile"
+              render={({ field, fieldState }) => (
+                <FormItem>
+                  <FormLabel htmlFor={field.name}>PDF File</FormLabel>
+                  <FormControl>
+                    <Input
+                      id={field.name}
+                      type="file"
+                      accept=".pdf"
+                      className="file:text-primary file:font-semibold hover:file:bg-primary/10 h-auto p-3"
+                      ref={field.ref} // Importante para o Controller/FormField
+                      onBlur={field.onBlur}
+                      onChange={(e) => {
+                        const files = e.target.files;
+                        if (files && files.length > 0) {
+                          field.onChange(files); // Passa o FileList para o RHF Controller
+                          setFileName(files[0].name);
+                        } else {
+                          // Cria um FileList vazio para garantir que a validação "Please select a PDF file." seja acionada
+                          field.onChange(new DataTransfer().files); 
+                          setFileName(null);
+                        }
+                      }}
+                      disabled={isPending}
+                    />
+                  </FormControl>
+                  {fileName && !fieldState.error && <p className="text-sm text-muted-foreground mt-1">Selected: {fileName}</p>}
+                  <FormMessage /> {/* Exibe erros de validação para 'pdfFile' */}
+                </FormItem>
+              )}
             />
-            {fileName && <p className="text-sm text-muted-foreground mt-1">Selected: {fileName}</p>}
-            {form.formState.errors.pdfFile && (
-              <p className="text-sm text-destructive">{form.formState.errors.pdfFile.message}</p>
-            )}
-          </div>
-          <Button type="submit" className="w-full text-lg py-3" disabled={isPending || !form.formState.isValid}>
-            {isPending ? (
-              <>
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Processing...
-              </>
-            ) : (
-              <>
-                <UploadCloud className="mr-2 h-5 w-5" /> Upload and Process
-              </>
-            )}
-          </Button>
-        </form>
+            <Button type="submit" className="w-full text-lg py-3" disabled={isPending || !form.formState.isValid}>
+              {isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Processing...
+                </>
+              ) : (
+                <>
+                  <UploadCloud className="mr-2 h-5 w-5" /> Upload and Process
+                </>
+              )}
+            </Button>
+          </form>
+        </Form>
       </CardContent>
     </Card>
   );
