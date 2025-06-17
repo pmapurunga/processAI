@@ -47,55 +47,67 @@ const uploadPdfSchema = z.object({
 });
 
 export async function handlePdfUpload(formData: FormData): Promise<{ success: boolean; message: string; document?: DocumentMetadata }> {
-  const currentUser = auth.currentUser;
-  if (!currentUser) {
-    return { success: false, message: "User not authenticated. Please log in and try again." };
-  }
-  const userId = currentUser.uid;
-
-  const validatedFields = uploadPdfSchema.safeParse({
-    fileName: formData.get('pdfFile') ? (formData.get('pdfFile') as File).name : '',
-  });
-
-  if (!validatedFields.success) {
-    return { success: false, message: "Invalid file name." };
-  }
-  
-  const file = formData.get('pdfFile') as File;
-  if (!file || typeof file.name !== 'string' || file.size === 0) {
-    return { success: false, message: "No file or invalid file provided." };
-  }
-
-  const newDocumentId = `doc${Date.now()}`;
-  const filePath = `pendingAnalysis/${userId}/${newDocumentId}/${file.name}`; 
+  console.log("[SERVER ACTION] handlePdfUpload called."); // Entry log
 
   try {
+    console.log("[SERVER ACTION DEBUG] Attempting to access auth object:", typeof auth);
+    const currentUser = auth.currentUser;
+    // Detailed logging of currentUser. Be cautious with logging sensitive user data in production.
+    console.log("[SERVER ACTION DEBUG] auth.currentUser object (properties):", currentUser ? { uid: currentUser.uid, email: currentUser.email, displayName: currentUser.displayName } : 'null');
+
+
+    if (!currentUser) {
+      console.error("[SERVER ACTION ERROR] User not authenticated at the start of handlePdfUpload.");
+      return { success: false, message: "User not authenticated. Please log in and try again." };
+    }
+    const userId = currentUser.uid;
+    console.log("[SERVER ACTION DEBUG] Authenticated userId:", userId);
+
+    const file = formData.get('pdfFile') as File;
+    if (!file || typeof file.name !== 'string' || file.size === 0) {
+      console.error("[SERVER ACTION ERROR] No file or invalid file provided.");
+      return { success: false, message: "No file or invalid file provided." };
+    }
+    console.log("[SERVER ACTION DEBUG] File received:", file.name, file.size, file.type);
+
+    // Validate fileName separately (though file.name is used directly)
+    const validatedFields = uploadPdfSchema.safeParse({ fileName: file.name });
+    if (!validatedFields.success) {
+      console.error("[SERVER ACTION ERROR] Invalid file name based on schema:", validatedFields.error.flatten().fieldErrors);
+      return { success: false, message: "Invalid file name." };
+    }
+
+    const newDocumentId = `doc${Date.now()}`;
+    const filePath = `pendingAnalysis/${userId}/${newDocumentId}/${file.name}`;
+    console.log("[SERVER ACTION DEBUG] Target Firebase Storage path:", filePath);
+
     const fileFirebaseRef = storageRef(storage, filePath);
+    console.log("[SERVER ACTION DEBUG] Attempting to upload to Firebase Storage...");
     await uploadBytes(fileFirebaseRef, file);
+    console.log("[SERVER ACTION DEBUG] File uploaded successfully to Firebase Storage.");
 
     const newDocument: DocumentMetadata = {
       id: newDocumentId,
       name: file.name,
-      status: 'uploaded', 
-      uploadedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      storagePath: filePath, 
-      userId: userId, 
+      status: 'uploaded',
+      uploadedAt: new Date().toISOString(), // Ensure ISO string
+      updatedAt: new Date().toISOString(), // Ensure ISO string
+      storagePath: filePath,
+      userId: userId,
     };
-    documents.push(newDocument);
+    documents.push(newDocument); // Still using mock data store
 
-    // Simulate processing delay
+    // Simulate processing delay - kept for now, can be removed later
     setTimeout(async () => {
       const docIndex = documents.findIndex(d => d.id === newDocument.id);
-      if (docIndex > -1) {
+      if (docIndex > -1 && documents[docIndex]) { // Check if document still exists
         documents[docIndex].status = 'processing';
         documents[docIndex].updatedAt = new Date().toISOString();
-        revalidatePath('/dashboard'); 
-        
-        // Simulate further processing delay for summary
+        revalidatePath('/dashboard');
+
         setTimeout(async () => {
           const finalDocIndex = documents.findIndex(d => d.id === newDocument.id);
-          if (finalDocIndex > -1) {
+          if (finalDocIndex > -1 && documents[finalDocIndex]) { // Check if document still exists
             documents[finalDocIndex].status = 'processed';
             documents[finalDocIndex].updatedAt = new Date().toISOString();
             try {
@@ -103,7 +115,7 @@ export async function handlePdfUpload(formData: FormData): Promise<{ success: bo
               const summaryResult = await summarizeDocument({ documentText: `Simulated full text content of ${documents[finalDocIndex].name} stored at ${documents[finalDocIndex].storagePath}` });
               documents[finalDocIndex].summary = summaryResult.summary;
             } catch (error) {
-              console.error("Error generating summary for new document:", error);
+              console.error("[SERVER ACTION ERROR] Error generating summary for new document:", error);
                documents[finalDocIndex].summary = "Error generating summary.";
             }
             revalidatePath('/dashboard');
@@ -114,33 +126,32 @@ export async function handlePdfUpload(formData: FormData): Promise<{ success: bo
     }, 5000); // 5 seconds for "uploaded" to "processing"
 
     revalidatePath('/dashboard');
+    console.log("[SERVER ACTION SUCCESS] handlePdfUpload completed successfully for:", newDocument.name);
     return { success: true, message: `${file.name} uploaded successfully to ${filePath}. Processing started.`, document: newDocument };
 
   } catch (uploadError: any) {
-    console.error("[SERVER ACTION DEBUG] Raw error in handlePdfUpload:", uploadError);
+    console.error("[SERVER ACTION DEBUG] Critical error in handlePdfUpload's main try-catch block:", uploadError);
     
-    let clientMessage = "Upload failed due to a server error. Check server logs for details.";
-    if (uploadError instanceof Error && uploadError.message) {
+    let clientMessage = "Upload failed due to an unexpected server error. Please check server logs for detailed information.";
+
+    // Attempt to make the error message more specific for the client
+    if (uploadError && typeof uploadError.message === 'string') {
       clientMessage = `Upload failed: ${uploadError.message}`;
-      if (typeof (uploadError as any).code === 'string') { 
+      if (typeof (uploadError as any).code === 'string') { // Firebase errors often have a code
         clientMessage += ` (Code: ${(uploadError as any).code})`;
       }
     } else if (typeof uploadError === 'string') {
       clientMessage = `Upload failed: ${uploadError}`;
-    } else if (uploadError && typeof uploadError.message === 'string') { // Check for object with message
-       clientMessage = `Upload failed: ${String(uploadError.message)}`; // Ensure message is string
-       if (typeof (uploadError as any).code === 'string') { 
-        clientMessage += ` (Code: ${(uploadError as any).code})`;
-      }
     }
     
-    // Temporarily comment out mock data updates in catch to isolate error reporting
-    // const docIndex = documents.findIndex(d => d.id === newDocumentId);
-    // if (docIndex > -1 && documents[docIndex]) {
-    //     documents[docIndex].status = 'error';
-    //     documents[docIndex].updatedAt = new Date().toISOString();
-    //     revalidatePath('/dashboard');
-    // }
+    // For server-side logging, try to get more details from the error object
+    // This helps in debugging if the error object is not a standard Error instance
+    if (uploadError && typeof uploadError === 'object') {
+      console.error("[SERVER ACTION DEBUG] Detailed uploadError object (stringified):", JSON.stringify(uploadError, Object.getOwnPropertyNames(uploadError)));
+    } else {
+      console.error("[SERVER ACTION DEBUG] uploadError (raw):", uploadError);
+    }
+
     return { success: false, message: clientMessage };
   }
 }
@@ -277,3 +288,4 @@ export async function updateAiPersonaConfig(description: string): Promise<{ succ
     return { success: false, message: `Failed to update AI persona: ${errMessage}` };
   }
 }
+
