@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -49,7 +50,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <SidebarMenu>
             {navItems.filter(item => isAdmin || !item.admin).map((item) => (
               <SidebarMenuItem key={item.href}>
-                <Link href={item.href} legacyBehavior passHref>
+                <Link href={item.href}>
                   <SidebarMenuButton
                     isActive={pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))}
                     tooltip={item.label}
@@ -120,3 +121,4 @@ function UserMenu() {
     </DropdownMenu>
   );
 }
+
