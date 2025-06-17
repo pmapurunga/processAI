@@ -264,3 +264,4 @@ export async function updateAiPersonaConfig(description: string): Promise<{ succ
     return { success: false, message: `Failed to update AI persona: ${errMessage}` };
   }
 }
+
