@@ -47,21 +47,24 @@ const uploadPdfSchema = z.object({
 });
 
 export async function handlePdfUpload(formData: FormData): Promise<{ success: boolean; message: string; document?: DocumentMetadata }> {
-  console.log("[SERVER ACTION] handlePdfUpload called."); // Entry log
+  console.log("[SERVER ACTION DEBUG] handlePdfUpload called.");
 
   try {
-    console.log("[SERVER ACTION DEBUG] Attempting to access auth object:", typeof auth);
-    const currentUser = auth.currentUser;
-    // Detailed logging of currentUser. Be cautious with logging sensitive user data in production.
-    console.log("[SERVER ACTION DEBUG] auth.currentUser object (properties):", currentUser ? { uid: currentUser.uid, email: currentUser.email, displayName: currentUser.displayName } : 'null');
+    // Temporarily use a mock userId to isolate auth issues
+    const mockUserId = "MOCK_USER_ID_FOR_DEBUGGING";
+    console.log("[SERVER ACTION DEBUG] Using mockUserId:", mockUserId);
 
-
-    if (!currentUser) {
-      console.error("[SERVER ACTION ERROR] User not authenticated at the start of handlePdfUpload.");
-      return { success: false, message: "User not authenticated. Please log in and try again." };
+    // Attempt to log current user if available, but don't rely on it for path yet
+    try {
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+            console.log("[SERVER ACTION DEBUG] auth.currentUser is available. UID:", currentUser.uid);
+        } else {
+            console.log("[SERVER ACTION DEBUG] auth.currentUser is NULL at the start of handlePdfUpload.");
+        }
+    } catch (authError) {
+        console.error("[SERVER ACTION DEBUG] Error accessing auth.currentUser:", authError);
     }
-    const userId = currentUser.uid;
-    console.log("[SERVER ACTION DEBUG] Authenticated userId:", userId);
 
     const file = formData.get('pdfFile') as File;
     if (!file || typeof file.name !== 'string' || file.size === 0) {
@@ -70,7 +73,6 @@ export async function handlePdfUpload(formData: FormData): Promise<{ success: bo
     }
     console.log("[SERVER ACTION DEBUG] File received:", file.name, file.size, file.type);
 
-    // Validate fileName separately (though file.name is used directly)
     const validatedFields = uploadPdfSchema.safeParse({ fileName: file.name });
     if (!validatedFields.success) {
       console.error("[SERVER ACTION ERROR] Invalid file name based on schema:", validatedFields.error.flatten().fieldErrors);
@@ -78,40 +80,40 @@ export async function handlePdfUpload(formData: FormData): Promise<{ success: bo
     }
 
     const newDocumentId = `doc${Date.now()}`;
-    const filePath = `pendingAnalysis/${userId}/${newDocumentId}/${file.name}`;
-    console.log("[SERVER ACTION DEBUG] Target Firebase Storage path:", filePath);
+    // Use mockUserId for path construction
+    const filePath = `pendingAnalysis/${mockUserId}/${newDocumentId}/${file.name}`;
+    console.log("[SERVER ACTION DEBUG] Target Firebase Storage path (using mockUserId):", filePath);
 
     const fileFirebaseRef = storageRef(storage, filePath);
     console.log("[SERVER ACTION DEBUG] Attempting to upload to Firebase Storage...");
     await uploadBytes(fileFirebaseRef, file);
-    console.log("[SERVER ACTION DEBUG] File uploaded successfully to Firebase Storage.");
+    console.log("[SERVER ACTION DEBUG] File uploaded successfully to Firebase Storage (or so it seems if no error thrown).");
 
     const newDocument: DocumentMetadata = {
       id: newDocumentId,
       name: file.name,
       status: 'uploaded',
-      uploadedAt: new Date().toISOString(), // Ensure ISO string
-      updatedAt: new Date().toISOString(), // Ensure ISO string
+      uploadedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       storagePath: filePath,
-      userId: userId,
+      userId: mockUserId, // Use mockUserId here as well
     };
-    documents.push(newDocument); // Still using mock data store
+    documents.push(newDocument); 
 
-    // Simulate processing delay - kept for now, can be removed later
+    // Simulate processing delay
     setTimeout(async () => {
       const docIndex = documents.findIndex(d => d.id === newDocument.id);
-      if (docIndex > -1 && documents[docIndex]) { // Check if document still exists
+      if (docIndex > -1 && documents[docIndex]) { 
         documents[docIndex].status = 'processing';
         documents[docIndex].updatedAt = new Date().toISOString();
         revalidatePath('/dashboard');
 
         setTimeout(async () => {
           const finalDocIndex = documents.findIndex(d => d.id === newDocument.id);
-          if (finalDocIndex > -1 && documents[finalDocIndex]) { // Check if document still exists
+          if (finalDocIndex > -1 && documents[finalDocIndex]) { 
             documents[finalDocIndex].status = 'processed';
             documents[finalDocIndex].updatedAt = new Date().toISOString();
             try {
-              // In a real app, fetch the actual document text from storagePath
               const summaryResult = await summarizeDocument({ documentText: `Simulated full text content of ${documents[finalDocIndex].name} stored at ${documents[finalDocIndex].storagePath}` });
               documents[finalDocIndex].summary = summaryResult.summary;
             } catch (error) {
@@ -121,36 +123,36 @@ export async function handlePdfUpload(formData: FormData): Promise<{ success: bo
             revalidatePath('/dashboard');
             revalidatePath(`/summary/${newDocument.id}`);
           }
-        }, 10000); // 10 seconds for "processing" to "processed" + summary
+        }, 10000); 
       }
-    }, 5000); // 5 seconds for "uploaded" to "processing"
+    }, 5000); 
 
     revalidatePath('/dashboard');
-    console.log("[SERVER ACTION SUCCESS] handlePdfUpload completed successfully for:", newDocument.name);
-    return { success: true, message: `${file.name} uploaded successfully to ${filePath}. Processing started.`, document: newDocument };
+    console.log("[SERVER ACTION SUCCESS] handlePdfUpload completed (potentially with mock data or failed upload due to mockUserId). File:", newDocument.name);
+    return { success: true, message: `${file.name} upload process initiated with mock user. Check server logs and storage for actual status.`, document: newDocument };
 
   } catch (uploadError: any) {
-    console.error("[SERVER ACTION DEBUG] Critical error in handlePdfUpload's main try-catch block:", uploadError);
+    console.error("[SERVER ACTION DEBUG] Critical error in handlePdfUpload's main try-catch block.");
     
     let clientMessage = "Upload failed due to an unexpected server error. Please check server logs for detailed information.";
 
-    // Attempt to make the error message more specific for the client
     if (uploadError && typeof uploadError.message === 'string') {
       clientMessage = `Upload failed: ${uploadError.message}`;
-      if (typeof (uploadError as any).code === 'string') { // Firebase errors often have a code
+      if (typeof (uploadError as any).code === 'string') { 
         clientMessage += ` (Code: ${(uploadError as any).code})`;
       }
     } else if (typeof uploadError === 'string') {
       clientMessage = `Upload failed: ${uploadError}`;
     }
     
-    // For server-side logging, try to get more details from the error object
-    // This helps in debugging if the error object is not a standard Error instance
+    // Log detailed error object for server-side debugging
     if (uploadError && typeof uploadError === 'object') {
-      console.error("[SERVER ACTION DEBUG] Detailed uploadError object (stringified):", JSON.stringify(uploadError, Object.getOwnPropertyNames(uploadError)));
+        console.error("[SERVER ACTION DEBUG] Detailed uploadError object (stringified):", JSON.stringify(uploadError, Object.getOwnPropertyNames(uploadError)));
     } else {
-      console.error("[SERVER ACTION DEBUG] uploadError (raw):", uploadError);
+        console.error("[SERVER ACTION DEBUG] uploadError (raw, non-object):", uploadError);
     }
+    console.error("[SERVER ACTION DEBUG] Raw error details:", uploadError);
+
 
     return { success: false, message: clientMessage };
   }
@@ -179,7 +181,6 @@ export async function sendMessage(input: { documentId: string; message: string }
   if (!document || document.status !== 'processed') {
     return { success: false, error: "Document not found or not processed." };
   }
-  // Add authorization check here: ensure current user owns the document or has permission
 
   const userMessage: ChatMessage = {
     id: `msg${Date.now()}`,
@@ -194,8 +195,6 @@ export async function sendMessage(input: { documentId: string; message: string }
   }
   chatMessages[documentId].push(userMessage);
 
-  // In a real RAG system, documentChunks would be dynamically fetched based on the query
-  // from a vector store, using the document's actual content.
   const mockDocumentChunks = [
     `Content related to ${document.name}. Chunk 1. This is retrieved based on user query from document ${document.storagePath}.`,
     `More content from ${document.name}. Chunk 2. This part might be relevant to the user query: ${message}.`,
@@ -239,13 +238,9 @@ export async function sendMessage(input: { documentId: string; message: string }
 export async function getDocumentSummary(documentId: string): Promise<string | null> {
   const document = await getDocumentById(documentId);
   if (!document || document.status !== 'processed') return null;
-  // Add authorization check here
 
   if (document.summary) return document.summary;
 
-  // This part is still using simulated text.
-  // In a real app, you'd download the document from document.storagePath,
-  // extract its text, then pass it to summarizeDocument.
   try {
     const summaryResult = await summarizeDocument({ documentText: `Full text content of ${document.name} (from ${document.storagePath}). This is a placeholder for actual document content.` });
     const docIndex = documents.findIndex(d => d.id === documentId);
@@ -288,4 +283,3 @@ export async function updateAiPersonaConfig(description: string): Promise<{ succ
     return { success: false, message: `Failed to update AI persona: ${errMessage}` };
   }
 }
-
