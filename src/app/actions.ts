@@ -38,34 +38,25 @@ export async function getDocumentById(id: string): Promise<DocumentMetadata | un
 
 
 export async function handlePdfUpload(formData: FormData): Promise<{ success: boolean; message: string; documentId?: string }> {
-  console.log("[SERVER ACTION DEBUG] handlePdfUpload INVOKED.");
-  console.log("[SERVER ACTION DEBUG] Received formData object:", formData);
-
+  console.log("[SERVER ACTION DEBUG] handlePdfUpload INVOKED (EXTREME SIMPLIFICATION - NOT ACCESSING formData).");
+  // DO NOT ACCESS `formData` AT ALL in this version.
+  // This is to test if the Server Action machinery itself can handle a FormData signature and return.
   try {
-    // Try to log keys to see if formData is populated on the server
-    const formDataKeys = [];
-    for (const key of formData.keys()) {
-      formDataKeys.push(key);
-    }
-    console.log("[SERVER ACTION DEBUG] FormData keys found on server:", formDataKeys);
-
-    const fileCandidate = formData.get('pdfFile');
-    if (fileCandidate instanceof File) {
-      console.log(`[SERVER ACTION DEBUG] 'pdfFile' is a File. Name: ${fileCandidate.name}, Size: ${fileCandidate.size}, Type: ${fileCandidate.type}`);
-    } else if (fileCandidate) {
-      console.log(`[SERVER ACTION DEBUG] 'pdfFile' exists but is not a File. Type: ${typeof fileCandidate}, Value:`, fileCandidate);
-    } else {
-      console.log("[SERVER ACTION DEBUG] 'pdfFile' not found in FormData.");
-    }
-
+    // Intentionally empty try block. No formData access.
   } catch (err: any) {
-    console.error("[SERVER ACTION DEBUG] Error inspecting formData on server:", err.message);
+    // This catch block should ideally not be hit if we're not doing anything risky.
+    console.error("[SERVER ACTION DEBUG] Unexpected error in EXTREMELY simplified handlePdfUpload:", err.message, err.stack);
+    return {
+        success: false,
+        message: `Server action handlePdfUpload encountered an unexpected internal error: ${err.message}`,
+    };
   }
 
-  // Hardcoded success, no actual processing or validation for extreme debugging
-  // This is to check if the Server Action can return *any* valid JSON response
-  // when it's supposed to handle FormData.
-  return { success: true, message: "Server action handlePdfUpload invoked and returned hardcoded success (SIMULATED - NO ACTUAL PROCESSING).", documentId: "sim-doc-id-hardcoded" };
+  return {
+    success: true,
+    message: "Server action handlePdfUpload invoked (EXTREMELY SIMPLIFIED) and returned hardcoded success. FormData was NOT ACCESSED.",
+    documentId: "sim-doc-id-extreme"
+  };
 }
 
 
