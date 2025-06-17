@@ -7,7 +7,8 @@ import { summarizeDocument } from '@/ai/flows/summarize-document';
 import { tuneAiPersona } from '@/ai/flows/tune-ai-persona';
 import type { DocumentMetadata, ChatMessage, PersonaConfig } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
-import { auth, storage } from '@/lib/firebase'; // Import auth
+// Import auth and storage but they won't be directly used in the critical path of handlePdfUpload for this test
+import { auth, storage } from '@/lib/firebase'; 
 import { ref as storageRef, uploadBytes } from 'firebase/storage';
 
 // --- Mock Data Store (Replace with actual Firestore interactions) ---
@@ -31,41 +32,21 @@ let personaConfig: PersonaConfig = {
 
 // --- Document Actions ---
 export async function getDocuments(): Promise<DocumentMetadata[]> {
-  // In a real app, fetch from Firestore
-  // Filter by current user if needed, or handle authorization server-side
   return Promise.resolve(documents.sort((a,b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()));
 }
 
 export async function getDocumentById(id: string): Promise<DocumentMetadata | undefined> {
-  // Add authorization check if necessary
   return Promise.resolve(documents.find(doc => doc.id === id));
 }
 
-// Simulate PDF upload and initial processing
 const uploadPdfSchema = z.object({
   fileName: z.string().min(1, "File name is required"),
 });
 
 export async function handlePdfUpload(formData: FormData): Promise<{ success: boolean; message: string; document?: DocumentMetadata }> {
-  console.log("[SERVER ACTION DEBUG] handlePdfUpload called.");
+  console.log("[SERVER ACTION DEBUG] handlePdfUpload called (SIMPLIFIED - NO FIREBASE UPLOAD).");
 
   try {
-    // Temporarily use a mock userId to isolate auth issues
-    const mockUserId = "MOCK_USER_ID_FOR_DEBUGGING";
-    console.log("[SERVER ACTION DEBUG] Using mockUserId:", mockUserId);
-
-    // Attempt to log current user if available, but don't rely on it for path yet
-    try {
-        const currentUser = auth.currentUser;
-        if (currentUser) {
-            console.log("[SERVER ACTION DEBUG] auth.currentUser is available. UID:", currentUser.uid);
-        } else {
-            console.log("[SERVER ACTION DEBUG] auth.currentUser is NULL at the start of handlePdfUpload.");
-        }
-    } catch (authError) {
-        console.error("[SERVER ACTION DEBUG] Error accessing auth.currentUser:", authError);
-    }
-
     const file = formData.get('pdfFile') as File;
     if (!file || typeof file.name !== 'string' || file.size === 0) {
       console.error("[SERVER ACTION ERROR] No file or invalid file provided.");
@@ -75,37 +56,39 @@ export async function handlePdfUpload(formData: FormData): Promise<{ success: bo
 
     const validatedFields = uploadPdfSchema.safeParse({ fileName: file.name });
     if (!validatedFields.success) {
-      console.error("[SERVER ACTION ERROR] Invalid file name based on schema:", validatedFields.error.flatten().fieldErrors);
-      return { success: false, message: "Invalid file name." };
+      const errorMessages = validatedFields.error.flatten().fieldErrors;
+      const prettyError = JSON.stringify(errorMessages, null, 2);
+      console.error("[SERVER ACTION ERROR] Invalid file name based on schema:", prettyError);
+      return { success: false, message: `Invalid file name. Details: ${prettyError}` };
     }
+    console.log("[SERVER ACTION DEBUG] File name validated.");
 
     const newDocumentId = `doc${Date.now()}`;
-    // Use mockUserId for path construction
-    const filePath = `pendingAnalysis/${mockUserId}/${newDocumentId}/${file.name}`;
-    console.log("[SERVER ACTION DEBUG] Target Firebase Storage path (using mockUserId):", filePath);
+    const mockUserId = "SIMULATED_USER_ID_NO_FIREBASE_UPLOAD"; // Using a mock user ID
 
-    const fileFirebaseRef = storageRef(storage, filePath);
-    console.log("[SERVER ACTION DEBUG] Attempting to upload to Firebase Storage...");
-    await uploadBytes(fileFirebaseRef, file);
-    console.log("[SERVER ACTION DEBUG] File uploaded successfully to Firebase Storage (or so it seems if no error thrown).");
-
+    // Create a mock document metadata object
     const newDocument: DocumentMetadata = {
       id: newDocumentId,
       name: file.name,
-      status: 'uploaded',
+      status: 'uploaded', // Initial status
       uploadedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      storagePath: filePath,
-      userId: mockUserId, // Use mockUserId here as well
+      storagePath: `simulated/pendingAnalysis/${mockUserId}/${newDocumentId}/${file.name}`, // Mock storage path
+      userId: mockUserId,
     };
-    documents.push(newDocument); 
 
-    // Simulate processing delay
+    console.log("[SERVER ACTION DEBUG] Mock document created:", JSON.stringify(newDocument));
+    documents.push(newDocument); 
+    console.log("[SERVER ACTION DEBUG] Mock document pushed to in-memory array.");
+
+    // Simulate processing delay as before for UI flow
+    // These setTimeouts run independently and don't block the Server Action return
     setTimeout(async () => {
       const docIndex = documents.findIndex(d => d.id === newDocument.id);
       if (docIndex > -1 && documents[docIndex]) { 
         documents[docIndex].status = 'processing';
         documents[docIndex].updatedAt = new Date().toISOString();
+        console.log(`[SERVER ACTION DEBUG] Document ${newDocument.id} status changed to 'processing' (simulated).`);
         revalidatePath('/dashboard');
 
         setTimeout(async () => {
@@ -113,47 +96,49 @@ export async function handlePdfUpload(formData: FormData): Promise<{ success: bo
           if (finalDocIndex > -1 && documents[finalDocIndex]) { 
             documents[finalDocIndex].status = 'processed';
             documents[finalDocIndex].updatedAt = new Date().toISOString();
+            console.log(`[SERVER ACTION DEBUG] Document ${newDocument.id} status changed to 'processed' (simulated).`);
             try {
+              // Still call summarizeDocument to keep that flow, it uses mock text
               const summaryResult = await summarizeDocument({ documentText: `Simulated full text content of ${documents[finalDocIndex].name} stored at ${documents[finalDocIndex].storagePath}` });
               documents[finalDocIndex].summary = summaryResult.summary;
+              console.log(`[SERVER ACTION DEBUG] Summary generated for ${newDocument.id} (simulated).`);
             } catch (error) {
-              console.error("[SERVER ACTION ERROR] Error generating summary for new document:", error);
+              console.error("[SERVER ACTION ERROR] Error generating summary for new document (in simplified test):", error);
                documents[finalDocIndex].summary = "Error generating summary.";
             }
             revalidatePath('/dashboard');
             revalidatePath(`/summary/${newDocument.id}`);
           }
-        }, 10000); 
+        }, 10000); // Simulate summary generation time
       }
-    }, 5000); 
+    }, 5000); // Simulate initial processing time
 
     revalidatePath('/dashboard');
-    console.log("[SERVER ACTION SUCCESS] handlePdfUpload completed (potentially with mock data or failed upload due to mockUserId). File:", newDocument.name);
-    return { success: true, message: `${file.name} upload process initiated with mock user. Check server logs and storage for actual status.`, document: newDocument };
+    console.log("[SERVER ACTION SUCCESS] handlePdfUpload completed (SIMULATED - NO FIREBASE UPLOAD). File:", newDocument.name);
+    return { 
+      success: true, 
+      message: `${file.name} upload process SIMULATED. No actual Firebase upload occurred. Document added to mock list.`, 
+      document: newDocument // Ensure dates are ISO strings
+    };
 
-  } catch (uploadError: any) {
-    console.error("[SERVER ACTION DEBUG] Critical error in handlePdfUpload's main try-catch block.");
+  } catch (error: any) {
+    console.error("[SERVER ACTION DEBUG] Critical error in handlePdfUpload's main try-catch block (SIMPLIFIED TEST).");
     
-    let clientMessage = "Upload failed due to an unexpected server error. Please check server logs for detailed information.";
+    let clientMessage = "Upload failed during SIMPLIFIED TEST due to an unexpected server error. Please check server logs for detailed information.";
 
-    if (uploadError && typeof uploadError.message === 'string') {
-      clientMessage = `Upload failed: ${uploadError.message}`;
-      if (typeof (uploadError as any).code === 'string') { 
-        clientMessage += ` (Code: ${(uploadError as any).code})`;
-      }
-    } else if (typeof uploadError === 'string') {
-      clientMessage = `Upload failed: ${uploadError}`;
+    if (error && typeof error.message === 'string') {
+      clientMessage = `Upload failed (SIMPLIFIED TEST): ${error.message}`;
+    } else if (typeof error === 'string') {
+      clientMessage = `Upload failed (SIMPLIFIED TEST): ${error}`;
     }
     
     // Log detailed error object for server-side debugging
-    if (uploadError && typeof uploadError === 'object') {
-        console.error("[SERVER ACTION DEBUG] Detailed uploadError object (stringified):", JSON.stringify(uploadError, Object.getOwnPropertyNames(uploadError)));
+    if (error && typeof error === 'object') {
+        console.error("[SERVER ACTION DEBUG] Detailed uploadError object (stringified SIMPLIFIED TEST):", JSON.stringify(error, Object.getOwnPropertyNames(error)));
     } else {
-        console.error("[SERVER ACTION DEBUG] uploadError (raw, non-object):", uploadError);
+        console.error("[SERVER ACTION DEBUG] uploadError (raw, non-object, SIMPLIFIED TEST):", error);
     }
-    console.error("[SERVER ACTION DEBUG] Raw error details:", uploadError);
-
-
+    
     return { success: false, message: clientMessage };
   }
 }
@@ -161,7 +146,6 @@ export async function handlePdfUpload(formData: FormData): Promise<{ success: bo
 
 // --- Chat Actions ---
 export async function getChatMessages(documentId: string): Promise<ChatMessage[]> {
-  // Add authorization: Ensure user can only access their own document's chat
   return Promise.resolve(chatMessages[documentId] || []);
 }
 
