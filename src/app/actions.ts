@@ -36,48 +36,36 @@ export async function getDocumentById(id: string): Promise<DocumentMetadata | un
   return Promise.resolve(documents.find(doc => doc.id === id));
 }
 
-// Temporarily remove Zod schema for this specific test for handlePdfUpload
-// const uploadPdfSchema = z.object({
-//   fileName: z.string().min(1, "File name is required"),
-// });
 
 export async function handlePdfUpload(formData: FormData): Promise<{ success: boolean; message: string; documentId?: string }> {
   console.log("[SERVER ACTION DEBUG] handlePdfUpload INVOKED.");
+  console.log("[SERVER ACTION DEBUG] Received formData object:", formData);
 
-  let fileName: string | undefined;
   try {
-    const fileCandidate = formData.get('pdfFile');
+    // Try to log keys to see if formData is populated on the server
+    const formDataKeys = [];
+    for (const key of formData.keys()) {
+      formDataKeys.push(key);
+    }
+    console.log("[SERVER ACTION DEBUG] FormData keys found on server:", formDataKeys);
 
-    // Check if fileCandidate is a File object
+    const fileCandidate = formData.get('pdfFile');
     if (fileCandidate instanceof File) {
-      fileName = fileCandidate.name;
-      console.log(`[SERVER ACTION DEBUG] Received file: ${fileName}, size: ${fileCandidate.size}, type: ${fileCandidate.type}`);
-      
-      // Simulate a successful processing for now, without Zod or mock document array manipulation
-      const mockDocumentId = `doc-sim-${Date.now()}`;
-      console.log(`[SERVER ACTION DEBUG] Mock success for ${fileName}. Document ID: ${mockDocumentId}`);
-      
-      // Simulate revalidation if needed, though not strictly necessary for this simple test
-      // revalidatePath('/dashboard');
-      
-      return { success: true, message: `Server received: ${fileName}. Mock processing successful.`, documentId: mockDocumentId };
+      console.log(`[SERVER ACTION DEBUG] 'pdfFile' is a File. Name: ${fileCandidate.name}, Size: ${fileCandidate.size}, Type: ${fileCandidate.type}`);
+    } else if (fileCandidate) {
+      console.log(`[SERVER ACTION DEBUG] 'pdfFile' exists but is not a File. Type: ${typeof fileCandidate}, Value:`, fileCandidate);
     } else {
-      console.error("[SERVER ACTION ERROR] 'pdfFile' not found in FormData or is not a File object.");
-      if (fileCandidate) {
-        console.log(`[SERVER ACTION DEBUG] Type of 'pdfFile': ${typeof fileCandidate}, value:`, fileCandidate);
-      } else {
-        console.log("[SERVER ACTION DEBUG] 'pdfFile' is null or undefined in FormData.");
-      }
-      return { success: false, message: "Server error: 'pdfFile' not found in FormData or is not a valid file." };
+      console.log("[SERVER ACTION DEBUG] 'pdfFile' not found in FormData.");
     }
-  } catch (e: any) {
-    console.error("[SERVER ACTION CRITICAL ERROR] Error processing FormData in handlePdfUpload:", e);
-    // Log the full error object if possible
-    if (e && typeof e === 'object') {
-        console.error("[SERVER ACTION DEBUG] Detailed error object:", JSON.stringify(e, Object.getOwnPropertyNames(e)));
-    }
-    return { success: false, message: `Server critical error during FormData processing: ${e.message}` };
+
+  } catch (err: any) {
+    console.error("[SERVER ACTION DEBUG] Error inspecting formData on server:", err.message);
   }
+
+  // Hardcoded success, no actual processing or validation for extreme debugging
+  // This is to check if the Server Action can return *any* valid JSON response
+  // when it's supposed to handle FormData.
+  return { success: true, message: "Server action handlePdfUpload invoked and returned hardcoded success (SIMULATED - NO ACTUAL PROCESSING).", documentId: "sim-doc-id-hardcoded" };
 }
 
 
