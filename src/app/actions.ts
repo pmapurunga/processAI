@@ -7,14 +7,14 @@ import { summarizeDocument } from '@/ai/flows/summarize-document';
 import { tuneAiPersona } from '@/ai/flows/tune-ai-persona';
 import type { DocumentMetadata, ChatMessage, PersonaConfig } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
-import { storage } from '@/lib/firebase';
+import { auth, storage } from '@/lib/firebase'; // Import auth
 import { ref as storageRef, uploadBytes } from 'firebase/storage';
 
 // --- Mock Data Store (Replace with actual Firestore interactions) ---
 let documents: DocumentMetadata[] = [
-  { id: 'doc1', name: 'Annual Report 2023.pdf', status: 'processed', uploadedAt: new Date(Date.now() - 86400000 * 2).toISOString(), updatedAt: new Date().toISOString(), summary: 'This is a brief summary of the annual report.' },
-  { id: 'doc2', name: 'Project Phoenix Proposal.pdf', status: 'processing', uploadedAt: new Date(Date.now() - 86400000).toISOString(), updatedAt: new Date().toISOString() },
-  { id: 'doc3', name: 'Research Paper on AI.pdf', status: 'error', uploadedAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'doc1', name: 'Annual Report 2023.pdf', status: 'processed', uploadedAt: new Date(Date.now() - 86400000 * 2).toISOString(), updatedAt: new Date().toISOString(), summary: 'This is a brief summary of the annual report.', userId: 'mockUser1' },
+  { id: 'doc2', name: 'Project Phoenix Proposal.pdf', status: 'processing', uploadedAt: new Date(Date.now() - 86400000).toISOString(), updatedAt: new Date().toISOString(), userId: 'mockUser1' },
+  { id: 'doc3', name: 'Research Paper on AI.pdf', status: 'error', uploadedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), userId: 'mockUser2' },
 ];
 
 let chatMessages: Record<string, ChatMessage[]> = {
@@ -32,10 +32,12 @@ let personaConfig: PersonaConfig = {
 // --- Document Actions ---
 export async function getDocuments(): Promise<DocumentMetadata[]> {
   // In a real app, fetch from Firestore
+  // Filter by current user if needed, or handle authorization server-side
   return Promise.resolve(documents.sort((a,b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()));
 }
 
 export async function getDocumentById(id: string): Promise<DocumentMetadata | undefined> {
+  // Add authorization check if necessary
   return Promise.resolve(documents.find(doc => doc.id === id));
 }
 
@@ -45,6 +47,12 @@ const uploadPdfSchema = z.object({
 });
 
 export async function handlePdfUpload(formData: FormData): Promise<{ success: boolean; message: string; document?: DocumentMetadata }> {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    return { success: false, message: "User not authenticated. Please log in and try again." };
+  }
+  const userId = currentUser.uid;
+
   const validatedFields = uploadPdfSchema.safeParse({
     fileName: formData.get('pdfFile') ? (formData.get('pdfFile') as File).name : '',
   });
@@ -59,7 +67,9 @@ export async function handlePdfUpload(formData: FormData): Promise<{ success: bo
   }
 
   const newDocumentId = `doc${Date.now()}`;
-  const filePath = `uploads/${newDocumentId}/${file.name}`; 
+  // Align with Firebase Storage rules: pendingAnalysis/{userId}/{processId}/{fileName}
+  // Using newDocumentId as processId for this example
+  const filePath = `pendingAnalysis/${userId}/${newDocumentId}/${file.name}`; 
 
   try {
     const fileFirebaseRef = storageRef(storage, filePath);
@@ -72,9 +82,11 @@ export async function handlePdfUpload(formData: FormData): Promise<{ success: bo
       uploadedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       storagePath: filePath, 
+      userId: userId, // Store userId with document metadata
     };
     documents.push(newDocument);
 
+    // Simulate processing delay
     setTimeout(async () => {
       const docIndex = documents.findIndex(d => d.id === newDocument.id);
       if (docIndex > -1) {
@@ -82,26 +94,29 @@ export async function handlePdfUpload(formData: FormData): Promise<{ success: bo
         documents[docIndex].updatedAt = new Date().toISOString();
         revalidatePath('/dashboard'); 
         
+        // Simulate further processing delay for summary
         setTimeout(async () => {
           const finalDocIndex = documents.findIndex(d => d.id === newDocument.id);
           if (finalDocIndex > -1) {
             documents[finalDocIndex].status = 'processed';
             documents[finalDocIndex].updatedAt = new Date().toISOString();
             try {
-              const summaryResult = await summarizeDocument({ documentText: `Simulated full text content of ${documents[finalDocIndex].name}` });
+              // In a real app, fetch the actual document text from storagePath
+              const summaryResult = await summarizeDocument({ documentText: `Simulated full text content of ${documents[finalDocIndex].name} stored at ${documents[finalDocIndex].storagePath}` });
               documents[finalDocIndex].summary = summaryResult.summary;
             } catch (error) {
               console.error("Error generating summary for new document:", error);
+               documents[finalDocIndex].summary = "Error generating summary.";
             }
             revalidatePath('/dashboard');
             revalidatePath(`/summary/${newDocument.id}`);
           }
-        }, 10000); 
+        }, 10000); // 10 seconds for "processing" to "processed" + summary
       }
-    }, 5000); 
+    }, 5000); // 5 seconds for "uploaded" to "processing"
 
     revalidatePath('/dashboard');
-    return { success: true, message: `${file.name} uploaded successfully. Processing started.`, document: newDocument };
+    return { success: true, message: `${file.name} uploaded successfully to ${filePath}. Processing started.`, document: newDocument };
 
   } catch (uploadError: any) {
     console.error("Raw error during file upload:", uploadError);
@@ -109,13 +124,12 @@ export async function handlePdfUpload(formData: FormData): Promise<{ success: bo
 
     if (uploadError && typeof uploadError === 'object') {
       if ('code' in uploadError && typeof uploadError.code === 'string') {
-        // Firebase errors often have a 'code' and 'message' property
         const firebaseErrorMessage = 'message' in uploadError && typeof uploadError.message === 'string' ? uploadError.message : 'No specific message.';
         errorMessage = `Storage error (${uploadError.code}): ${firebaseErrorMessage}`;
         
         switch (uploadError.code) {
           case 'storage/unauthorized':
-            errorMessage = "Permission denied. Please check your Firebase Storage security rules.";
+            errorMessage = "Permission denied. Please check your Firebase Storage security rules and ensure you are logged in.";
             break;
           case 'storage/canceled':
             errorMessage = "Upload canceled by the user.";
@@ -129,10 +143,8 @@ export async function handlePdfUpload(formData: FormData): Promise<{ success: bo
           case 'storage/retry-limit-exceeded':
             errorMessage = "Upload failed after multiple attempts. Please check your network connection and try again.";
             break;
-          // Default case uses the generic 'Storage error (code): message'
         }
       } else if ('message' in uploadError && typeof uploadError.message === 'string') {
-        // Generic error object with a message
         errorMessage = `Upload failed: ${uploadError.message}`;
       }
     } else if (typeof uploadError === 'string') {
@@ -140,6 +152,13 @@ export async function handlePdfUpload(formData: FormData): Promise<{ success: bo
     }
     
     console.error("Processed error message for client:", errorMessage);
+    // Update document status to error if it was added to the mock list
+    const docIndex = documents.findIndex(d => d.id === newDocumentId);
+    if (docIndex > -1) {
+        documents[docIndex].status = 'error';
+        documents[docIndex].updatedAt = new Date().toISOString();
+        revalidatePath('/dashboard');
+    }
     return { success: false, message: errorMessage };
   }
 }
@@ -147,6 +166,7 @@ export async function handlePdfUpload(formData: FormData): Promise<{ success: bo
 
 // --- Chat Actions ---
 export async function getChatMessages(documentId: string): Promise<ChatMessage[]> {
+  // Add authorization: Ensure user can only access their own document's chat
   return Promise.resolve(chatMessages[documentId] || []);
 }
 
@@ -166,6 +186,7 @@ export async function sendMessage(input: { documentId: string; message: string }
   if (!document || document.status !== 'processed') {
     return { success: false, error: "Document not found or not processed." };
   }
+  // Add authorization check here: ensure current user owns the document or has permission
 
   const userMessage: ChatMessage = {
     id: `msg${Date.now()}`,
@@ -180,8 +201,10 @@ export async function sendMessage(input: { documentId: string; message: string }
   }
   chatMessages[documentId].push(userMessage);
 
+  // In a real RAG system, documentChunks would be dynamically fetched based on the query
+  // from a vector store, using the document's actual content.
   const mockDocumentChunks = [
-    `Content related to ${document.name}. Chunk 1.`,
+    `Content related to ${document.name}. Chunk 1. This is retrieved based on user query from document ${document.storagePath}.`,
     `More content from ${document.name}. Chunk 2. This part might be relevant to the user query: ${message}.`,
     `Persona instructions: ${personaConfig.description}`
   ];
@@ -223,11 +246,15 @@ export async function sendMessage(input: { documentId: string; message: string }
 export async function getDocumentSummary(documentId: string): Promise<string | null> {
   const document = await getDocumentById(documentId);
   if (!document || document.status !== 'processed') return null;
-  
+  // Add authorization check here
+
   if (document.summary) return document.summary;
 
+  // This part is still using simulated text.
+  // In a real app, you'd download the document from document.storagePath,
+  // extract its text, then pass it to summarizeDocument.
   try {
-    const summaryResult = await summarizeDocument({ documentText: `Full text content of ${document.name}. This is a placeholder for actual document content.` });
+    const summaryResult = await summarizeDocument({ documentText: `Full text content of ${document.name} (from ${document.storagePath}). This is a placeholder for actual document content.` });
     const docIndex = documents.findIndex(d => d.id === documentId);
     if (docIndex > -1) {
       documents[docIndex].summary = summaryResult.summary;
