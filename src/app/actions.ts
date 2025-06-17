@@ -6,6 +6,8 @@ import { summarizeDocument } from '@/ai/flows/summarize-document';
 import { tuneAiPersona } from '@/ai/flows/tune-ai-persona';
 import type { DocumentMetadata, ChatMessage, PersonaConfig } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
+import { storage } from '@/lib/firebase'; // Adicionado
+import { ref as storageRef, uploadBytes } from 'firebase/storage'; // Adicionado
 
 // --- Mock Data Store (Replace with actual Firestore interactions) ---
 let documents: DocumentMetadata[] = [
@@ -40,6 +42,7 @@ export async function getDocumentById(id: string): Promise<DocumentMetadata | un
 const uploadPdfSchema = z.object({
   fileName: z.string().min(1, "File name is required"),
 });
+
 export async function handlePdfUpload(formData: FormData): Promise<{ success: boolean; message: string; document?: DocumentMetadata }> {
   const validatedFields = uploadPdfSchema.safeParse({
     fileName: formData.get('pdfFile') ? (formData.get('pdfFile') as File).name : '',
@@ -54,52 +57,86 @@ export async function handlePdfUpload(formData: FormData): Promise<{ success: bo
     return { success: false, message: "No file or invalid file provided." };
   }
 
-  // Simulate upload to Firebase Storage & Cloud Function trigger
-  // In a real app, this would involve Firebase SDKs.
-  // The backend (Cloud Function) would then handle OCR, chunking, embedding, and updating Firestore.
+  const newDocumentId = `doc${Date.now()}`;
+  // O ideal é que o caminho inclua o userId para organização, ex: `uploads/${userId}/${newDocumentId}/${file.name}`
+  // Por enquanto, manteremos um caminho genérico.
+  const filePath = `uploads/${newDocumentId}/${file.name}`; 
 
-  const newDocument: DocumentMetadata = {
-    id: `doc${Date.now()}`,
-    name: file.name,
-    status: 'uploaded', // Initially 'uploaded', backend function would change to 'processing', then 'processed' or 'error'
-    uploadedAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    storagePath: `uploads/${file.name}`, // Example path
-  };
-  documents.push(newDocument);
+  try {
+    // 1. Upload para o Firebase Storage
+    const fileFirebaseRef = storageRef(storage, filePath);
+    await uploadBytes(fileFirebaseRef, file);
+    // Opcionalmente, obter downloadURL se necessário mais tarde: const downloadURL = await getDownloadURL(fileFirebaseRef);
 
-  // Simulate processing delay and update
-  setTimeout(async () => {
-    const docIndex = documents.findIndex(d => d.id === newDocument.id);
-    if (docIndex > -1) {
-      documents[docIndex].status = 'processing';
-      documents[docIndex].updatedAt = new Date().toISOString();
-      revalidatePath('/dashboard'); // Revalidate dashboard to show updated status
-      
-      // Further simulate completion
-      setTimeout(async () => {
-        const finalDocIndex = documents.findIndex(d => d.id === newDocument.id);
-        if (finalDocIndex > -1) {
-          documents[finalDocIndex].status = 'processed';
-          documents[finalDocIndex].updatedAt = new Date().toISOString();
-          // Simulate summary generation
-          try {
-            const summaryResult = await summarizeDocument({ documentText: `Simulated full text content of ${documents[finalDocIndex].name}` });
-            documents[finalDocIndex].summary = summaryResult.summary;
-          } catch (error) {
-            console.error("Error generating summary for new document:", error);
-            // continue even if summary fails
+    // 2. Criar metadados do documento (após upload bem-sucedido)
+    const newDocument: DocumentMetadata = {
+      id: newDocumentId,
+      name: file.name,
+      status: 'uploaded', 
+      uploadedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      storagePath: filePath, // Armazenar o caminho do Firebase Storage
+    };
+    documents.push(newDocument);
+
+    // 3. Simular processamento adicional (pode ser mantido como está por enquanto)
+    // Em um aplicativo real, isso seria substituído por uma Cloud Function que processa o arquivo do Storage.
+    setTimeout(async () => {
+      const docIndex = documents.findIndex(d => d.id === newDocument.id);
+      if (docIndex > -1) {
+        documents[docIndex].status = 'processing';
+        documents[docIndex].updatedAt = new Date().toISOString();
+        revalidatePath('/dashboard'); 
+        
+        setTimeout(async () => {
+          const finalDocIndex = documents.findIndex(d => d.id === newDocument.id);
+          if (finalDocIndex > -1) {
+            documents[finalDocIndex].status = 'processed';
+            documents[finalDocIndex].updatedAt = new Date().toISOString();
+            // Esta geração de resumo ainda usa texto mock.
+            // Será substituída para usar o conteúdo real do PDF.
+            try {
+              const summaryResult = await summarizeDocument({ documentText: `Simulated full text content of ${documents[finalDocIndex].name}` });
+              documents[finalDocIndex].summary = summaryResult.summary;
+            } catch (error) {
+              console.error("Error generating summary for new document:", error);
+              // continua mesmo se o resumo falhar
+            }
+            revalidatePath('/dashboard');
+            revalidatePath(`/summary/${newDocument.id}`);
           }
-          revalidatePath('/dashboard');
-          revalidatePath(`/summary/${newDocument.id}`);
+        }, 10000); // 10 segundos para 'processed'
+      }
+    }, 5000); // 5 segundos para 'processing'
+
+    revalidatePath('/dashboard');
+    return { success: true, message: `${file.name} uploaded successfully. Processing started.`, document: newDocument };
+
+  } catch (uploadError) {
+    console.error("Error uploading file to Firebase Storage:", uploadError);
+    let errorMessage = "Failed to upload file to storage.";
+    if (uploadError instanceof Error) {
+        const firebaseError = uploadError as any; // Erros do Firebase Storage podem ter uma propriedade 'code'
+        if (firebaseError.code) {
+            switch (firebaseError.code) {
+                case 'storage/unauthorized':
+                    errorMessage = "Permission denied. Please check your Firebase Storage security rules.";
+                    break;
+                case 'storage/canceled':
+                    errorMessage = "Upload canceled.";
+                    break;
+                case 'storage/object-not-found':
+                    errorMessage = "File not found during upload, this shouldn't happen.";
+                     break;
+                default:
+                    errorMessage = `Storage error: ${firebaseError.message || firebaseError.code}`;
+            }
+        } else {
+          errorMessage = uploadError.message;
         }
-      }, 10000); // 10 seconds to 'processed'
     }
-  }, 5000); // 5 seconds to 'processing'
-
-
-  revalidatePath('/dashboard');
-  return { success: true, message: `${file.name} uploaded successfully. Processing started.`, document: newDocument };
+    return { success: false, message: errorMessage };
+  }
 }
 
 
