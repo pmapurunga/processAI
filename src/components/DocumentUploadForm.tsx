@@ -1,14 +1,13 @@
 
 "use client";
 
-import { useState, useTransition, useEffect } from 'react';
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label'; // Label ainda é usado, mas FormLabel é preferível dentro de FormField
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { handlePdfUpload } from '@/app/actions';
@@ -21,10 +20,10 @@ const ACCEPTED_FILE_TYPES = ['application/pdf'];
 const formSchema = z.object({
   pdfFile: z
     .instanceof(FileList)
-    .refine((files) => files.length > 0, "Please select a PDF file.") // Garante que o FileList não está vazio
-    .refine((files) => files[0].size <= MAX_FILE_SIZE, `Max file size is 100MB.`) // files[0] é seguro devido ao refine anterior
+    .refine((files) => files && files.length > 0, "Please select a PDF file.")
+    .refine((files) => files?.[0]?.size <= MAX_FILE_SIZE, `Max file size is 100MB.`)
     .refine(
-      (files) => ACCEPTED_FILE_TYPES.includes(files[0].type), // files[0] é seguro
+      (files) => files?.[0]?.type ? ACCEPTED_FILE_TYPES.includes(files[0].type) : false,
       "Only .pdf files are accepted."
     ),
 });
@@ -42,40 +41,47 @@ export default function DocumentUploadForm() {
     defaultValues: {
       pdfFile: undefined,
     },
-    mode: 'onChange', 
+    mode: 'onChange',
   });
 
   const onSubmit = (data: FormValues) => {
     startTransition(async () => {
-      const formData = new FormData();
-      formData.append('pdfFile', data.pdfFile[0]);
+      const formDataPayload = new FormData();
+      if (data.pdfFile && data.pdfFile.length > 0) {
+        formDataPayload.append('pdfFile', data.pdfFile[0]);
+      } else {
+        // This case should ideally be caught by Zod validation, but as a fallback:
+        toast({ title: "Error", description: "No file selected for upload.", variant: "destructive" });
+        return;
+      }
 
       try {
-        const result = await handlePdfUpload(formData);
+        const result = await handlePdfUpload(formDataPayload);
         if (result.success) {
           toast({
-            title: "Upload Successful",
-            description: result.message,
+            title: "Upload Progress", // Changed title to reflect server acknowledgement
+            description: result.message, // Display message from server
           });
-          if (result.document) {
-            router.push(`/dashboard`); 
-          } else {
-            router.push('/dashboard');
+          if (result.documentId) {
+            // Potentially redirect or update UI based on documentId
+            // For now, just log and stay on page to observe toasts
+            console.log("Simulated document ID:", result.documentId);
+            // router.push(`/dashboard`); // Temporarily disable redirect
           }
         } else {
           toast({
-            title: "Upload Failed",
-            description: result.message,
+            title: "Upload Failed (Server)",
+            description: result.message, // Display error message from server
             variant: "destructive",
           });
         }
-      } catch (error) {
+      } catch (error) { // This client-side catch handles network errors or if the Server Action call itself fails catastrophically
+        console.error("Upload error (client-side catch block):", error);
         toast({
-          title: "Upload Error",
-          description: "An unexpected error occurred during upload.",
+          title: "Upload Error (Client)",
+          description: error instanceof Error ? error.message : "An unexpected error occurred during the upload attempt.",
           variant: "destructive",
         });
-        console.error("Upload error:", error);
       }
     });
   };
@@ -106,24 +112,24 @@ export default function DocumentUploadForm() {
                       type="file"
                       accept=".pdf"
                       className="file:text-primary file:font-semibold hover:file:bg-primary/10 h-auto p-3"
-                      ref={field.ref} // Importante para o Controller/FormField
+                      disabled={isPending}
                       onBlur={field.onBlur}
                       onChange={(e) => {
                         const files = e.target.files;
                         if (files && files.length > 0) {
-                          field.onChange(files); // Passa o FileList para o RHF Controller
+                          form.setValue('pdfFile', files, { shouldValidate: true });
                           setFileName(files[0].name);
                         } else {
-                          // Cria um FileList vazio para garantir que a validação "Please select a PDF file." seja acionada
-                          field.onChange(new DataTransfer().files); 
+                          // Create an empty FileList for Zod to correctly validate as "Please select a PDF file."
+                          form.setValue('pdfFile', new DataTransfer().files, { shouldValidate: true });
                           setFileName(null);
                         }
                       }}
-                      disabled={isPending}
+                      ref={field.ref}
                     />
                   </FormControl>
                   {fileName && !fieldState.error && <p className="text-sm text-muted-foreground mt-1">Selected: {fileName}</p>}
-                  <FormMessage /> {/* Exibe erros de validação para 'pdfFile' */}
+                  <FormMessage />
                 </FormItem>
               )}
             />

@@ -2,16 +2,13 @@
 'use server';
 
 import { z } from 'zod';
-import { queryDocument } from '@/ai/flows/query-document';
-import { summarizeDocument } from '@/ai/flows/summarize-document';
-import { tuneAiPersona } from '@/ai/flows/tune-ai-persona';
+// import { queryDocument } from '@/ai/flows/query-document'; // Temporarily unused
+// import { summarizeDocument } from '@/ai/flows/summarize-document'; // Temporarily unused
+// import { tuneAiPersona } from '@/ai/flows/tune-ai-persona'; // Temporarily unused
 import type { DocumentMetadata, ChatMessage, PersonaConfig } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
-// Intentionally removed:
-// import { auth, storage } from '@/lib/firebase'; 
-// import { ref as storageRef, uploadBytes } from 'firebase/storage';
 
-// --- Mock Data Store (Replace with actual Firestore interactions) ---
+// --- Mock Data Store (Remains for other actions, but handlePdfUpload will be simplified) ---
 let documents: DocumentMetadata[] = [
   { id: 'doc1', name: 'Annual Report 2023.pdf', status: 'processed', uploadedAt: new Date(Date.now() - 86400000 * 2).toISOString(), updatedAt: new Date().toISOString(), summary: 'This is a brief summary of the annual report.', userId: 'mockUser1' },
   { id: 'doc2', name: 'Project Phoenix Proposal.pdf', status: 'processing', uploadedAt: new Date(Date.now() - 86400000).toISOString(), updatedAt: new Date().toISOString(), userId: 'mockUser1' },
@@ -39,108 +36,52 @@ export async function getDocumentById(id: string): Promise<DocumentMetadata | un
   return Promise.resolve(documents.find(doc => doc.id === id));
 }
 
-const uploadPdfSchema = z.object({
-  fileName: z.string().min(1, "File name is required"),
-});
+// Temporarily remove Zod schema for this specific test for handlePdfUpload
+// const uploadPdfSchema = z.object({
+//   fileName: z.string().min(1, "File name is required"),
+// });
 
-export async function handlePdfUpload(formData: FormData): Promise<{ success: boolean; message: string; document?: DocumentMetadata }> {
-  console.log("[SERVER ACTION DEBUG] handlePdfUpload called (SIMPLIFIED - NO FIREBASE UPLOAD / NO FIREBASE IMPORTS).");
+export async function handlePdfUpload(formData: FormData): Promise<{ success: boolean; message: string; documentId?: string }> {
+  console.log("[SERVER ACTION DEBUG] handlePdfUpload INVOKED.");
 
+  let fileName: string | undefined;
   try {
-    const file = formData.get('pdfFile') as File;
-    if (!file || typeof file.name !== 'string' || file.size === 0) {
-      console.error("[SERVER ACTION ERROR] No file or invalid file provided.");
-      return { success: false, message: "No file or invalid file provided." };
-    }
-    console.log("[SERVER ACTION DEBUG] File received:", file.name, file.size, file.type);
+    const fileCandidate = formData.get('pdfFile');
 
-    const validatedFields = uploadPdfSchema.safeParse({ fileName: file.name });
-    if (!validatedFields.success) {
-      const errorMessages = validatedFields.error.flatten().fieldErrors;
-      const prettyError = JSON.stringify(errorMessages, null, 2);
-      console.error("[SERVER ACTION ERROR] Invalid file name based on schema:", prettyError);
-      return { success: false, message: `Invalid file name. Details: ${prettyError}` };
-    }
-    console.log("[SERVER ACTION DEBUG] File name validated.");
-
-    const newDocumentId = `doc${Date.now()}`;
-    const mockUserId = "SIMULATED_USER_ID_NO_FIREBASE_UPLOAD"; 
-
-    const newDocument: DocumentMetadata = {
-      id: newDocumentId,
-      name: file.name,
-      status: 'uploaded', 
-      uploadedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      storagePath: `simulated/pendingAnalysis/${mockUserId}/${newDocumentId}/${file.name}`, 
-      userId: mockUserId,
-    };
-
-    console.log("[SERVER ACTION DEBUG] Mock document created:", JSON.stringify(newDocument));
-    documents.push(newDocument); 
-    console.log("[SERVER ACTION DEBUG] Mock document pushed to in-memory array.");
-
-    setTimeout(async () => {
-      const docIndex = documents.findIndex(d => d.id === newDocument.id);
-      if (docIndex > -1 && documents[docIndex]) { 
-        documents[docIndex].status = 'processing';
-        documents[docIndex].updatedAt = new Date().toISOString();
-        console.log(`[SERVER ACTION DEBUG] Document ${newDocument.id} status changed to 'processing' (simulated).`);
-        revalidatePath('/dashboard');
-
-        setTimeout(async () => {
-          const finalDocIndex = documents.findIndex(d => d.id === newDocument.id);
-          if (finalDocIndex > -1 && documents[finalDocIndex]) { 
-            documents[finalDocIndex].status = 'processed';
-            documents[finalDocIndex].updatedAt = new Date().toISOString();
-            console.log(`[SERVER ACTION DEBUG] Document ${newDocument.id} status changed to 'processed' (simulated).`);
-            try {
-              const summaryResult = await summarizeDocument({ documentText: `Simulated full text content of ${documents[finalDocIndex].name} stored at ${documents[finalDocIndex].storagePath}` });
-              documents[finalDocIndex].summary = summaryResult.summary;
-              console.log(`[SERVER ACTION DEBUG] Summary generated for ${newDocument.id} (simulated).`);
-            } catch (error) {
-              console.error("[SERVER ACTION ERROR] Error generating summary for new document (in simplified test):", error);
-               documents[finalDocIndex].summary = "Error generating summary.";
-            }
-            revalidatePath('/dashboard');
-            revalidatePath(`/summary/${newDocument.id}`);
-          }
-        }, 10000); 
-      }
-    }, 5000); 
-
-    revalidatePath('/dashboard');
-    console.log("[SERVER ACTION SUCCESS] handlePdfUpload completed (SIMPLIFIED - NO FIREBASE UPLOAD). File:", newDocument.name);
-    return { 
-      success: true, 
-      message: `${file.name} upload process SIMULATED. No actual Firebase upload or SDKs involved directly in this action. Document added to mock list.`, 
-      document: newDocument 
-    };
-
-  } catch (error: any) {
-    console.error("[SERVER ACTION DEBUG] Critical error in handlePdfUpload's main try-catch block (SIMPLIFIED TEST - NO FIREBASE IMPORTS).");
-    
-    let clientMessage = "Upload failed during SIMPLIFIED TEST (NO FIREBASE IMPORTS) due to an unexpected server error. Please check server logs for detailed information.";
-
-    if (error && typeof error.message === 'string') {
-      clientMessage = `Upload failed (SIMPLIFIED TEST - NO FIREBASE IMPORTS): ${error.message}`;
-    } else if (typeof error === 'string') {
-      clientMessage = `Upload failed (SIMPLIFIED TEST - NO FIREBASE IMPORTS): ${error}`;
-    }
-    
-    if (error && typeof error === 'object') {
-        console.error("[SERVER ACTION DEBUG] Detailed uploadError object (stringified SIMPLIFIED TEST - NO FIREBASE IMPORTS):", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    // Check if fileCandidate is a File object
+    if (fileCandidate instanceof File) {
+      fileName = fileCandidate.name;
+      console.log(`[SERVER ACTION DEBUG] Received file: ${fileName}, size: ${fileCandidate.size}, type: ${fileCandidate.type}`);
+      
+      // Simulate a successful processing for now, without Zod or mock document array manipulation
+      const mockDocumentId = `doc-sim-${Date.now()}`;
+      console.log(`[SERVER ACTION DEBUG] Mock success for ${fileName}. Document ID: ${mockDocumentId}`);
+      
+      // Simulate revalidation if needed, though not strictly necessary for this simple test
+      // revalidatePath('/dashboard');
+      
+      return { success: true, message: `Server received: ${fileName}. Mock processing successful.`, documentId: mockDocumentId };
     } else {
-        console.error("[SERVER ACTION DEBUG] uploadError (raw, non-object, SIMPLIFIED TEST - NO FIREBASE IMPORTS):", error);
+      console.error("[SERVER ACTION ERROR] 'pdfFile' not found in FormData or is not a File object.");
+      if (fileCandidate) {
+        console.log(`[SERVER ACTION DEBUG] Type of 'pdfFile': ${typeof fileCandidate}, value:`, fileCandidate);
+      } else {
+        console.log("[SERVER ACTION DEBUG] 'pdfFile' is null or undefined in FormData.");
+      }
+      return { success: false, message: "Server error: 'pdfFile' not found in FormData or is not a valid file." };
     }
-    
-    return { success: false, message: clientMessage };
+  } catch (e: any) {
+    console.error("[SERVER ACTION CRITICAL ERROR] Error processing FormData in handlePdfUpload:", e);
+    // Log the full error object if possible
+    if (e && typeof e === 'object') {
+        console.error("[SERVER ACTION DEBUG] Detailed error object:", JSON.stringify(e, Object.getOwnPropertyNames(e)));
+    }
+    return { success: false, message: `Server critical error during FormData processing: ${e.message}` };
   }
 }
 
 
 // --- Chat Actions ---
-// WARNING: These actions might be broken by removal of Firebase SDK imports if they relied on them.
 export async function getChatMessages(documentId: string): Promise<ChatMessage[]> {
   return Promise.resolve(chatMessages[documentId] || []);
 }
@@ -176,22 +117,25 @@ export async function sendMessage(input: { documentId: string; message: string }
   chatMessages[documentId].push(userMessage);
 
   const mockDocumentChunks = [
-    `Content related to ${document.name}. Chunk 1. This is retrieved based on user query from document ${document.storagePath}.`,
-    `More content from ${document.name}. Chunk 2. This part might be relevant to the user query: ${message}.`,
+    `Content related to ${document.name}. Chunk 1.`,
+    `More content from ${document.name}. Chunk 2. Relevant to: ${message}.`,
     `Persona instructions: ${personaConfig.description}`
   ];
 
   try {
-    const aiResponse = await queryDocument({
-      query: message,
-      documentChunks: mockDocumentChunks,
-    });
+    // const aiResponse = await queryDocument({ // queryDocument is temporarily commented out
+    //   query: message,
+    //   documentChunks: mockDocumentChunks,
+    // });
+    const mockAiResponse = { answer: `This is a mock AI response to: "${message}" for document ${document.name}. Persona: ${personaConfig.description}` };
+
 
     const aiMessage: ChatMessage = {
       id: `msg${Date.now() + 1}`,
       documentId,
       role: 'assistant',
-      content: aiResponse.answer,
+      // content: aiResponse.answer,
+      content: mockAiResponse.answer,
       timestamp: Date.now(),
     };
     chatMessages[documentId].push(aiMessage);
@@ -199,7 +143,7 @@ export async function sendMessage(input: { documentId: string; message: string }
     return { success: true, userMessage, aiMessage };
 
   } catch (error) {
-    console.error("Error querying document:", error);
+    console.error("Error querying document (or mock error):", error);
     const errMessage = error instanceof Error ? error.message : "Unknown error";
     const aiErrorMessage: ChatMessage = {
       id: `msg${Date.now() + 1}`,
@@ -215,7 +159,6 @@ export async function sendMessage(input: { documentId: string; message: string }
 }
 
 // --- Summarization Actions ---
-// WARNING: These actions might be broken by removal of Firebase SDK imports if they relied on them.
 export async function getDocumentSummary(documentId: string): Promise<string | null> {
   const document = await getDocumentById(documentId);
   if (!document || document.status !== 'processed') return null;
@@ -223,18 +166,19 @@ export async function getDocumentSummary(documentId: string): Promise<string | n
   if (document.summary) return document.summary;
 
   try {
-    const summaryResult = await summarizeDocument({ documentText: `Full text content of ${document.name} (from ${document.storagePath}). This is a placeholder for actual document content.` });
+    // const summaryResult = await summarizeDocument({ documentText: `Full text content of ${document.name}.` }); // summarizeDocument is temporarily commented out
+    const mockSummary = `This is a mock summary for ${document.name}. Actual summarization is pending.`;
     const docIndex = documents.findIndex(d => d.id === documentId);
     if (docIndex > -1) {
-      documents[docIndex].summary = summaryResult.summary;
+      documents[docIndex].summary = mockSummary; // summaryResult.summary;
       documents[docIndex].updatedAt = new Date().toISOString();
       revalidatePath(`/summary/${documentId}`);
-      revalidatePath('/dashboard'); 
+      revalidatePath('/dashboard');
     }
-    return summaryResult.summary;
+    return mockSummary; // summaryResult.summary;
   } catch (error) {
-    console.error("Error generating summary:", error);
-    return "Could not generate summary at this time.";
+    console.error("Error generating summary (or mock error):", error);
+    return "Could not generate summary at this time (mock error).";
   }
 }
 
@@ -253,15 +197,15 @@ export async function updateAiPersonaConfig(description: string): Promise<{ succ
   }
   
   try {
-    const result = await tuneAiPersona({ personaDescription: description });
-    personaConfig.description = result.updatedPersonaDescription;
+    // const result = await tuneAiPersona({ personaDescription: description }); // tuneAiPersona is temporarily commented out
+    const mockResult = { updatedPersonaDescription: description };
+    personaConfig.description = mockResult.updatedPersonaDescription; // result.updatedPersonaDescription;
     personaConfig.updatedAt = new Date().toISOString();
     revalidatePath('/admin/persona');
-    return { success: true, message: "AI Persona updated successfully.", persona: personaConfig };
+    return { success: true, message: "AI Persona updated successfully (mock).", persona: personaConfig };
   } catch (error) {
-    console.error("Error updating AI persona:", error);
+    console.error("Error updating AI persona (or mock error):", error);
     const errMessage = error instanceof Error ? error.message : "Unknown error";
-    return { success: false, message: `Failed to update AI persona: ${errMessage}` };
+    return { success: false, message: `Failed to update AI persona (mock error): ${errMessage}` };
   }
 }
-
