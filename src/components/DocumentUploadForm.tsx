@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { handlePdfUpload } from '@/app/actions';
+// import { handlePdfUpload } from '@/app/actions'; // Não mais usado diretamente
 import { UploadCloud, Loader2 } from 'lucide-react';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
@@ -46,40 +46,44 @@ export default function DocumentUploadForm() {
 
   const onSubmit = (data: FormValues) => {
     startTransition(async () => {
-      const formDataPayload = new FormData();
-      if (data.pdfFile && data.pdfFile.length > 0) {
-        formDataPayload.append('pdfFile', data.pdfFile[0]);
-      } else {
-        // This case should ideally be caught by Zod validation, but as a fallback:
+      if (!data.pdfFile || data.pdfFile.length === 0) {
         toast({ title: "Error", description: "No file selected for upload.", variant: "destructive" });
         return;
       }
 
+      const fileToUpload = data.pdfFile[0];
+      const formDataPayload = new FormData();
+      formDataPayload.append('pdfFile', fileToUpload);
+
       try {
-        const result = await handlePdfUpload(formDataPayload);
-        if (result.success) {
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formDataPayload,
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
           toast({
-            title: "Upload Progress", // Changed title to reflect server acknowledgement
-            description: result.message, // Display message from server
+            title: "Upload In Progress",
+            description: result.message,
           });
           if (result.documentId) {
-            // Potentially redirect or update UI based on documentId
-            // For now, just log and stay on page to observe toasts
-            console.log("Simulated document ID:", result.documentId);
-            // router.push(`/dashboard`); // Temporarily disable redirect
+            console.log("Document ID from API:", result.documentId);
+            // router.push(`/dashboard`); // Pode ser reativado se necessário
           }
         } else {
           toast({
-            title: "Upload Failed (Server)",
-            description: result.message, // Display error message from server
+            title: "Upload Failed",
+            description: result.message || "An error occurred on the server.",
             variant: "destructive",
           });
         }
-      } catch (error) { // This client-side catch handles network errors or if the Server Action call itself fails catastrophically
-        console.error("Upload error (client-side catch block):", error);
+      } catch (error) {
+        console.error("Upload error (client-side fetch catch block):", error);
         toast({
           title: "Upload Error (Client)",
-          description: error instanceof Error ? error.message : "An unexpected error occurred during the upload attempt.",
+          description: error instanceof Error ? error.message : "An unexpected network error occurred during the upload attempt.",
           variant: "destructive",
         });
       }
@@ -99,6 +103,7 @@ export default function DocumentUploadForm() {
       </CardHeader>
       <CardContent>
         <Form {...form}>
+          {/* O atributo 'action' é removido pois o envio é manual via fetch */}
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
               control={form.control}
@@ -120,7 +125,6 @@ export default function DocumentUploadForm() {
                           form.setValue('pdfFile', files, { shouldValidate: true });
                           setFileName(files[0].name);
                         } else {
-                          // Create an empty FileList for Zod to correctly validate as "Please select a PDF file."
                           form.setValue('pdfFile', new DataTransfer().files, { shouldValidate: true });
                           setFileName(null);
                         }
