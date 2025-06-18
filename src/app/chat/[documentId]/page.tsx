@@ -12,7 +12,10 @@ interface ChatPageProps {
 }
 
 export default async function ChatPage({ params }: ChatPageProps) {
-  const documentId = params.documentId;
+  // Tentar 'await' params conforme sugerido pelo aviso do Next.js
+  const resolvedParams = await params; // Esta linha foi adicionada/modificada
+  const documentId = resolvedParams.documentId; // Usar o resultado do await
+  
   const document = await getDocumentById(documentId);
   
   if (!document) {

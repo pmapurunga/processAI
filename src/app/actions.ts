@@ -2,39 +2,17 @@
 'use server';
 
 import type { DocumentMetadata, ChatMessage, PersonaConfig } from '@/lib/types';
-import { storage } from '@/lib/firebase'; // Certifique-se que storage está exportado de firebase.ts
+import { storage, firestore } from '@/lib/firebase'; // Import firestore
 import { ref, uploadBytes } from 'firebase/storage';
+import { collection, doc, setDoc, getDoc, getDocs, query } from 'firebase/firestore'; // Import Firestore functions
+
+// Import AI flow functions
 import { summarizeDocument } from '@/ai/flows/summarize-document';
 import { queryDocument } from '@/ai/flows/query-document';
 import { tuneAiPersona } from '@/ai/flows/tune-ai-persona';
 import { extractTextWithDocumentAI } from '@/services/document-ai-service';
 
-// Mock data store (simulando um banco de dados em memória)
-let documents: DocumentMetadata[] = [
-  {
-    id: 'mock-doc-1',
-    name: 'Sample Document 1.pdf',
-    status: 'processed',
-    uploadedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // Yesterday
-    updatedAt: new Date().toISOString(),
-    summary: 'This is a mock summary for Sample Document 1, processed with real text extraction and summarization.',
-    userId: 'mock-user-1',
-    storagePath: 'pendingAnalysis/mock-user-1/mock-doc-1/Sample Document 1.pdf',
-    gcsUri: 'gs://processai-v9qza.appspot.com/pendingAnalysis/mock-user-1/mock-doc-1/Sample Document 1.pdf',
-    extractedText: 'This is some mock extracted text for Sample Document 1.'
-  },
-  {
-    id: 'mock-doc-2',
-    name: 'Another Example.pdf',
-    status: 'processing',
-    uploadedAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    summary: undefined,
-    userId: 'mock-user-1',
-    storagePath: 'pendingAnalysis/mock-user-1/mock-doc-2/Another Example.pdf'
-  },
-];
-
+// Keep mock data for items not yet migrated to Firestore (Chat Messages, Persona Config)
 let chatMessages: ChatMessage[] = [
     {
         id: 'msg1',
@@ -50,22 +28,53 @@ let personaConfig: PersonaConfig = {
   updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // Two days ago
 };
 
+// Get a reference to the 'documents' collection
+const documentsCollection = collection(firestore, 'documents');
 
 export async function getDocuments(): Promise<DocumentMetadata[]> {
   console.log('getDocuments INVOKED');
-  return JSON.parse(JSON.stringify(documents));
+  try {
+    // Fetch all documents from Firestore (consider adding user filtering later)
+    const snapshot = await getDocs(query(documentsCollection));
+    const documents: DocumentMetadata[] = [];
+    snapshot.forEach(doc => {
+      // Cast data to DocumentMetadata, assuming Firestore data matches the type
+      // Need to ensure Firestore document IDs are included
+      documents.push({ id: doc.id, ...doc.data() } as DocumentMetadata);
+    });
+    return documents;
+  } catch (error) {
+    console.error('Error fetching documents from Firestore:', error);
+    return []; // Return empty array on error
+  }
 }
 
 export async function getDocumentById(id: string): Promise<DocumentMetadata | undefined> {
   console.log(`getDocumentById INVOKED for id: ${id}`);
-  const doc = documents.find(d => d.id === id);
-  return doc ? JSON.parse(JSON.stringify(doc)) : undefined;
+  try {
+    const docRef = doc(documentsCollection, id);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      // Cast data to DocumentMetadata, assuming Firestore data matches the type
+      // Need to ensure Firestore document ID is included
+      return { id: docSnap.id, ...docSnap.data() } as DocumentMetadata;
+    } else {
+      console.log(`Document with id ${id} not found in Firestore.`);
+      return undefined;
+    }
+  } catch (error) {
+    console.error(`Error fetching document ${id} from Firestore:`, error);
+    return undefined;
+  }
 }
 
+// NOTE: Chat messages are still in memory. Consider moving these to Firestore as well.
+// Keeping this in memory for now as the focus is on document persistence
 export async function getChatMessages(documentId: string): Promise<ChatMessage[]> {
-  console.log(`getChatMessages INVOKED for documentId: ${documentId}`);
-  const messages = chatMessages.filter(msg => msg.documentId === documentId);
-  return JSON.parse(JSON.stringify(messages));
+    console.log(`getChatMessages INVOKED for documentId: ${documentId}`);
+    const messages = chatMessages.filter(msg => msg.documentId === documentId);
+    return JSON.parse(JSON.stringify(messages)); // Keep JSON.parse(JSON.stringify()) for serialization
 }
 
 export async function sendMessage(data: { documentId: string; message: string }): Promise<{
@@ -75,8 +84,15 @@ export async function sendMessage(data: { documentId: string; message: string })
   error?: string;
 }> {
   console.log(`sendMessage INVOKED for documentId: ${data.documentId}`);
-  const document = documents.find(d => d.id === data.documentId);
+  // Use the updated getDocumentById that reads from Firestore
+  const document = await getDocumentById(data.documentId);
+
+  // Now relying on `extractedText` being saved to Firestore.
   if (!document || document.status !== 'processed' || !document.extractedText) {
+    // Check status again after fetching from DB to ensure it's processed
+    if (document && document.status !== 'processed'){
+         return { success: false, error: `Document is not yet processed. Current status: ${document.status}.` };
+    }
     return { success: false, error: 'Document not found, not processed, or text not extracted.' };
   }
 
@@ -87,8 +103,10 @@ export async function sendMessage(data: { documentId: string; message: string })
     content: data.message,
     timestamp: Date.now(),
   };
+  // NOTE: Chat messages are still in memory. Consider moving these to Firestore as well.
   chatMessages.push(userMessage);
 
+  // --- RE-ENABLED AI CALLS ---
   const maxContextLength = 30000; 
   let documentChunks = [];
   if (document.extractedText) {
@@ -96,9 +114,9 @@ export async function sendMessage(data: { documentId: string; message: string })
       documentChunks.push(document.extractedText.substring(i, i + maxContextLength));
     }
   } else {
+     // This case should ideally not happen if status is 'processed' but good for safety
     documentChunks.push("No text extracted from document.");
   }
-
 
   try {
     const aiResponse = await queryDocument({ query: data.message, documentChunks });
@@ -110,7 +128,7 @@ export async function sendMessage(data: { documentId: string; message: string })
       content: aiResponse.answer || "I'm having trouble responding right now.",
       timestamp: Date.now() + 1,
     };
-    chatMessages.push(aiMessage);
+    chatMessages.push(aiMessage); // Still in memory
     return { success: true, userMessage: JSON.parse(JSON.stringify(userMessage)), aiMessage: JSON.parse(JSON.stringify(aiMessage)) };
   } catch (e: any) {
     console.error("sendMessage Genkit/AI Error:", e);
@@ -119,59 +137,88 @@ export async function sendMessage(data: { documentId: string; message: string })
       id: `ai-err-${Date.now()}`,
       documentId: data.documentId,
       role: 'assistant',
-      content: `Sorry, I encountered an error: ${errorMessage}`,
+      content: `Sorry, I encountered an error while trying to get an AI response: ${errorMessage}`,
       timestamp: Date.now() + 1,
     };
-    chatMessages.push(aiMessage);
+    chatMessages.push(aiMessage); // Still in memory
     return { success: true, userMessage: JSON.parse(JSON.stringify(userMessage)), aiMessage: JSON.parse(JSON.stringify(aiMessage)), error: `AI error: ${errorMessage}` };
   }
+  // --- END OF RE-ENABLED AI CALLS ---
+
 }
 
+// NOTE: Persona config is still in memory. Consider moving this to Firestore.
+// Keeping this in memory for now as the focus is on document persistence
 export async function getAiPersona(): Promise<PersonaConfig> {
   console.log('getAiPersona INVOKED');
   return JSON.parse(JSON.stringify(personaConfig));
 }
 
+// NOTE: Persona config is still in memory. Consider moving this to Firestore.
+// Keeping this in memory for now as the focus is on document persistence
 export async function updateAiPersonaConfig(description: string): Promise<{
   success: boolean;
   message: string;
   persona?: PersonaConfig;
 }> {
   console.log('updateAiPersonaConfig INVOKED');
+   // Keeping this in memory for now as the focus is on document persistence
   try {
+    // --- RE-ENABLED AI CALL ---
     const tunedResult = await tuneAiPersona({ personaDescription: description });
     personaConfig.description = tunedResult.updatedPersonaDescription;
+    // --- END OF RE-ENABLED AI CALL ---
+
     personaConfig.updatedAt = new Date().toISOString();
-    return { success: true, message: 'AI Persona updated successfully.', persona: JSON.parse(JSON.stringify(personaConfig)) };
+
+    return { success: true, message: 'AI Persona updated successfully.', persona: JSON.parse(JSON.stringify(personaConfig)) }; 
   } catch (e: any) {
     console.error("updateAiPersonaConfig Genkit/AI Error:", e);
     const errorMessage = e instanceof Error ? e.message : String(e);
-    return { success: false, message: `Error: ${errorMessage}` };
+    return { success: false, message: `Error updating AI Persona: ${errorMessage}` };
   }
 }
 
 export async function getDocumentSummary(documentId: string): Promise<string | null> {
   console.log(`getDocumentSummary INVOKED for documentId: ${documentId}`);
-  const document = documents.find(d => d.id === documentId);
+  // Use the updated getDocumentById that reads from Firestore
+  const document = await getDocumentById(documentId);
+
+  // Now relying on `summary` and `extractedText` being saved to Firestore.
   if (document && document.summary) {
     return document.summary;
   }
+
+  // If summary is missing but document is processed and has extracted text, attempt to generate
   if (document && document.status === 'processed' && !document.summary && document.extractedText) {
+     // --- RE-ENABLED AI CALL ---
     console.warn(`Document ${documentId} is processed but has no summary. Attempting to generate from extracted text.`);
     try {
       const summaryResult = await summarizeDocument({ documentText: document.extractedText });
-      document.summary = summaryResult.summary;
-      document.updatedAt = new Date().toISOString();
-      return document.summary;
+      const newSummary = summaryResult.summary || "Could not generate summary.";
+      // NOTE: Update the document in Firestore with the new summary
+      const docRef = doc(documentsCollection, documentId);
+      await setDoc(docRef, { summary: newSummary, updatedAt: new Date().toISOString() }, { merge: true });
+
+      // Although we updated Firestore, return the new summary directly for immediate use
+      return newSummary;
     } catch (e: any) {
       console.error("getDocumentSummary Genkit/AI Error on re-summarization:", e);
-      return "Error re-generating summary.";
+       const errorMessage = e instanceof Error ? e.message : String(e);
+       // Attempt to save error status/message to document in Firestore
+       const docRef = doc(documentsCollection, documentId);
+       await setDoc(docRef, { status: 'error', updatedAt: new Date().toISOString(), errorMessage: `Summarization failed: ${errorMessage}` }, { merge: true });
+      return `Error generating summary: ${errorMessage}`; // Return error message to frontend
     }
+    // --- END OF RE-ENABLED AI CALL ---
   }
+
   if (document && (document.status === 'processing' || document.status === 'extracting_text' || document.status === 'summarizing' || document.status === 'uploading')) {
     return "Summary is being generated. Please wait.";
   }
-  return null;
+  
+  // If document is not found, not processed, or has no extracted text and no existing summary
+  return document?.errorMessage || "Summary not available.";
 }
 
 export async function processPdfUploadLogic(formData: FormData): Promise<{ success: boolean; message: string; documentId?: string; document?: DocumentMetadata; }> {
@@ -191,114 +238,137 @@ export async function processPdfUploadLogic(formData: FormData): Promise<{ succe
     console.log("[processPdfUploadLogic] Invalid file type, not a PDF.");
     return { success: false, message: "Invalid file type. Only PDF is allowed." };
   }
-  
+
   const newDocumentId = `doc-${Date.now()}`;
-  // const userId = "mock-user-id"; // Temporarily hardcoded for rule matching.
-  // For production, this should come from auth, and rules should accommodate server-side uploads.
-  const userId = "mock-user-id"; 
-  
-  const newDocument: DocumentMetadata = {
+  const userId = "mock-user-id"; // Temporarily hardcoded, integrate with auth later
+
+  // Initial document data to save to Firestore
+  const initialDocumentData: Omit<DocumentMetadata, 'extractedText' | 'summary' | 'errorMessage' | 'storagePath' | 'gcsUri'> = {
     id: newDocumentId,
     name: file.name,
-    status: 'uploading', 
+    status: 'uploading', // Initial status
     uploadedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     userId: userId,
-  };
-  documents.push(newDocument); 
-  
-  const updateDocStatus = (status: DocumentMetadata['status'], errorMessage?: string, gcsUri?: string, extractedText?: string, summary?: string) => {
-    const docIndex = documents.findIndex(d => d.id === newDocumentId);
-    if (docIndex > -1) {
-      documents[docIndex].status = status;
-      documents[docIndex].updatedAt = new Date().toISOString();
-      if (gcsUri) documents[docIndex].gcsUri = gcsUri;
-      if (extractedText) documents[docIndex].extractedText = extractedText;
-      if (summary) documents[docIndex].summary = summary;
-      if (errorMessage) {
-        documents[docIndex].errorMessage = errorMessage;
-        // Ensure summary reflects error if process fails before summarization
-        if (status === 'error' && !documents[docIndex].summary) {
-            documents[docIndex].summary = `Error: ${errorMessage}`;
-        }
-      }
-    }
+     // storagePath and gcsUri will be added after successful upload
   };
 
-  try {
+   try {
+    // Add the initial document data to Firestore *before* the upload
+    const docRef = doc(documentsCollection, newDocumentId);
+    await setDoc(docRef, initialDocumentData);
+    console.log(`[processPdfUploadLogic] Initial document entry created in Firestore with id: ${newDocumentId}`);
+
     const storagePath = `pendingAnalysis/${userId}/${newDocumentId}/${file.name}`;
     const fileStorageRef = ref(storage, storagePath);
 
     console.log(`[processPdfUploadLogic] Attempting to upload ${file.name} to Firebase Storage: ${storagePath}`);
     await uploadBytes(fileStorageRef, file);
-    newDocument.storagePath = fileStorageRef.fullPath; // Store the full path
-    
-    const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
-    if (!bucketName) { 
-        console.error('[processPdfUploadLogic] Firebase Storage bucket name (NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET) is not configured in .env.');
-        updateDocStatus('error', 'Firebase Storage bucket name not configured.');
-        return { success: false, message: 'Configuration error: Storage bucket name not configured.', documentId: newDocumentId };
+
+    // --- CORRECTED GCS URI CONSTRUCTION ---
+    // Get the project ID from environment variables
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    if (!projectId) {
+         console.error('[processPdfUploadLogic] Firebase Project ID (NEXT_PUBLIC_FIREBASE_PROJECT_ID) is not configured in .env.');
+         await setDoc(docRef, { status: 'error', updatedAt: new Date().toISOString(), errorMessage: 'Configuration error: Firebase Project ID not configured.' }, { merge: true });
+         return { success: false, message: 'Configuration error: Firebase Project ID not configured.', documentId: newDocumentId };
     }
-    const gcsUri = `gs://${bucketName}/${storagePath}`;
-    console.log(`[processPdfUploadLogic] File ${file.name} uploaded to ${storagePath}. GCS URI: ${gcsUri}.`);
-    updateDocStatus('processing', undefined, gcsUri); // Status to 'processing' after successful upload
+    // Construct the GCS URI using the project ID and storage path
+    const gcsUri = `gs://${projectId}.appspot.com/${storagePath}`;
+    // --- END OF CORRECTED GCS URI CONSTRUCTION ---
 
-    // --- TEMPORARILY COMMENTED OUT DOCUMENT AI AND SUMMARIZATION FOR DEBUGGING UPLOAD ---
-    // updateDocStatus('extracting_text', undefined, gcsUri);
-    // console.log(`[processPdfUploadLogic] Calling Document AI to extract text from ${gcsUri}`);
-    // const extractedText = await extractTextWithDocumentAI(gcsUri, file.type);
-    // console.log(`[processPdfUploadLogic] Text extracted for ${newDocumentId}. Length: ${extractedText?.length || 0}.`);
+    console.log(`[processPdfUploadLogic] File ${file.name} uploaded to ${storagePath}. Corrected GCS URI for Document AI: ${gcsUri}.`);
 
-    // let summary = "Summary pending further processing.";
-    // if (!extractedText || extractedText.trim() === "") {
-    //     console.warn(`[processPdfUploadLogic] Extracted text is empty for ${newDocumentId}. Document might be image-based or empty.`);
-    //     summary = "No text content could be extracted from the document to summarize. The document might be image-based or empty.";
-    //     updateDocStatus('processed', undefined, gcsUri, extractedText, summary);
-    // } else {
-    //     updateDocStatus('summarizing', undefined, gcsUri, extractedText);
-    //     console.log(`[processPdfUploadLogic] Calling Genkit to summarize document ${newDocumentId}`);
-    //     const summaryResult = await summarizeDocument({ documentText: extractedText });
-    //     summary = summaryResult.summary;
-    //     updateDocStatus('processed', undefined, gcsUri, extractedText, summary);
-    // }
-    // console.log(`[processPdfUploadLogic] Document ${newDocumentId} processed (upload successful, further processing skipped for debug).`);
-    // return {
-    //   success: true,
-    //   message: `File '${file.name}' uploaded successfully. Further processing (Document AI, Summarization) temporarily skipped for debugging.`,
-    //   documentId: newDocumentId,
-    //   document: JSON.parse(JSON.stringify(newDocument))
-    // };
-    // --- END OF TEMPORARILY COMMENTED OUT SECTION ---
+    // Update status to indicate processing started
+    await setDoc(docRef, { status: 'processing', updatedAt: new Date().toISOString(), storagePath: storagePath, gcsUri: gcsUri }, { merge: true });
+    console.log(`[processPdfUploadLogic] Document status updated to 'processing' in Firestore.`);
 
-    // For now, just mark as processed after upload
-    updateDocStatus('processed', undefined, gcsUri, 'Text extraction and summarization skipped for upload debugging.', 'Summary skipped for upload debugging.');
-    console.log(`[processPdfUploadLogic] File '${file.name}' uploaded to Storage. Marking as 'processed' for now (skipping AI steps).`);
+    // --- RE-ENABLED DOCUMENT AI AND SUMMARIZATION ---
+    await setDoc(docRef, { status: 'extracting_text', updatedAt: new Date().toISOString() }, { merge: true });
+    console.log(`[processPdfUploadLogic] Calling Document AI to extract text from ${gcsUri}`);
+    const extractedText = await extractTextWithDocumentAI(gcsUri, file.type);
+    console.log(`[processPdfUploadLogic] Text extracted for ${newDocumentId}. Length: ${extractedText?.length || 0}.`);
+
+    let summary = "Summary pending.";
+    if (!extractedText || extractedText.trim() === "") {
+        console.warn(`[processPdfUploadLogic] Extracted text is empty for ${newDocumentId}. Document might be image-based or empty.`);
+        summary = "No text content could be extracted from the document to summarize. The document might be image-based or empty.";
+        // Update Firestore with empty text and informative summary, mark as processed
+         await setDoc(docRef, { status: 'processed', updatedAt: new Date().toISOString(), extractedText: extractedText || '', summary: summary }, { merge: true });
+
+    } else {
+        await setDoc(docRef, { status: 'summarizing', updatedAt: new Date().toISOString(), extractedText: extractedText }, { merge: true });
+        console.log(`[processPdfUploadLogic] Calling Genkit to summarize document ${newDocumentId}`);
+        const summaryResult = await summarizeDocument({ documentText: extractedText });
+        summary = summaryResult.summary || "Could not generate summary.";
+         // Update Firestore with extracted text, summary, and final status
+        await setDoc(docRef, { status: 'processed', updatedAt: new Date().toISOString(), summary: summary }, { merge: true });
+    }
+    console.log(`[processPdfUploadLogic] Document ${newDocumentId} fully processed.`);
+    // --- END OF RE-ENABLED DOCUMENT AI AND SUMMARIZATION ---
+
+    // Fetch the final updated document data from Firestore to return in the response
+    const updatedDocSnap = await getDoc(docRef);
+    const updatedDocument = updatedDocSnap.exists() ? ({ id: updatedDocSnap.id, ...updatedDocSnap.data() } as DocumentMetadata) : undefined;
 
     return {
       success: true,
-      message: `File '${file.name}' uploaded successfully. Text extraction and summarization steps were temporarily skipped for debugging the upload.`,
+      message: `File '${file.name}' uploaded and processed successfully. Metadata, extracted text, and summary saved to Firestore.`,
       documentId: newDocumentId,
-      document: JSON.parse(JSON.stringify(newDocument))
+      document: updatedDocument // Return the final document data from Firestore
     };
 
   } catch (error: any) {
     console.error(`[processPdfUploadLogic] Error during processing for ${file.name}:`, error);
     let detailedMessage = 'An unknown error occurred during processing.';
+    let currentDocumentStatus: DocumentMetadata['status'] = 'error'; // Default to error
+
+     // Try to get the current document status from Firestore if the docRef exists
+     const docRef = doc(documentsCollection, newDocumentId);
+     try {
+         const docSnap = await getDoc(docRef);
+          if(docSnap.exists()){
+              const existingData = docSnap.data() as DocumentMetadata;
+               currentDocumentStatus = existingData.status; // Use existing status if available
+          }
+     } catch(dbReadError) {
+         console.error("[processPdfUploadLogic] Error reading document status during error handling:", dbReadError);
+     }
 
     if (error.code && typeof error.code === 'string' && error.code.startsWith('storage/')) {
       detailedMessage = `Firebase Storage Error (${error.code}): ${error.message || 'No specific message.'}`;
-      if (error.serverResponse) {
-        console.error('[processPdfUploadLogic] Firebase Server Response:', error.serverResponse);
-        detailedMessage += ` Server Response: ${JSON.stringify(error.serverResponse)}`;
-      }
+       // Keep status as 'uploading' or transition to 'error'
+       if(currentDocumentStatus === 'uploading') currentDocumentStatus = 'error';
+
+    } else if (error.code && typeof error.code === 'string') {
+       // Assuming other errors might be from AI services or Firestore writes
+       detailedMessage = `${error.code}: ${error.message || 'No specific message.'}`;
+        currentDocumentStatus = 'error'; // Transition to error for processing failures
+
     } else if (error instanceof Error) {
       detailedMessage = error.message;
+       currentDocumentStatus = 'error'; // Transition to error for general JS errors
+
     } else {
       detailedMessage = String(error);
+       currentDocumentStatus = 'error'; // Transition to error for unknown errors
     }
-    
+
     console.error(`[processPdfUploadLogic] Detailed error for frontend: ${detailedMessage}`);
-    updateDocStatus('error', detailedMessage);
+
+    // Try to update the document status in Firestore to 'error'
+    if (newDocumentId) {
+         try {
+             const docRef = doc(documentsCollection, newDocumentId);
+              // Use setDoc with merge to avoid overwriting existing fields like name, userId, etc.
+              // Only update status, updatedAt, and errorMessage
+             await setDoc(docRef, { status: currentDocumentStatus, updatedAt: new Date().toISOString(), errorMessage: detailedMessage }, { merge: true });
+             console.log(`[processPdfUploadLogic] Document entry in Firestore updated to status '${currentDocumentStatus}' for id: ${newDocumentId}`);
+         } catch (dbError) {
+             console.error(`[processPdfUploadLogic] Failed to update document status to error in Firestore for ${newDocumentId}:`, dbError);
+         }
+    }
+
     return {
       success: false,
       message: `Processing failed for '${file.name}': ${detailedMessage}`,
@@ -306,4 +376,3 @@ export async function processPdfUploadLogic(formData: FormData): Promise<{ succe
     };
   }
 }
-    

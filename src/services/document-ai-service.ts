@@ -1,3 +1,4 @@
+
 'use server';
 
 import {
@@ -42,6 +43,8 @@ export async function extractTextWithDocumentAI(
     // For production, you might want to configure human review.
     skipHumanReview: true,
   };
+
+  console.log('[Document AI Service] Sending request to Document AI:', JSON.stringify(request, null, 2));
 
   try {
     const [result] = await client.processDocument(request);

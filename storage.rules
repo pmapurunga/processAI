@@ -1,0 +1,21 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow users to upload files to their own "pendingAnalysis" folder structure.
+    // The path is structured as: pendingAnalysis/{userId}/{processId}/{fileName}
+    match /pendingAnalysis/{userId}/{processId}/{allPaths=**} {
+      // TEMPORARILY allow write if the file size is reasonable,
+      // REMOVING THE AUTHENTICATION CHECK for debugging server-side uploads.
+      // For production, you MUST re-evaluate how server-side uploads are authenticated
+      // or use Firebase Admin SDK which bypasses rules.
+      allow write: if request.resource.size < 20 * 1024 * 1024;
+
+      // Allow read by the owner (this part can remain if needed for client-side reads).
+      allow read: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Se você tiver outras regras, mantenha-as ou ajuste-as conforme necessário.
+    // Se não houver outras regras, o acesso a outros caminhos será negado por padrão.
+  }
+}

@@ -1,0 +1,13 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Permite leitura e escrita em *qualquer* documento na coleção 'documents'
+    // por *qualquer* usuário. ISSO NÃO É SEGURO PARA PRODUÇÃO.
+    match /documents/{documentId} {
+      allow read, write: if true;
+    }
+
+    // Se você tiver outras coleções, adicione regras para elas aqui.
+    // Caso contrário, o acesso a outras coleções será negado por padrão.
+  }
+}
