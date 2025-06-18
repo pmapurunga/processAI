@@ -23,7 +23,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
-import { SheetTitle } from '@/components/ui/sheet'; // Added import for SheetTitle
+// Removed import for SheetTitle as it's now handled within Sidebar component for mobile
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -79,8 +79,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <SidebarProvider defaultOpen>
       <Sidebar variant="sidebar" collapsible="icon">
         <SidebarHeader className="p-4 flex items-center justify-between">
-          {/* Added visually hidden SheetTitle for accessibility on mobile sidebar */}
-          <SheetTitle className="sr-only">Main Navigation</SheetTitle>
+          {/* SheetTitle for mobile is now handled directly within Sidebar component */}
           <Link href="/dashboard" className="flex items-center gap-2">
             <Logo className="h-8 w-auto" />
           </Link>
@@ -176,3 +175,4 @@ function UserMenu({ user, signOut, loading }: UserMenuProps) {
   );
 }
 
+    
