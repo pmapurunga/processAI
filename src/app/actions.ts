@@ -2,7 +2,7 @@
 'use server';
 
 import type { DocumentMetadata, ChatMessage, PersonaConfig } from '@/lib/types';
-import { storage } from '@/lib/firebase';
+import { storage } from '@/lib/firebase'; // Certifique-se que storage está exportado de firebase.ts
 import { ref, uploadBytes } from 'firebase/storage';
 import { summarizeDocument } from '@/ai/flows/summarize-document';
 import { queryDocument } from '@/ai/flows/query-document';
@@ -19,8 +19,8 @@ let documents: DocumentMetadata[] = [
     updatedAt: new Date().toISOString(),
     summary: 'This is a mock summary for Sample Document 1, processed with real text extraction and summarization.',
     userId: 'mock-user-1',
-    storagePath: 'pendingAnalysis/mock-user-1/mock-doc-1/Sample Document 1.pdf', // Adjusted path
-    gcsUri: 'gs://processai-v9qza.appspot.com/pendingAnalysis/mock-user-1/mock-doc-1/Sample Document 1.pdf', // Adjusted path
+    storagePath: 'pendingAnalysis/mock-user-1/mock-doc-1/Sample Document 1.pdf',
+    gcsUri: 'gs://processai-v9qza.appspot.com/pendingAnalysis/mock-user-1/mock-doc-1/Sample Document 1.pdf',
     extractedText: 'This is some mock extracted text for Sample Document 1.'
   },
   {
@@ -31,7 +31,7 @@ let documents: DocumentMetadata[] = [
     updatedAt: new Date().toISOString(),
     summary: undefined,
     userId: 'mock-user-1',
-    storagePath: 'pendingAnalysis/mock-user-1/mock-doc-2/Another Example.pdf' // Adjusted path
+    storagePath: 'pendingAnalysis/mock-user-1/mock-doc-2/Another Example.pdf'
   },
 ];
 
@@ -52,18 +52,18 @@ let personaConfig: PersonaConfig = {
 
 
 export async function getDocuments(): Promise<DocumentMetadata[]> {
-  console.log('[MOCK SERVER ACTION] getDocuments INVOKED');
+  console.log('getDocuments INVOKED');
   return JSON.parse(JSON.stringify(documents));
 }
 
 export async function getDocumentById(id: string): Promise<DocumentMetadata | undefined> {
-  console.log(`[MOCK SERVER ACTION] getDocumentById INVOKED for id: ${id}`);
+  console.log(`getDocumentById INVOKED for id: ${id}`);
   const doc = documents.find(d => d.id === id);
   return doc ? JSON.parse(JSON.stringify(doc)) : undefined;
 }
 
 export async function getChatMessages(documentId: string): Promise<ChatMessage[]> {
-  console.log(`[MOCK SERVER ACTION] getChatMessages INVOKED for documentId: ${documentId}`);
+  console.log(`getChatMessages INVOKED for documentId: ${documentId}`);
   const messages = chatMessages.filter(msg => msg.documentId === documentId);
   return JSON.parse(JSON.stringify(messages));
 }
@@ -112,9 +112,9 @@ export async function sendMessage(data: { documentId: string; message: string })
     };
     chatMessages.push(aiMessage);
     return { success: true, userMessage: JSON.parse(JSON.stringify(userMessage)), aiMessage: JSON.parse(JSON.stringify(aiMessage)) };
-  } catch (e) {
+  } catch (e: any) {
     console.error("sendMessage Genkit/AI Error:", e);
-    const errorMessage = e instanceof Error ? e.message : 'AI failed to respond.';
+    const errorMessage = e instanceof Error ? e.message : String(e);
     const aiMessage: ChatMessage = {
       id: `ai-err-${Date.now()}`,
       documentId: data.documentId,
@@ -128,7 +128,7 @@ export async function sendMessage(data: { documentId: string; message: string })
 }
 
 export async function getAiPersona(): Promise<PersonaConfig> {
-  console.log('[MOCK SERVER ACTION] getAiPersona INVOKED');
+  console.log('getAiPersona INVOKED');
   return JSON.parse(JSON.stringify(personaConfig));
 }
 
@@ -137,33 +137,33 @@ export async function updateAiPersonaConfig(description: string): Promise<{
   message: string;
   persona?: PersonaConfig;
 }> {
-  console.log('[MOCK SERVER ACTION] updateAiPersonaConfig INVOKED');
+  console.log('updateAiPersonaConfig INVOKED');
   try {
     const tunedResult = await tuneAiPersona({ personaDescription: description });
     personaConfig.description = tunedResult.updatedPersonaDescription;
     personaConfig.updatedAt = new Date().toISOString();
     return { success: true, message: 'AI Persona updated successfully.', persona: JSON.parse(JSON.stringify(personaConfig)) };
-  } catch (e) {
+  } catch (e: any) {
     console.error("updateAiPersonaConfig Genkit/AI Error:", e);
-    const errorMessage = e instanceof Error ? e.message : 'Failed to tune persona.';
+    const errorMessage = e instanceof Error ? e.message : String(e);
     return { success: false, message: `Error: ${errorMessage}` };
   }
 }
 
 export async function getDocumentSummary(documentId: string): Promise<string | null> {
-  console.log(`[MOCK SERVER ACTION] getDocumentSummary INVOKED for documentId: ${documentId}`);
+  console.log(`getDocumentSummary INVOKED for documentId: ${documentId}`);
   const document = documents.find(d => d.id === documentId);
   if (document && document.summary) {
     return document.summary;
   }
   if (document && document.status === 'processed' && !document.summary && document.extractedText) {
-    console.warn(`[MOCK SERVER ACTION] Document ${documentId} is processed but has no summary. Attempting to generate from extracted text.`);
+    console.warn(`Document ${documentId} is processed but has no summary. Attempting to generate from extracted text.`);
     try {
       const summaryResult = await summarizeDocument({ documentText: document.extractedText });
       document.summary = summaryResult.summary;
       document.updatedAt = new Date().toISOString();
       return document.summary;
-    } catch (e) {
+    } catch (e: any) {
       console.error("getDocumentSummary Genkit/AI Error on re-summarization:", e);
       return "Error re-generating summary.";
     }
@@ -175,25 +175,27 @@ export async function getDocumentSummary(documentId: string): Promise<string | n
 }
 
 export async function processPdfUploadLogic(formData: FormData): Promise<{ success: boolean; message: string; documentId?: string; document?: DocumentMetadata; }> {
-  console.log("[PROCESS PDF LOGIC] processPdfUploadLogic INVOKED");
+  console.log("[processPdfUploadLogic] INVOKED");
 
   const fileEntry = formData.get('pdfFile');
 
   if (!fileEntry || !(fileEntry instanceof File)) {
-    console.log("[PROCESS PDF LOGIC] No file found in FormData or not a File instance.");
+    console.log("[processPdfUploadLogic] No file found in FormData or not a File instance.");
     return { success: false, message: "No file found in form data." };
   }
 
   const file = fileEntry as File;
-  console.log(`[PROCESS PDF LOGIC] File Name: ${file.name}, File Size: ${file.size}, File Type: ${file.type}`);
+  console.log(`[processPdfUploadLogic] File Name: ${file.name}, File Size: ${file.size}, File Type: ${file.type}`);
 
   if (!file.name.toLowerCase().endsWith('.pdf') || file.type !== 'application/pdf') {
-    console.log("[PROCESS PDF LOGIC] Invalid file type, not a PDF.");
+    console.log("[processPdfUploadLogic] Invalid file type, not a PDF.");
     return { success: false, message: "Invalid file type. Only PDF is allowed." };
   }
   
   const newDocumentId = `doc-${Date.now()}`;
-  const userId = "mock-user-id"; // For now, this is hardcoded. For production, this should come from auth.
+  // const userId = "mock-user-id"; // Temporarily hardcoded for rule matching.
+  // For production, this should come from auth, and rules should accommodate server-side uploads.
+  const userId = "mock-user-id"; 
   
   const newDocument: DocumentMetadata = {
     id: newDocumentId,
@@ -202,93 +204,100 @@ export async function processPdfUploadLogic(formData: FormData): Promise<{ succe
     uploadedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     userId: userId,
-    storagePath: undefined,
-    gcsUri: undefined,
-    summary: undefined,
-    extractedText: undefined,
-    errorMessage: undefined,
   };
   documents.push(newDocument); 
   
-  const updateDocStatus = (status: DocumentMetadata['status'], errorMessage?: string) => {
+  const updateDocStatus = (status: DocumentMetadata['status'], errorMessage?: string, gcsUri?: string, extractedText?: string, summary?: string) => {
     const docIndex = documents.findIndex(d => d.id === newDocumentId);
     if (docIndex > -1) {
       documents[docIndex].status = status;
       documents[docIndex].updatedAt = new Date().toISOString();
+      if (gcsUri) documents[docIndex].gcsUri = gcsUri;
+      if (extractedText) documents[docIndex].extractedText = extractedText;
+      if (summary) documents[docIndex].summary = summary;
       if (errorMessage) {
         documents[docIndex].errorMessage = errorMessage;
-      }
-      if (status === 'error' && errorMessage) {
-         documents[docIndex].summary = `Error: ${errorMessage}`; 
+        // Ensure summary reflects error if process fails before summarization
+        if (status === 'error' && !documents[docIndex].summary) {
+            documents[docIndex].summary = `Error: ${errorMessage}`;
+        }
       }
     }
   };
 
   try {
-    // Path matches the Firebase rule structure: pendingAnalysis/{userId}/{processId}/{fileName}
-    // Using newDocumentId as the processId for this example.
     const storagePath = `pendingAnalysis/${userId}/${newDocumentId}/${file.name}`;
     const fileStorageRef = ref(storage, storagePath);
 
-    console.log(`[PROCESS PDF LOGIC] Attempting to upload ${file.name} to Firebase Storage: ${storagePath}`);
+    console.log(`[processPdfUploadLogic] Attempting to upload ${file.name} to Firebase Storage: ${storagePath}`);
     await uploadBytes(fileStorageRef, file);
-    newDocument.storagePath = fileStorageRef.fullPath;
+    newDocument.storagePath = fileStorageRef.fullPath; // Store the full path
     
     const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
     if (!bucketName) { 
-        console.error('[PROCESS PDF LOGIC] Firebase Storage bucket name (NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET) is not configured in .env.');
-        updateDocStatus('error', 'Firebase Storage bucket name not configured. Check .env file.');
+        console.error('[processPdfUploadLogic] Firebase Storage bucket name (NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET) is not configured in .env.');
+        updateDocStatus('error', 'Firebase Storage bucket name not configured.');
         return { success: false, message: 'Configuration error: Storage bucket name not configured.', documentId: newDocumentId };
     }
-    newDocument.gcsUri = `gs://${bucketName}/${newDocument.storagePath}`; // Using the configured bucket name
-    console.log(`[PROCESS PDF LOGIC] File ${file.name} uploaded to ${newDocument.storagePath}. GCS URI: ${newDocument.gcsUri}.`);
-    
-    updateDocStatus('extracting_text');
-    console.log(`[PROCESS PDF LOGIC] Calling Document AI to extract text from ${newDocument.gcsUri}`);
-    
-    if (!newDocument.gcsUri) { 
-        updateDocStatus('error', 'GCS URI is missing after upload.');
-        throw new Error("GCS URI is not available after upload.");
-    }
-    const extractedText = await extractTextWithDocumentAI(newDocument.gcsUri, file.type);
-    newDocument.extractedText = extractedText;
-    console.log(`[PROCESS PDF LOGIC] Text extracted for ${newDocumentId}. Length: ${extractedText?.length || 0}.`);
+    const gcsUri = `gs://${bucketName}/${storagePath}`;
+    console.log(`[processPdfUploadLogic] File ${file.name} uploaded to ${storagePath}. GCS URI: ${gcsUri}.`);
+    updateDocStatus('processing', undefined, gcsUri); // Status to 'processing' after successful upload
 
-    if (!newDocument.extractedText || newDocument.extractedText.trim() === "") {
-        console.warn(`[PROCESS PDF LOGIC] Extracted text is empty for ${newDocumentId}. Document might be image-based or empty.`);
-        updateDocStatus('summarizing'); 
-        newDocument.summary = "No text content could be extracted from the document to summarize. The document might be image-based or empty.";
-    } else {
-        updateDocStatus('summarizing');
-        console.log(`[PROCESS PDF LOGIC] Calling Genkit to summarize document ${newDocumentId}`);
-        const summaryResult = await summarizeDocument({ documentText: newDocument.extractedText });
-        newDocument.summary = summaryResult.summary;
-    }
-    
-    updateDocStatus('processed');
-    console.log(`[PROCESS PDF LOGIC] Document ${newDocumentId} processed (text extracted and summarized).`);
-    
+    // --- TEMPORARILY COMMENTED OUT DOCUMENT AI AND SUMMARIZATION FOR DEBUGGING UPLOAD ---
+    // updateDocStatus('extracting_text', undefined, gcsUri);
+    // console.log(`[processPdfUploadLogic] Calling Document AI to extract text from ${gcsUri}`);
+    // const extractedText = await extractTextWithDocumentAI(gcsUri, file.type);
+    // console.log(`[processPdfUploadLogic] Text extracted for ${newDocumentId}. Length: ${extractedText?.length || 0}.`);
+
+    // let summary = "Summary pending further processing.";
+    // if (!extractedText || extractedText.trim() === "") {
+    //     console.warn(`[processPdfUploadLogic] Extracted text is empty for ${newDocumentId}. Document might be image-based or empty.`);
+    //     summary = "No text content could be extracted from the document to summarize. The document might be image-based or empty.";
+    //     updateDocStatus('processed', undefined, gcsUri, extractedText, summary);
+    // } else {
+    //     updateDocStatus('summarizing', undefined, gcsUri, extractedText);
+    //     console.log(`[processPdfUploadLogic] Calling Genkit to summarize document ${newDocumentId}`);
+    //     const summaryResult = await summarizeDocument({ documentText: extractedText });
+    //     summary = summaryResult.summary;
+    //     updateDocStatus('processed', undefined, gcsUri, extractedText, summary);
+    // }
+    // console.log(`[processPdfUploadLogic] Document ${newDocumentId} processed (upload successful, further processing skipped for debug).`);
+    // return {
+    //   success: true,
+    //   message: `File '${file.name}' uploaded successfully. Further processing (Document AI, Summarization) temporarily skipped for debugging.`,
+    //   documentId: newDocumentId,
+    //   document: JSON.parse(JSON.stringify(newDocument))
+    // };
+    // --- END OF TEMPORARILY COMMENTED OUT SECTION ---
+
+    // For now, just mark as processed after upload
+    updateDocStatus('processed', undefined, gcsUri, 'Text extraction and summarization skipped for upload debugging.', 'Summary skipped for upload debugging.');
+    console.log(`[processPdfUploadLogic] File '${file.name}' uploaded to Storage. Marking as 'processed' for now (skipping AI steps).`);
+
     return {
       success: true,
-      message: `File '${file.name}' processed successfully. Text extracted and summarized.`,
+      message: `File '${file.name}' uploaded successfully. Text extraction and summarization steps were temporarily skipped for debugging the upload.`,
       documentId: newDocumentId,
       document: JSON.parse(JSON.stringify(newDocument))
     };
 
-  } catch (processingError: any) {
-    console.error(`[PROCESS PDF LOGIC] Error during processing for ${file.name}:`, processingError);
-    
+  } catch (error: any) {
+    console.error(`[processPdfUploadLogic] Error during processing for ${file.name}:`, error);
     let detailedMessage = 'An unknown error occurred during processing.';
-    if (processingError.code && typeof processingError.code === 'string' && processingError.code.startsWith('storage/')) { // Firebase storage error
-      detailedMessage = `Firebase Storage Error (${processingError.code}): ${processingError.message}.`;
-      if (processingError.serverResponse) {
-        console.error('[PROCESS PDF LOGIC] Firebase Server Response:', processingError.serverResponse);
-        detailedMessage += ` Server Response: ${JSON.stringify(processingError.serverResponse)}`;
-      }
-    } else if (processingError instanceof Error) {
-      detailedMessage = processingError.message;
-    }
 
+    if (error.code && typeof error.code === 'string' && error.code.startsWith('storage/')) {
+      detailedMessage = `Firebase Storage Error (${error.code}): ${error.message || 'No specific message.'}`;
+      if (error.serverResponse) {
+        console.error('[processPdfUploadLogic] Firebase Server Response:', error.serverResponse);
+        detailedMessage += ` Server Response: ${JSON.stringify(error.serverResponse)}`;
+      }
+    } else if (error instanceof Error) {
+      detailedMessage = error.message;
+    } else {
+      detailedMessage = String(error);
+    }
+    
+    console.error(`[processPdfUploadLogic] Detailed error for frontend: ${detailedMessage}`);
     updateDocStatus('error', detailedMessage);
     return {
       success: false,
