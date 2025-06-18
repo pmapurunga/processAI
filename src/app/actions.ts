@@ -3,7 +3,7 @@
 
 import type { DocumentMetadata, ChatMessage, PersonaConfig } from '@/lib/types';
 import { storage, firestore } from '@/lib/firebase'; // Import firestore
-import { ref, uploadBytes } from 'firebase/storage';
+import { ref, uploadBytes, getBytes } from 'firebase/storage'; // Import getBytes
 import { collection, doc, setDoc, getDoc, getDocs, query } from 'firebase/firestore'; // Import Firestore functions
 
 // Import AI flow functions
@@ -243,14 +243,13 @@ export async function processPdfUploadLogic(formData: FormData): Promise<{ succe
   const userId = "mock-user-id"; // Temporarily hardcoded, integrate with auth later
 
   // Initial document data to save to Firestore
-  const initialDocumentData: Omit<DocumentMetadata, 'extractedText' | 'summary' | 'errorMessage' | 'storagePath' | 'gcsUri'> = {
+  const initialDocumentData: Omit<DocumentMetadata, 'extractedText' | 'summary' | 'errorMessage' | 'storagePath'> = {
     id: newDocumentId,
     name: file.name,
     status: 'uploading', // Initial status
     uploadedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     userId: userId,
-     // storagePath and gcsUri will be added after successful upload
   };
 
    try {
@@ -264,29 +263,19 @@ export async function processPdfUploadLogic(formData: FormData): Promise<{ succe
 
     console.log(`[processPdfUploadLogic] Attempting to upload ${file.name} to Firebase Storage: ${storagePath}`);
     await uploadBytes(fileStorageRef, file);
-
-    // --- CORRECTED GCS URI CONSTRUCTION ---
-    // Get the project ID from environment variables
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-    if (!projectId) {
-         console.error('[processPdfUploadLogic] Firebase Project ID (NEXT_PUBLIC_FIREBASE_PROJECT_ID) is not configured in .env.');
-         await setDoc(docRef, { status: 'error', updatedAt: new Date().toISOString(), errorMessage: 'Configuration error: Firebase Project ID not configured.' }, { merge: true });
-         return { success: false, message: 'Configuration error: Firebase Project ID not configured.', documentId: newDocumentId };
-    }
-    // Construct the GCS URI using the project ID and storage path
-    const gcsUri = `gs://${projectId}.appspot.com/${storagePath}`;
-    // --- END OF CORRECTED GCS URI CONSTRUCTION ---
-
-    console.log(`[processPdfUploadLogic] File ${file.name} uploaded to ${storagePath}. Corrected GCS URI for Document AI: ${gcsUri}.`);
-
+    console.log(`[processPdfUploadLogic] File ${file.name} uploaded to ${storagePath}.`);
+    
     // Update status to indicate processing started
-    await setDoc(docRef, { status: 'processing', updatedAt: new Date().toISOString(), storagePath: storagePath, gcsUri: gcsUri }, { merge: true });
+    await setDoc(docRef, { status: 'processing', updatedAt: new Date().toISOString(), storagePath: storagePath }, { merge: true });
     console.log(`[processPdfUploadLogic] Document status updated to 'processing' in Firestore.`);
 
-    // --- RE-ENABLED DOCUMENT AI AND SUMMARIZATION ---
+    // --- DOCUMENT AI AND SUMMARIZATION USING FILE BYTES ---
     await setDoc(docRef, { status: 'extracting_text', updatedAt: new Date().toISOString() }, { merge: true });
-    console.log(`[processPdfUploadLogic] Calling Document AI to extract text from ${gcsUri}`);
-    const extractedText = await extractTextWithDocumentAI(gcsUri, file.type);
+    console.log(`[processPdfUploadLogic] Getting file bytes for Document AI from: ${storagePath}`);
+    const fileBytes = await getBytes(fileStorageRef); // Get file content as Uint8Array
+    console.log(`[processPdfUploadLogic] File bytes obtained. Length: ${fileBytes.byteLength}. Calling Document AI.`);
+    
+    const extractedText = await extractTextWithDocumentAI(fileBytes, file.type);
     console.log(`[processPdfUploadLogic] Text extracted for ${newDocumentId}. Length: ${extractedText?.length || 0}.`);
 
     let summary = "Summary pending.";
@@ -305,7 +294,7 @@ export async function processPdfUploadLogic(formData: FormData): Promise<{ succe
         await setDoc(docRef, { status: 'processed', updatedAt: new Date().toISOString(), summary: summary }, { merge: true });
     }
     console.log(`[processPdfUploadLogic] Document ${newDocumentId} fully processed.`);
-    // --- END OF RE-ENABLED DOCUMENT AI AND SUMMARIZATION ---
+    // --- END OF DOCUMENT AI AND SUMMARIZATION USING FILE BYTES ---
 
     // Fetch the final updated document data from Firestore to return in the response
     const updatedDocSnap = await getDoc(docRef);
@@ -337,21 +326,19 @@ export async function processPdfUploadLogic(formData: FormData): Promise<{ succe
 
     if (error.code && typeof error.code === 'string' && error.code.startsWith('storage/')) {
       detailedMessage = `Firebase Storage Error (${error.code}): ${error.message || 'No specific message.'}`;
-       // Keep status as 'uploading' or transition to 'error'
        if(currentDocumentStatus === 'uploading') currentDocumentStatus = 'error';
 
-    } else if (error.code && typeof error.code === 'string') {
-       // Assuming other errors might be from AI services or Firestore writes
+    } else if (error.code && typeof error.code === 'string') { // Potentially from Document AI or Firestore
        detailedMessage = `${error.code}: ${error.message || 'No specific message.'}`;
-        currentDocumentStatus = 'error'; // Transition to error for processing failures
+        currentDocumentStatus = 'error'; 
 
     } else if (error instanceof Error) {
       detailedMessage = error.message;
-       currentDocumentStatus = 'error'; // Transition to error for general JS errors
+       currentDocumentStatus = 'error'; 
 
     } else {
       detailedMessage = String(error);
-       currentDocumentStatus = 'error'; // Transition to error for unknown errors
+       currentDocumentStatus = 'error'; 
     }
 
     console.error(`[processPdfUploadLogic] Detailed error for frontend: ${detailedMessage}`);
@@ -360,8 +347,6 @@ export async function processPdfUploadLogic(formData: FormData): Promise<{ succe
     if (newDocumentId) {
          try {
              const docRef = doc(documentsCollection, newDocumentId);
-              // Use setDoc with merge to avoid overwriting existing fields like name, userId, etc.
-              // Only update status, updatedAt, and errorMessage
              await setDoc(docRef, { status: currentDocumentStatus, updatedAt: new Date().toISOString(), errorMessage: detailedMessage }, { merge: true });
              console.log(`[processPdfUploadLogic] Document entry in Firestore updated to status '${currentDocumentStatus}' for id: ${newDocumentId}`);
          } catch (dbError) {

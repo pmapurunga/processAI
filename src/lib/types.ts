@@ -6,7 +6,7 @@ export interface DocumentMetadata {
   uploadedAt: string; // ISO string date
   updatedAt: string; // ISO string date
   storagePath?: string; // Path in Firebase Storage
-  gcsUri?: string; // GCS URI for Document AI (e.g., gs://bucket/path/to/file)
+  // gcsUri?: string; // GCS URI - No longer primary for Document AI call with current workaround
   summary?: string;
   extractedText?: string; // Full text extracted by Document AI
   userId?: string; // If auth is implemented
@@ -18,3 +18,10 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: number; // Unix timestamp
+  documentId: string; // Adicionado para associar a mensagem ao documento
+}
+
+export interface PersonaConfig {
+  description: string;
+  updatedAt: string; // ISO string date for when the persona was last updated
+}
