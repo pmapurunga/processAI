@@ -29,20 +29,35 @@ export async function extractTextWithDocumentAI(
   gcsDocumentUri: string,
   mimeType: string = 'application/pdf'
 ): Promise<string> {
-  console.log(`[Document AI Service] Processing document: ${gcsDocumentUri}`);
+  console.log(`[Document AI Service] Received GCS URI: ${gcsDocumentUri}`);
+
+  let correctedGcsUri = gcsDocumentUri; 
+  const uriParts = gcsDocumentUri.replace('gs://', '').split('/');
+  if (uriParts.length > 1) {
+      const pathPart = uriParts.slice(1).join('/');
+      if (projectId) {
+           correctedGcsUri = `gs://${projectId}.appspot.com/${pathPart}`;
+           console.log(`[Document AI Service] Reconstructed GCS URI: ${correctedGcsUri}`);
+      } else {
+           console.warn('[Document AI Service] projectId is not available to reconstruct GCS URI.');
+      }
+  } else {
+       console.warn('[Document AI Service] GCS URI format unexpected, cannot reconstruct.');
+  }
 
   const name = `projects/${projectId}/locations/${location}/processors/${processorId}`;
 
+  // REVERTED TO CORRECT STRUCTURE: 'gcsDocument' is a top-level property.
   const request: google.cloud.documentai.v1.IProcessRequest = {
     name,
-    gcsDocument: { // Using gcsDocument for reading directly from GCS
-      gcsUri: gcsDocumentUri,
-      mimeType: mimeType,
+    gcsDocument: {
+        gcsUri: correctedGcsUri,
+        mimeType: mimeType,
     },
     skipHumanReview: true,
   };
 
-  console.log('[Document AI Service] Sending request to Document AI:', 
+  console.log('[Document AI Service] Final Request object being sent:', 
     JSON.stringify(request, null, 2)
   );
 
@@ -55,12 +70,10 @@ export async function extractTextWithDocumentAI(
       return '';
     }
 
-    console.log(`[Document AI Service] Text extracted successfully from GCS URI. Length: ${document.text.length}`);
+    console.log(`[Document AI Service] Text extracted successfully. Length: ${document.text.length}`);
     return document.text;
   } catch (error: any) {
     console.error('[Document AI Service] Error processing document:', error);
-    // Lançar o erro original para que a action possa capturá-lo com seus detalhes (como 'code')
-    // Adicionando mais detalhes ao erro lançado, se disponíveis
     const errorMessage = error.details || (error instanceof Error ? error.message : String(error));
     const errorCode = error.code || 'UNKNOWN_CODE';
     throw new Error(`Failed to process document with Document AI: ${errorCode} ${errorMessage}`);

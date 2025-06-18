@@ -1,19 +1,28 @@
+
+'use client';
+
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { getDocuments } from '@/app/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileText, MessageSquare, UploadCloud, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
-import {format} from 'date-fns';
+import { FileText, MessageSquare, UploadCloud, AlertCircle, CheckCircle, Loader2, Inbox } from 'lucide-react';
+import { format } from 'date-fns';
 import type { DocumentMetadata } from '@/lib/types';
+import { Skeleton } from '@/components/ui/skeleton';
 
 function getStatusBadgeVariant(status: DocumentMetadata['status']) {
   switch (status) {
     case 'processed':
-      return 'default'; // Greenish, using primary for now
+      return 'default';
     case 'processing':
-    case 'uploaded':
-      return 'secondary'; // Bluish/Grayish
+    case 'summarizing':
+    case 'extracting_text':
+    case 'uploading':
+    case 'queued':
+      return 'secondary';
     case 'error':
       return 'destructive';
     default:
@@ -26,7 +35,10 @@ function getStatusIcon(status: DocumentMetadata['status']) {
     case 'processed':
       return <CheckCircle className="h-4 w-4 text-green-500" />;
     case 'processing':
-    case 'uploaded':
+    case 'summarizing':
+    case 'extracting_text':
+    case 'uploading':
+    case 'queued':
       return <Loader2 className="h-4 w-4 animate-spin text-blue-500" />;
     case 'error':
       return <AlertCircle className="h-4 w-4 text-red-500" />;
@@ -35,8 +47,70 @@ function getStatusIcon(status: DocumentMetadata['status']) {
   }
 }
 
-export default async function DashboardPage() {
-  const documents = await getDocuments();
+export default function DashboardPage() {
+  const { user, loading: authLoading } = useAuth();
+  const [documents, setDocuments] = useState<DocumentMetadata[]>([]);
+  const [loadingDocs, setLoadingDocs] = useState(true);
+
+  useEffect(() => {
+    if (user?.uid && !authLoading) {
+      setLoadingDocs(true);
+      getDocuments(user.uid)
+        .then(setDocuments)
+        .catch(error => {
+          console.error("Failed to fetch documents:", error);
+          setDocuments([]); // Set to empty on error
+        })
+        .finally(() => setLoadingDocs(false));
+    } else if (!authLoading && !user) {
+      // If not loading auth and no user, likely means user is logged out
+      setDocuments([]);
+      setLoadingDocs(false);
+    }
+  }, [user, authLoading]);
+
+  if (authLoading) {
+    return (
+      <div className="container mx-auto py-8">
+        <div className="flex justify-between items-center mb-8">
+          <Skeleton className="h-9 w-1/3" />
+          <Skeleton className="h-10 w-40" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="shadow-lg">
+              <CardHeader>
+                <Skeleton className="h-6 w-3/4 mb-2" />
+                <Skeleton className="h-4 w-1/2" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-4 w-1/4 mb-2" />
+                <Skeleton className="h-10 w-full" />
+              </CardContent>
+              <CardFooter className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-4 border-t">
+                <Skeleton className="h-9 w-28" />
+                <Skeleton className="h-9 w-24" />
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  
+  // User should be redirected by AppLayout or AuthContext if not logged in.
+  // This is an additional safeguard or for scenarios where redirect hasn't completed.
+  if (!user && !authLoading) {
+     return (
+      <div className="container mx-auto py-8 text-center">
+        <p className="text-lg text-muted-foreground">Please log in to view your dashboard.</p>
+         <Button asChild className="mt-4">
+            <Link href="/login">Go to Login</Link>
+        </Button>
+      </div>
+    );
+  }
+
 
   return (
     <div className="container mx-auto py-8">
@@ -49,10 +123,34 @@ export default async function DashboardPage() {
         </Button>
       </div>
 
-      {documents.length === 0 ? (
-        <Card className="text-center py-12">
+      {loadingDocs && documents.length === 0 && (
+         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="shadow-lg">
+              <CardHeader>
+                <Skeleton className="h-6 w-3/4 mb-2" />
+                <Skeleton className="h-4 w-1/2" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-4 w-1/4 mb-2" />
+                <Skeleton className="h-10 w-full" />
+              </CardContent>
+              <CardFooter className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-4 border-t">
+                <Skeleton className="h-9 w-28" />
+                <Skeleton className="h-9 w-24" />
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {!loadingDocs && documents.length === 0 ? (
+        <Card className="text-center py-12 shadow-lg">
           <CardHeader>
-            <CardTitle className="text-2xl font-semibold">No Documents Found</CardTitle>
+            <div className="mx-auto bg-primary/10 p-4 rounded-full w-fit mb-4">
+                <Inbox className="h-12 w-12 text-primary" />
+            </div>
+            <CardTitle className="text-2xl font-headline font-semibold">No Documents Found</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground mb-6">Get started by uploading your first PDF document.</p>
@@ -77,16 +175,31 @@ export default async function DashboardPage() {
                 <CardDescription>
                   Uploaded: {format(new Date(doc.uploadedAt), "PPp")}
                 </CardDescription>
+                {doc.updatedAt && doc.updatedAt !== doc.uploadedAt && (
+                     <CardDescription>
+                        Last update: {format(new Date(doc.updatedAt), "PPp")}
+                     </CardDescription>
+                )}
               </CardHeader>
               <CardContent className="flex-grow">
                 <div className="flex items-center space-x-2 mb-2">
                   <span className="text-sm font-medium">Status:</span>
-                  <Badge variant={getStatusBadgeVariant(doc.status)} className="capitalize">{doc.status}</Badge>
+                  <Badge variant={getStatusBadgeVariant(doc.status)} className="capitalize">{doc.status.replace(/_/g, ' ')}</Badge>
                 </div>
-                 {doc.status === 'processed' && doc.summary && (
-                  <p className="text-sm text-muted-foreground line-clamp-3">
+                {doc.status === 'error' && doc.errorMessage && (
+                    <p className="text-sm text-destructive line-clamp-3" title={doc.errorMessage}>
+                        <strong>Error:</strong> {doc.errorMessage}
+                    </p>
+                )}
+                {doc.status === 'processed' && doc.summary && (
+                  <p className="text-sm text-muted-foreground line-clamp-3" title={doc.summary}>
                     <strong>Summary:</strong> {doc.summary}
                   </p>
+                )}
+                {(doc.status === 'processing' || doc.status === 'queued' || doc.status === 'uploading' || doc.status === 'extracting_text' || doc.status === 'summarizing') && doc.summary && (
+                     <p className="text-sm text-muted-foreground line-clamp-3 italic">
+                        {doc.summary}
+                     </p>
                 )}
               </CardContent>
               <CardFooter className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-4 border-t">
@@ -109,4 +222,4 @@ export default async function DashboardPage() {
   );
 }
 
-export const revalidate = 0; // Revalidate this page on every request
+// export const revalidate = 0; // Revalidate this page on every request (more relevant for RSCs with server-side data fetching)
