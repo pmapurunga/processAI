@@ -20,32 +20,31 @@ if (!projectId || !location || !processorId) {
 const client = new DocumentProcessorServiceClient();
 
 /**
- * Extracts text from a document using its byte content.
- * @param fileBytes The byte content of the document as a Uint8Array.
+ * Extracts text from a document in GCS using its URI.
+ * @param gcsDocumentUri The GCS URI of the document (e.g., "gs://bucket-name/path/to/document.pdf").
  * @param mimeType The MIME type of the document (e.g., "application/pdf").
  * @returns The extracted text content of the document.
  */
 export async function extractTextWithDocumentAI(
-  fileBytes: Uint8Array,
+  gcsDocumentUri: string,
   mimeType: string = 'application/pdf'
 ): Promise<string> {
-  console.log(`[Document AI Service] Processing document from bytes. MimeType: ${mimeType}, Size: ${fileBytes.byteLength} bytes`);
+  console.log(`[Document AI Service] Processing document: ${gcsDocumentUri}`);
 
   const name = `projects/${projectId}/locations/${location}/processors/${processorId}`;
 
   const request: google.cloud.documentai.v1.IProcessRequest = {
     name,
-    rawDocument: {
-      content: fileBytes, // Pass file content directly
+    gcsDocument: { // Using gcsDocument for reading directly from GCS
+      gcsUri: gcsDocumentUri,
       mimeType: mimeType,
     },
     skipHumanReview: true,
   };
 
-  console.log('[Document AI Service] Sending request to Document AI with rawDocument:', 
-    JSON.stringify({ name: request.name, rawDocument: { mimeType: request.rawDocument?.mimeType, contentLength: request.rawDocument?.content?.byteLength }, skipHumanReview: request.skipHumanReview }, null, 2)
+  console.log('[Document AI Service] Sending request to Document AI:', 
+    JSON.stringify(request, null, 2)
   );
-
 
   try {
     const [result] = await client.processDocument(request);
@@ -56,11 +55,14 @@ export async function extractTextWithDocumentAI(
       return '';
     }
 
-    console.log(`[Document AI Service] Text extracted successfully from bytes. Length: ${document.text.length}`);
+    console.log(`[Document AI Service] Text extracted successfully from GCS URI. Length: ${document.text.length}`);
     return document.text;
-  } catch (error) {
-    console.error('[Document AI Service] Error processing document from bytes:', error);
+  } catch (error: any) {
+    console.error('[Document AI Service] Error processing document:', error);
     // Lançar o erro original para que a action possa capturá-lo com seus detalhes (como 'code')
-    throw error; 
+    // Adicionando mais detalhes ao erro lançado, se disponíveis
+    const errorMessage = error.details || (error instanceof Error ? error.message : String(error));
+    const errorCode = error.code || 'UNKNOWN_CODE';
+    throw new Error(`Failed to process document with Document AI: ${errorCode} ${errorMessage}`);
   }
 }
