@@ -1,3 +1,4 @@
+
 'use server';
 
 import type { DocumentMetadata, ChatMessage, PersonaConfig } from '@/lib/types';
@@ -18,8 +19,8 @@ let documents: DocumentMetadata[] = [
     updatedAt: new Date().toISOString(),
     summary: 'This is a mock summary for Sample Document 1, processed with real text extraction and summarization.',
     userId: 'mock-user-1',
-    storagePath: 'mock-path/Sample Document 1.pdf',
-    gcsUri: 'gs://mock-bucket/mock-path/Sample Document 1.pdf',
+    storagePath: 'pendingAnalysis/mock-user-1/mock-doc-1/Sample Document 1.pdf', // Adjusted path
+    gcsUri: 'gs://processai-v9qza.appspot.com/pendingAnalysis/mock-user-1/mock-doc-1/Sample Document 1.pdf', // Adjusted path
     extractedText: 'This is some mock extracted text for Sample Document 1.'
   },
   {
@@ -30,7 +31,7 @@ let documents: DocumentMetadata[] = [
     updatedAt: new Date().toISOString(),
     summary: undefined,
     userId: 'mock-user-1',
-    storagePath: 'mock-path/Another Example.pdf'
+    storagePath: 'pendingAnalysis/mock-user-1/mock-doc-2/Another Example.pdf' // Adjusted path
   },
 ];
 
@@ -73,7 +74,7 @@ export async function sendMessage(data: { documentId: string; message: string })
   aiMessage?: ChatMessage;
   error?: string;
 }> {
-  console.log(`SendMessage called for documentId: ${data.documentId}`);
+  console.log(`sendMessage INVOKED for documentId: ${data.documentId}`);
   const document = documents.find(d => d.id === data.documentId);
   if (!document || document.status !== 'processed' || !document.extractedText) {
     return { success: false, error: 'Document not found, not processed, or text not extracted.' };
@@ -192,7 +193,7 @@ export async function processPdfUploadLogic(formData: FormData): Promise<{ succe
   }
   
   const newDocumentId = `doc-${Date.now()}`;
-  const userId = "mock-user-id"; 
+  const userId = "mock-user-id"; // For now, this is hardcoded. For production, this should come from auth.
   
   const newDocument: DocumentMetadata = {
     id: newDocumentId,
@@ -218,13 +219,15 @@ export async function processPdfUploadLogic(formData: FormData): Promise<{ succe
         documents[docIndex].errorMessage = errorMessage;
       }
       if (status === 'error' && errorMessage) {
-         documents[docIndex].summary = `Error: ${errorMessage}`; // Store error in summary for visibility
+         documents[docIndex].summary = `Error: ${errorMessage}`; 
       }
     }
   };
 
   try {
-    const storagePath = `uploads/${userId}/${newDocumentId}-${file.name}`;
+    // Path matches the Firebase rule structure: pendingAnalysis/{userId}/{processId}/{fileName}
+    // Using newDocumentId as the processId for this example.
+    const storagePath = `pendingAnalysis/${userId}/${newDocumentId}/${file.name}`;
     const fileStorageRef = ref(storage, storagePath);
 
     console.log(`[PROCESS PDF LOGIC] Attempting to upload ${file.name} to Firebase Storage: ${storagePath}`);
@@ -232,12 +235,12 @@ export async function processPdfUploadLogic(formData: FormData): Promise<{ succe
     newDocument.storagePath = fileStorageRef.fullPath;
     
     const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
-    if (!bucketName || !bucketName.includes('.')) { 
-        console.error('[PROCESS PDF LOGIC] Failed to determine a valid bucket name from NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET.');
-        updateDocStatus('error', 'Failed to determine storage bucket name. Check Firebase project configuration and .env file.');
-        return { success: false, message: 'Configuration error: Storage bucket name could not be determined.', documentId: newDocumentId };
+    if (!bucketName) { 
+        console.error('[PROCESS PDF LOGIC] Firebase Storage bucket name (NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET) is not configured in .env.');
+        updateDocStatus('error', 'Firebase Storage bucket name not configured. Check .env file.');
+        return { success: false, message: 'Configuration error: Storage bucket name not configured.', documentId: newDocumentId };
     }
-    newDocument.gcsUri = `gs://${bucketName}/${newDocument.storagePath}`;
+    newDocument.gcsUri = `gs://${bucketName}/${newDocument.storagePath}`; // Using the configured bucket name
     console.log(`[PROCESS PDF LOGIC] File ${file.name} uploaded to ${newDocument.storagePath}. GCS URI: ${newDocument.gcsUri}.`);
     
     updateDocStatus('extracting_text');
@@ -253,7 +256,7 @@ export async function processPdfUploadLogic(formData: FormData): Promise<{ succe
 
     if (!newDocument.extractedText || newDocument.extractedText.trim() === "") {
         console.warn(`[PROCESS PDF LOGIC] Extracted text is empty for ${newDocumentId}. Document might be image-based or empty.`);
-        updateDocStatus('summarizing'); // Still try to summarize, model might say "no text"
+        updateDocStatus('summarizing'); 
         newDocument.summary = "No text content could be extracted from the document to summarize. The document might be image-based or empty.";
     } else {
         updateDocStatus('summarizing');
@@ -276,11 +279,11 @@ export async function processPdfUploadLogic(formData: FormData): Promise<{ succe
     console.error(`[PROCESS PDF LOGIC] Error during processing for ${file.name}:`, processingError);
     
     let detailedMessage = 'An unknown error occurred during processing.';
-    if (processingError.code && typeof processingError.code === 'string') { // Firebase error
-      detailedMessage = `Firebase Error (${processingError.code}): ${processingError.message}.`;
+    if (processingError.code && typeof processingError.code === 'string' && processingError.code.startsWith('storage/')) { // Firebase storage error
+      detailedMessage = `Firebase Storage Error (${processingError.code}): ${processingError.message}.`;
       if (processingError.serverResponse) {
         console.error('[PROCESS PDF LOGIC] Firebase Server Response:', processingError.serverResponse);
-        detailedMessage += ` Server: ${JSON.stringify(processingError.serverResponse)}`;
+        detailedMessage += ` Server Response: ${JSON.stringify(processingError.serverResponse)}`;
       }
     } else if (processingError instanceof Error) {
       detailedMessage = processingError.message;
@@ -290,8 +293,8 @@ export async function processPdfUploadLogic(formData: FormData): Promise<{ succe
     return {
       success: false,
       message: `Processing failed for '${file.name}': ${detailedMessage}`,
-      documentId: newDocumentId,
+      documentId: newDocumentId
     };
   }
 }
-
+    
