@@ -2,8 +2,12 @@
 'use server';
 
 import type { DocumentMetadata, ChatMessage, PersonaConfig } from '@/lib/types';
-// Removidas importações diretas de SDKs Firebase client-side (auth, storage) que podem causar problemas em Server Actions.
-// As funções que dependiam delas precisarão ser ajustadas ou usar SDKs Admin se chamadas do servidor.
+import { storage } from '@/lib/firebase'; // Import Firebase Storage
+import { ref, uploadBytes } from 'firebase/storage';
+import { summarizeDocument } from '@/ai/flows/summarize-document'; // Import Genkit flow
+import { queryDocument } from '@/ai/flows/query-document';
+import { tuneAiPersona } from '@/ai/flows/tune-ai-persona';
+
 
 // Mock data store (simulando um banco de dados em memória)
 let documents: DocumentMetadata[] = [
@@ -68,7 +72,7 @@ export async function sendMessage(data: { documentId: string; message: string })
   aiMessage?: ChatMessage;
   error?: string;
 }> {
-  console.log(`[SERVER ACTION DEBUG] sendMessage INVOKED for documentId: ${data.documentId} (MOCK)`);
+  console.log(`sendMessage called with id: ${data.documentId}`); // MODIFIED LINE
   const document = documents.find(d => d.id === data.documentId);
   if (!document || document.status !== 'processed') {
     return { success: false, error: 'Document not found or not processed.' };
@@ -83,24 +87,21 @@ export async function sendMessage(data: { documentId: string; message: string })
   };
   chatMessages.push(userMessage);
 
-  // Simulação de chamada Genkit (assumindo que os chunks viriam de algum lugar)
-  const mockDocumentChunks = document.summary ? document.summary.split('. ') : ['Mock document content for chat.'];
+  const mockDocumentChunks = document.summary ? document.summary.split('. ') : [`Mock content for ${document.name}`];
   try {
-    // const { queryDocument } = await import('@/ai/flows/query-document'); // Import dinâmico se necessário
-    // const aiResponse = await queryDocument({ query: data.message, documentChunks: mockDocumentChunks });
-    const aiSimulatedResponse = { answer: `AI response to: "${data.message}" based on ${document.name}`};
+    const aiResponse = await queryDocument({ query: data.message, documentChunks: mockDocumentChunks });
 
     const aiMessage: ChatMessage = {
       id: `ai-${Date.now()}`,
       documentId: data.documentId,
       role: 'assistant',
-      content: aiSimulatedResponse.answer || "I'm having trouble responding right now.",
+      content: aiResponse.answer || "I'm having trouble responding right now.",
       timestamp: Date.now() + 1,
     };
     chatMessages.push(aiMessage);
     return { success: true, userMessage: JSON.parse(JSON.stringify(userMessage)), aiMessage: JSON.parse(JSON.stringify(aiMessage)) };
   } catch (e) {
-    console.error("[SERVER ACTION DEBUG] sendMessage Genkit/AI Error (MOCK):", e);
+    console.error("[SERVER ACTION DEBUG] sendMessage Genkit/AI Error:", e);
     const errorMessage = e instanceof Error ? e.message : 'AI failed to respond.';
     const aiMessage: ChatMessage = {
       id: `ai-err-${Date.now()}`,
@@ -124,48 +125,52 @@ export async function updateAiPersonaConfig(description: string): Promise<{
   message: string;
   persona?: PersonaConfig;
 }> {
-  console.log('[SERVER ACTION DEBUG] updateAiPersonaConfig INVOKED (MOCK)');
+  console.log('[SERVER ACTION DEBUG] updateAiPersonaConfig INVOKED');
   try {
-    // const { tuneAiPersona } = await import('@/ai/flows/tune-ai-persona'); // Import dinâmico se necessário
-    // const tunedResult = await tuneAiPersona({ personaDescription: description });
-    const tunedSimulatedResult = { updatedPersonaDescription: description };
-    personaConfig.description = tunedSimulatedResult.updatedPersonaDescription;
+    const tunedResult = await tuneAiPersona({ personaDescription: description });
+    personaConfig.description = tunedResult.updatedPersonaDescription;
     personaConfig.updatedAt = new Date().toISOString();
-    return { success: true, message: 'AI Persona updated successfully (MOCK).', persona: JSON.parse(JSON.stringify(personaConfig)) };
+    return { success: true, message: 'AI Persona updated successfully.', persona: JSON.parse(JSON.stringify(personaConfig)) };
   } catch (e) {
-    console.error("[SERVER ACTION DEBUG] updateAiPersonaConfig Genkit/AI Error (MOCK):", e);
+    console.error("[SERVER ACTION DEBUG] updateAiPersonaConfig Genkit/AI Error:", e);
     const errorMessage = e instanceof Error ? e.message : 'Failed to tune persona.';
     return { success: false, message: `Error: ${errorMessage}` };
   }
 }
 
 export async function getDocumentSummary(documentId: string): Promise<string | null> {
-  console.log(`[SERVER ACTION DEBUG] getDocumentSummary INVOKED for documentId: ${documentId} (MOCK)`);
+  console.log(`[SERVER ACTION DEBUG] getDocumentSummary INVOKED for documentId: ${documentId}`);
   const document = documents.find(d => d.id === documentId);
   if (document && document.summary) {
     return document.summary;
   }
   if (document && document.status === 'processed' && !document.summary) {
-    // Simulate generating summary if not present
+    // This case might indicate a document processed before summary generation was robust
+    // Or if a re-summarization is needed. For now, we'll assume summary should exist.
+    console.warn(`[SERVER ACTION DEBUG] Document ${documentId} is processed but has no summary. Attempting to generate.`);
     try {
-      // const { summarizeDocument } = await import('@/ai/flows/summarize-document'); // Import dinâmico
-      // const summaryResult = await summarizeDocument({ documentText: "This is mock document text for " + document.name });
-      const summarySimulatedResult = { summary: "This is a dynamically generated MOCK summary for " + document.name };
-      document.summary = summarySimulatedResult.summary;
+      // This would require having the document text available or re-fetching it.
+      // For this mock, we can't easily re-summarize without the original text.
+      // In a real system, you might re-trigger processing or fetch from storage.
+      const mockText = `Mock content for ${document.name} needing re-summarization.`;
+      const summaryResult = await summarizeDocument({ documentText: mockText });
+      document.summary = summaryResult.summary;
+      document.updatedAt = new Date().toISOString();
       return document.summary;
     } catch (e) {
-      console.error("[SERVER ACTION DEBUG] getDocumentSummary Genkit/AI Error (MOCK):", e);
-      return "Error generating summary (MOCK).";
+      console.error("[SERVER ACTION DEBUG] getDocumentSummary Genkit/AI Error on re-summarization:", e);
+      return "Error re-generating summary.";
     }
+  }
+  if (document && document.status === 'processing') {
+    return "Summary is being generated. Please wait.";
   }
   return null;
 }
 
 
-// Esta função será chamada pelo Route Handler em /api/upload/route.ts
-// Ela não é mais uma Server Action exportada diretamente para o formulário.
-export async function processPdfUploadLogic(formData: FormData): Promise<{ success: boolean; message: string; documentId?: string }> {
-  console.log("[PROCESS PDF LOGIC] processPdfUploadLogic INVOKED (VERY SIMPLIFIED)");
+export async function processPdfUploadLogic(formData: FormData): Promise<{ success: boolean; message: string; documentId?: string; document?: DocumentMetadata; }> {
+  console.log("[PROCESS PDF LOGIC] processPdfUploadLogic INVOKED");
 
   const fileEntry = formData.get('pdfFile');
 
@@ -177,33 +182,79 @@ export async function processPdfUploadLogic(formData: FormData): Promise<{ succe
   const file = fileEntry as File;
   console.log(`[PROCESS PDF LOGIC] File Name: ${file.name}, File Size: ${file.size}, File Type: ${file.type}`);
 
-  if (!file.name.toLowerCase().endsWith('.pdf')) {
-     console.log("[PROCESS PDF LOGIC] Invalid file type, not a PDF.");
+  if (!file.name.toLowerCase().endsWith('.pdf') || file.type !== 'application/pdf') {
+    console.log("[PROCESS PDF LOGIC] Invalid file type, not a PDF.");
     return { success: false, message: "Invalid file type. Only PDF is allowed." };
   }
   
-  // SIMULAÇÃO EXTREMA:
-  // Apenas cria um novo registro de documento mockado.
-  // Nenhuma interação real com Firebase Storage ou Genkit aqui para isolar o problema do 400.
-  const newDocumentId = `sim-doc-${Date.now()}`;
+  const newDocumentId = `doc-${Date.now()}`;
+  // For a real app, get actual userId from session or an auth token passed to the API route
+  const userId = "mock-user-id"; 
+  const storagePath = `uploads/${userId}/${newDocumentId}-${file.name}`;
+  const fileStorageRef = ref(storage, storagePath);
+
   const newDocument: DocumentMetadata = {
     id: newDocumentId,
     name: file.name,
-    status: 'uploaded', // Simula que o upload (para algum lugar) foi feito
+    status: 'uploaded', 
     uploadedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    userId: "sim-user-id", // Placeholder
-    storagePath: `simulated_uploads/${file.name}` // Placeholder
+    userId: userId,
+    storagePath: undefined, // Will be set after successful upload
+    summary: undefined,
   };
-  documents.push(newDocument);
-  console.log("[PROCESS PDF LOGIC] Simulated new document:", newDocument);
+  documents.push(newDocument); // Add to mock DB optimistically
 
-  // Simula um pequeno atraso, como se estivesse processando
-  await new Promise(resolve => setTimeout(resolve, 500));
+  try {
+    console.log(`[PROCESS PDF LOGIC] Attempting to upload ${file.name} to ${storagePath}`);
+    await uploadBytes(fileStorageRef, file);
+    newDocument.storagePath = fileStorageRef.fullPath;
+    newDocument.status = 'processing';
+    newDocument.updatedAt = new Date().toISOString();
+    console.log(`[PROCESS PDF LOGIC] File ${file.name} uploaded to ${newDocument.storagePath}. Status: processing.`);
 
-  return {
-    success: true,
-    message: `File '${file.name}' SIMULATED upload process started. Document ID: ${newDocumentId}. (No actual Firebase upload)`,
-    documentId: newDocumentId,
-  };
+    // Simulate text extraction - In a real app, you'd use a PDF parsing library here.
+    const mockDocumentText = `Simulated text content for PDF: ${file.name}. This document discusses various advanced topics in theoretical physics and their practical applications in modern technology. It covers quantum mechanics, string theory, and astrophysics.`;
+    
+    console.log(`[PROCESS PDF LOGIC] Calling Genkit to summarize document ${newDocumentId}`);
+    try {
+      const summaryResult = await summarizeDocument({ documentText: mockDocumentText });
+      newDocument.summary = summaryResult.summary;
+      newDocument.status = 'processed';
+      newDocument.updatedAt = new Date().toISOString();
+      console.log(`[PROCESS PDF LOGIC] Document ${newDocumentId} summarized. Status: processed.`);
+      return {
+        success: true,
+        message: `File '${file.name}' uploaded and summarized successfully.`,
+        documentId: newDocumentId,
+        document: JSON.parse(JSON.stringify(newDocument))
+      };
+    } catch (genkitError) {
+      console.error(`[PROCESS PDF LOGIC] Genkit summarization error for ${newDocumentId}:`, genkitError);
+      newDocument.status = 'error';
+      newDocument.updatedAt = new Date().toISOString();
+      return {
+        success: false,
+        message: `File uploaded, but summarization failed: ${genkitError instanceof Error ? genkitError.message : 'Unknown AI error'}`,
+        documentId: newDocumentId,
+        document: JSON.parse(JSON.stringify(newDocument))
+      };
+    }
+
+  } catch (uploadError) {
+    console.error(`[PROCESS PDF LOGIC] Firebase Storage upload error for ${file.name}:`, uploadError);
+    // Remove the optimistic document add or mark as error if it was added
+    const docIndex = documents.findIndex(d => d.id === newDocumentId);
+    if (docIndex > -1) {
+        documents[docIndex].status = 'error';
+        documents[docIndex].updatedAt = new Date().toISOString();
+    }
+    return {
+      success: false,
+      message: `Failed to upload file to Firebase Storage: ${uploadError instanceof Error ? uploadError.message : 'Unknown storage error'}`,
+      documentId: newDocumentId, // still pass ID for potential cleanup or retry logic
+    };
+  }
 }
+
+    
