@@ -1,4 +1,3 @@
-
 'use server';
 
 import type { DocumentMetadata, ChatMessage, PersonaConfig } from '@/lib/types';
@@ -218,6 +217,9 @@ export async function processPdfUploadLogic(formData: FormData): Promise<{ succe
       if (errorMessage) {
         documents[docIndex].errorMessage = errorMessage;
       }
+      if (status === 'error' && errorMessage) {
+         documents[docIndex].summary = `Error: ${errorMessage}`; // Store error in summary for visibility
+      }
     }
   };
 
@@ -229,10 +231,10 @@ export async function processPdfUploadLogic(formData: FormData): Promise<{ succe
     await uploadBytes(fileStorageRef, file);
     newDocument.storagePath = fileStorageRef.fullPath;
     
-    const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || `${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.appspot.com`;
+    const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
     if (!bucketName || !bucketName.includes('.')) { 
-        console.error('[PROCESS PDF LOGIC] Failed to determine a valid bucket name from environment variables.');
-        updateDocStatus('error', 'Failed to determine storage bucket name. Check Firebase project configuration.');
+        console.error('[PROCESS PDF LOGIC] Failed to determine a valid bucket name from NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET.');
+        updateDocStatus('error', 'Failed to determine storage bucket name. Check Firebase project configuration and .env file.');
         return { success: false, message: 'Configuration error: Storage bucket name could not be determined.', documentId: newDocumentId };
     }
     newDocument.gcsUri = `gs://${bucketName}/${newDocument.storagePath}`;
@@ -249,13 +251,13 @@ export async function processPdfUploadLogic(formData: FormData): Promise<{ succe
     newDocument.extractedText = extractedText;
     console.log(`[PROCESS PDF LOGIC] Text extracted for ${newDocumentId}. Length: ${extractedText?.length || 0}.`);
 
-    updateDocStatus('summarizing');
-    console.log(`[PROCESS PDF LOGIC] Calling Genkit to summarize document ${newDocumentId}`);
-    
     if (!newDocument.extractedText || newDocument.extractedText.trim() === "") {
-        console.warn(`[PROCESS PDF LOGIC] Extracted text is empty for ${newDocumentId}. Skipping summarization.`);
-        newDocument.summary = "No text content found in the document to summarize.";
+        console.warn(`[PROCESS PDF LOGIC] Extracted text is empty for ${newDocumentId}. Document might be image-based or empty.`);
+        updateDocStatus('summarizing'); // Still try to summarize, model might say "no text"
+        newDocument.summary = "No text content could be extracted from the document to summarize. The document might be image-based or empty.";
     } else {
+        updateDocStatus('summarizing');
+        console.log(`[PROCESS PDF LOGIC] Calling Genkit to summarize document ${newDocumentId}`);
         const summaryResult = await summarizeDocument({ documentText: newDocument.extractedText });
         newDocument.summary = summaryResult.summary;
     }
@@ -270,14 +272,26 @@ export async function processPdfUploadLogic(formData: FormData): Promise<{ succe
       document: JSON.parse(JSON.stringify(newDocument))
     };
 
-  } catch (error) {
-    console.error(`[PROCESS PDF LOGIC] Error during processing for ${file.name}:`, error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown processing error';
-    updateDocStatus('error', errorMessage);
+  } catch (processingError: any) {
+    console.error(`[PROCESS PDF LOGIC] Error during processing for ${file.name}:`, processingError);
+    
+    let detailedMessage = 'An unknown error occurred during processing.';
+    if (processingError.code && typeof processingError.code === 'string') { // Firebase error
+      detailedMessage = `Firebase Error (${processingError.code}): ${processingError.message}.`;
+      if (processingError.serverResponse) {
+        console.error('[PROCESS PDF LOGIC] Firebase Server Response:', processingError.serverResponse);
+        detailedMessage += ` Server: ${JSON.stringify(processingError.serverResponse)}`;
+      }
+    } else if (processingError instanceof Error) {
+      detailedMessage = processingError.message;
+    }
+
+    updateDocStatus('error', detailedMessage);
     return {
       success: false,
-      message: `Processing failed for '${file.name}': ${errorMessage}`,
-      documentId: newDocumentId // No comma here
+      message: `Processing failed for '${file.name}': ${detailedMessage}`,
+      documentId: newDocumentId,
     };
   }
 }
+
