@@ -2,12 +2,12 @@
 'use server';
 
 import type { DocumentMetadata, ChatMessage, PersonaConfig } from '@/lib/types';
-import { storage } from '@/lib/firebase'; // Import Firebase Storage
-import { ref, uploadBytes } from 'firebase/storage';
-import { summarizeDocument } from '@/ai/flows/summarize-document'; // Import Genkit flow
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { summarizeDocument } from '@/ai/flows/summarize-document';
 import { queryDocument } from '@/ai/flows/query-document';
 import { tuneAiPersona } from '@/ai/flows/tune-ai-persona';
-
+import { extractTextWithDocumentAI } from '@/services/document-ai-service';
 
 // Mock data store (simulando um banco de dados em memória)
 let documents: DocumentMetadata[] = [
@@ -17,9 +17,11 @@ let documents: DocumentMetadata[] = [
     status: 'processed',
     uploadedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // Yesterday
     updatedAt: new Date().toISOString(),
-    summary: 'This is a mock summary for Sample Document 1.',
+    summary: 'This is a mock summary for Sample Document 1, processed with real text extraction and summarization.',
     userId: 'mock-user-1',
-    storagePath: 'mock-path/Sample Document 1.pdf'
+    storagePath: 'mock-path/Sample Document 1.pdf',
+    gcsUri: 'gs://mock-bucket/mock-path/Sample Document 1.pdf',
+    extractedText: 'This is some mock extracted text for Sample Document 1.'
   },
   {
     id: 'mock-doc-2',
@@ -72,10 +74,10 @@ export async function sendMessage(data: { documentId: string; message: string })
   aiMessage?: ChatMessage;
   error?: string;
 }> {
-  console.log(`sendMessage called with id: ${data.documentId}`); // MODIFIED LINE
+  console.log(`sendMessage called with id: ${data.documentId}`);
   const document = documents.find(d => d.id === data.documentId);
-  if (!document || document.status !== 'processed') {
-    return { success: false, error: 'Document not found or not processed.' };
+  if (!document || document.status !== 'processed' || !document.extractedText) {
+    return { success: false, error: 'Document not found, not processed, or text not extracted.' };
   }
 
   const userMessage: ChatMessage = {
@@ -87,9 +89,14 @@ export async function sendMessage(data: { documentId: string; message: string })
   };
   chatMessages.push(userMessage);
 
-  const mockDocumentChunks = document.summary ? document.summary.split('. ') : [`Mock content for ${document.name}`];
+  // For RAG, you'd split document.extractedText into chunks and find relevant ones.
+  // For now, we'll pass a portion or all of it as context for queryDocument.
+  // This is a simplified RAG placeholder.
+  const maxContextLength = 3000; // Arbitrary limit
+  const documentChunks = [document.extractedText.substring(0, maxContextLength)];
+
   try {
-    const aiResponse = await queryDocument({ query: data.message, documentChunks: mockDocumentChunks });
+    const aiResponse = await queryDocument({ query: data.message, documentChunks });
 
     const aiMessage: ChatMessage = {
       id: `ai-${Date.now()}`,
@@ -144,16 +151,10 @@ export async function getDocumentSummary(documentId: string): Promise<string | n
   if (document && document.summary) {
     return document.summary;
   }
-  if (document && document.status === 'processed' && !document.summary) {
-    // This case might indicate a document processed before summary generation was robust
-    // Or if a re-summarization is needed. For now, we'll assume summary should exist.
-    console.warn(`[SERVER ACTION DEBUG] Document ${documentId} is processed but has no summary. Attempting to generate.`);
+  if (document && document.status === 'processed' && !document.summary && document.extractedText) {
+    console.warn(`[SERVER ACTION DEBUG] Document ${documentId} is processed but has no summary. Attempting to generate from extracted text.`);
     try {
-      // This would require having the document text available or re-fetching it.
-      // For this mock, we can't easily re-summarize without the original text.
-      // In a real system, you might re-trigger processing or fetch from storage.
-      const mockText = `Mock content for ${document.name} needing re-summarization.`;
-      const summaryResult = await summarizeDocument({ documentText: mockText });
+      const summaryResult = await summarizeDocument({ documentText: document.extractedText });
       document.summary = summaryResult.summary;
       document.updatedAt = new Date().toISOString();
       return document.summary;
@@ -162,12 +163,11 @@ export async function getDocumentSummary(documentId: string): Promise<string | n
       return "Error re-generating summary.";
     }
   }
-  if (document && document.status === 'processing') {
+  if (document && (document.status === 'processing' || document.status === 'extracting_text' || document.status === 'summarizing')) {
     return "Summary is being generated. Please wait.";
   }
   return null;
 }
-
 
 export async function processPdfUploadLogic(formData: FormData): Promise<{ success: boolean; message: string; documentId?: string; document?: DocumentMetadata; }> {
   console.log("[PROCESS PDF LOGIC] processPdfUploadLogic INVOKED");
@@ -188,73 +188,77 @@ export async function processPdfUploadLogic(formData: FormData): Promise<{ succe
   }
   
   const newDocumentId = `doc-${Date.now()}`;
-  // For a real app, get actual userId from session or an auth token passed to the API route
-  const userId = "mock-user-id"; 
+  const userId = "mock-user-id"; // For a real app, get actual userId
   const storagePath = `uploads/${userId}/${newDocumentId}-${file.name}`;
   const fileStorageRef = ref(storage, storagePath);
 
   const newDocument: DocumentMetadata = {
     id: newDocumentId,
     name: file.name,
-    status: 'uploaded', 
+    status: 'uploading', 
     uploadedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     userId: userId,
-    storagePath: undefined, // Will be set after successful upload
+    storagePath: undefined,
+    gcsUri: undefined,
     summary: undefined,
+    extractedText: undefined,
   };
-  documents.push(newDocument); // Add to mock DB optimistically
+  documents.push(newDocument); 
 
   try {
-    console.log(`[PROCESS PDF LOGIC] Attempting to upload ${file.name} to ${storagePath}`);
+    console.log(`[PROCESS PDF LOGIC] Attempting to upload ${file.name} to Firebase Storage: ${storagePath}`);
     await uploadBytes(fileStorageRef, file);
     newDocument.storagePath = fileStorageRef.fullPath;
-    newDocument.status = 'processing';
+    // Construct GCS URI (ensure your bucket name is correct, often it's <project-id>.appspot.com)
+    // You might need to fetch this from firebaseConfig.storageBucket if it's not fixed
+    const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || `${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.appspot.com`;
+    newDocument.gcsUri = `gs://${bucketName}/${newDocument.storagePath}`;
+    newDocument.status = 'extracting_text';
     newDocument.updatedAt = new Date().toISOString();
-    console.log(`[PROCESS PDF LOGIC] File ${file.name} uploaded to ${newDocument.storagePath}. Status: processing.`);
+    console.log(`[PROCESS PDF LOGIC] File ${file.name} uploaded to ${newDocument.storagePath}. GCS URI: ${newDocument.gcsUri}. Status: extracting_text.`);
 
-    // Simulate text extraction - In a real app, you'd use a PDF parsing library here.
-    const mockDocumentText = `Simulated text content for PDF: ${file.name}. This document discusses various advanced topics in theoretical physics and their practical applications in modern technology. It covers quantum mechanics, string theory, and astrophysics.`;
-    
-    console.log(`[PROCESS PDF LOGIC] Calling Genkit to summarize document ${newDocumentId}`);
-    try {
-      const summaryResult = await summarizeDocument({ documentText: mockDocumentText });
-      newDocument.summary = summaryResult.summary;
-      newDocument.status = 'processed';
-      newDocument.updatedAt = new Date().toISOString();
-      console.log(`[PROCESS PDF LOGIC] Document ${newDocumentId} summarized. Status: processed.`);
-      return {
-        success: true,
-        message: `File '${file.name}' uploaded and summarized successfully.`,
-        documentId: newDocumentId,
-        document: JSON.parse(JSON.stringify(newDocument))
-      };
-    } catch (genkitError) {
-      console.error(`[PROCESS PDF LOGIC] Genkit summarization error for ${newDocumentId}:`, genkitError);
-      newDocument.status = 'error';
-      newDocument.updatedAt = new Date().toISOString();
-      return {
-        success: false,
-        message: `File uploaded, but summarization failed: ${genkitError instanceof Error ? genkitError.message : 'Unknown AI error'}`,
-        documentId: newDocumentId,
-        document: JSON.parse(JSON.stringify(newDocument))
-      };
+    // Extract text using Document AI
+    if (!newDocument.gcsUri) { // Should not happen if uploadBytes was successful
+        throw new Error("GCS URI is not available after upload.");
     }
+    console.log(`[PROCESS PDF LOGIC] Calling Document AI to extract text from ${newDocument.gcsUri}`);
+    const extractedText = await extractTextWithDocumentAI(newDocument.gcsUri, file.type);
+    newDocument.extractedText = extractedText;
+    newDocument.status = 'summarizing';
+    newDocument.updatedAt = new Date().toISOString();
+    console.log(`[PROCESS PDF LOGIC] Text extracted for ${newDocumentId}. Length: ${extractedText.length}. Status: summarizing.`);
 
-  } catch (uploadError) {
-    console.error(`[PROCESS PDF LOGIC] Firebase Storage upload error for ${file.name}:`, uploadError);
-    // Remove the optimistic document add or mark as error if it was added
+    // Summarize the extracted text
+    console.log(`[PROCESS PDF LOGIC] Calling Genkit to summarize document ${newDocumentId}`);
+    if (!newDocument.extractedText || newDocument.extractedText.trim() === "") {
+        console.warn(`[PROCESS PDF LOGIC] Extracted text is empty for ${newDocumentId}. Skipping summarization.`);
+        newDocument.summary = "No text content found in the document to summarize.";
+    } else {
+        const summaryResult = await summarizeDocument({ documentText: newDocument.extractedText });
+        newDocument.summary = summaryResult.summary;
+    }
+    newDocument.status = 'processed';
+    newDocument.updatedAt = new Date().toISOString();
+    console.log(`[PROCESS PDF LOGIC] Document ${newDocumentId} processed (text extracted and summarized).`);
+    
+    return {
+      success: true,
+      message: `File '${file.name}' processed successfully. Text extracted and summarized.`,
+      documentId: newDocumentId,
+      document: JSON.parse(JSON.stringify(newDocument))
+    };
+
+  } catch (error) {
+    console.error(`[PROCESS PDF LOGIC] Error during processing for ${file.name}:`, error);
     const docIndex = documents.findIndex(d => d.id === newDocumentId);
     if (docIndex > -1) {
         documents[docIndex].status = 'error';
         documents[docIndex].updatedAt = new Date().toISOString();
+        // Optionally save the error message to the document metadata
+        // documents[docIndex].errorMessage = error instanceof Error ? error.message : String(error);
     }
     return {
       success: false,
-      message: `Failed to upload file to Firebase Storage: ${uploadError instanceof Error ? uploadError.message : 'Unknown storage error'}`,
-      documentId: newDocumentId, // still pass ID for potential cleanup or retry logic
-    };
-  }
-}
-
-    
+      message: `Processing failed for '${file.name}': ${error instanceof Error ? error.message : 'Unknown processing error'}`,
+      documentId: newDocumentId,
