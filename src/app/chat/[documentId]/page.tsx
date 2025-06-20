@@ -1,7 +1,7 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation'; // Import useParams
 import { getDocumentById, getChatMessages } from '@/app/actions';
 import ChatInterface from '@/components/ChatInterface';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -11,15 +11,19 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import type { DocumentMetadata, ChatMessage } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'; // Added Card imports for loading skeleton
 
-interface ChatPageProps {
-  params: {
-    documentId: string;
-  };
-}
+// ChatPageProps is no longer needed as params will be accessed via useParams hook
+// interface ChatPageProps {
+//   params: {
+//     documentId: string;
+//   };
+// }
 
-export default function ChatPage({ params }: ChatPageProps) {
-  const { documentId } = params;
+export default function ChatPage(/*{ params }: ChatPageProps*/) { // params removed from props
+  const routeParams = useParams();
+  const documentId = routeParams.documentId as string; // Get documentId from useParams
+
   const { user, loading: authLoading } = useAuth();
 
   const [document, setDocument] = useState<DocumentMetadata | null | undefined>(undefined);
@@ -28,6 +32,8 @@ export default function ChatPage({ params }: ChatPageProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!documentId) return; // Wait if documentId is not yet available
+
     if (authLoading) {
       return; // Wait for authentication to resolve
     }
@@ -68,9 +74,9 @@ export default function ChatPage({ params }: ChatPageProps) {
     }
 
     fetchData();
-  }, [documentId, user, authLoading]);
+  }, [documentId, user, authLoading]); // documentId from useParams is now a dependency
 
-  if (authLoading || (loadingData && document === undefined)) {
+  if (!documentId || authLoading || (loadingData && document === undefined)) {
     return (
       <div className="container mx-auto py-8">
         <div className="flex flex-col items-center justify-center h-[calc(100vh-10rem)]">
@@ -168,5 +174,3 @@ export default function ChatPage({ params }: ChatPageProps) {
     </div>
   );
 }
-
-// export const revalidate = 0; // No longer needed for client components in this way
