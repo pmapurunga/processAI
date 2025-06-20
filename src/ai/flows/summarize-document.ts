@@ -8,7 +8,7 @@
  * - SummarizeDocumentOutput - The return type for the summarizeDocument function.
  */
 
-import {ai} from '../genkit';
+import {ai} from '@/ai/genkit.config'; // Corrected import path
 import {z} from 'genkit';
 
 const SummarizeDocumentInputSchema = z.object({

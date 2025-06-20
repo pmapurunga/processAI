@@ -8,7 +8,7 @@
  * - TuneAiPersonaOutput - The return type for the tuneAiPersona function.
  */
 
-import {ai} from '@/ai/genkit';
+import {ai} from '@/ai/genkit.config'; // Corrected import path
 import {z} from 'genkit';
 
 const TuneAiPersonaInputSchema = z.object({
