@@ -8,18 +8,8 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, doc, setDoc, getDoc, getDocs, query, where, Timestamp, addDoc, orderBy, updateDoc, FieldValue } from 'firebase/firestore';
 
 // Genkit/AI imports
-import { genkit } from 'genkit';
-import { googleAI } from '@genkit-ai/googleai';
 import { summarizeDocument as genkitSummarizeDocument } from '@/ai/flows/summarize-document';
-import { extractTextWithDocumentAI } from '@/services/document-ai-service'; // Use the GCS URI version
-
-// Initialize Genkit with required plugins for the server environment.
-// This should only be done once.
-if (!genkit.isConfigured()) {
-  genkit({
-    plugins: [googleAI()],
-  });
-}
+import { extractTextWithDocumentAI } from '@/services/document-ai-service';
 
 
 const documentsCollection = collection(firestore, 'documents');
