@@ -1,20 +1,19 @@
-
 {
   "compilerOptions": {
     "module": "commonjs",
-    "noImplicitReturns": true,
-    "noUnusedLocals": true,
+    "moduleResolution": "node",
+    "target": "es2021",
     "outDir": "dist",
     "sourceMap": true,
     "strict": true,
-    "target": "es2017",
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true
   },
   "compileOnSave": true,
   "include": [
-    "index.ts",
-    "document-ai.ts"
+    "./index.ts",
+    "./document-ai.ts"
   ]
 }

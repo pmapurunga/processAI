@@ -1,48 +1,121 @@
-'use server';
+"use server"
+import * as z from 'zod';
+import {
+  Document,
+  defineFlow,
+  findMostRelevant,
+  generate,
+  genkit,
+} from 'genkit';
+import { getFirestore } from 'firebase-admin/firestore';
+import { Document as IFirestoreDocument } from 'firebase-admin/firestore';
+import { embed } from '@genkit-ai/ai';
+import { chunk } from 'llm-chunk';
+import { googleAI } from '@genkit-ai/googleai';
 
-/**
- * @fileOverview Implements the query document flow using RAG to answer questions about a document.
- *
- * - queryDocument - A function that handles querying a document and returning an answer.
- * - QueryDocumentInput - The input type for the queryDocument function.
- * - QueryDocumentOutput - The return type for the queryDocument function.
- */
-
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
-
-const QueryDocumentInputSchema = z.object({
-  query: z.string().describe('The question to ask about the document.'),
-  documentChunks: z
-    .array(z.string())
-    .describe('The relevant chunks of text from the document.'),
-});
-export type QueryDocumentInput = z.infer<typeof QueryDocumentInputSchema>;
-
-const QueryDocumentOutputSchema = z.object({
-  answer: z.string().describe('The answer to the question about the document.'),
-});
-export type QueryDocumentOutput = z.infer<typeof QueryDocumentOutputSchema>;
-
-export async function queryDocument(input: QueryDocumentInput): Promise<QueryDocumentOutput> {
-  return queryDocumentFlow(input);
-}
-
-const prompt = ai.definePrompt({
-  name: 'queryDocumentPrompt',
-  input: {schema: QueryDocumentInputSchema},
-  output: {schema: QueryDocumentOutputSchema},
-  prompt: `You are a helpful AI assistant that answers questions about a document. Use the context provided to answer the question. Do not make up answers that are not in the context. If you don't know the answer, just say you don't know.\n\nContext:\n{{#each documentChunks}}{{{this}}}\n{{/each}}\n\nQuestion: {{{query}}}`,
+genkit({
+  plugins: [googleAI()],
 });
 
-const queryDocumentFlow = ai.defineFlow(
+export const queryDocumentFlow = defineFlow(
   {
     name: 'queryDocumentFlow',
-    inputSchema: QueryDocumentInputSchema,
-    outputSchema: QueryDocumentOutputSchema,
+    inputSchema: z.object({
+      query: z.string(),
+      documentId: z.string(),
+    }),
+    outputSchema: z.object({
+      answer: z.string(),
+    }),
   },
-  async input => {
-    const {output} = await prompt(input);
-    return output!;
-  }
+  async (input) => {
+    // 1. Get the persona from Firestore.
+    // TODO: The persona should be configurable.
+    const persona = (
+      await getFirestore().collection('personas').doc('default').get()
+    ).data();
+
+    if (!persona) {
+      throw new Error(
+        'Persona not found. Please configure a persona in the Firestore database.',
+      );
+    }
+
+    // 2. Prepare the prompt for the user's query.
+    const history = [
+      {
+        role: 'user' as const,
+        content: `You are a helpful assistant that can answer questions about a document. Your name is ${persona.name}. You are ${persona.description}.
+
+        The user has provided the following document. Please answer the user's question based on the document.
+        
+        DOCUMENT:
+        """""
+        {{document}}
+        """""
+        
+        QUESTION:
+        """""
+        {{query}}
+        """""`,
+      },
+    ];
+
+    // 3. Generate embedding for the user's query.
+    console.log(
+      `[${input.documentId}] Generating embedding for query: "${input.query}"`,
+    );
+    const queryEmbedding = await embed({
+      embedder: 'googleai/text-embedding-004',
+      content: input.query,
+    });
+
+    // 4. Fetch all chunk embeddings for the specified document.
+    console.log(
+      `[${input.documentId}] Fetching embeddings from Firestore.`,
+    );
+    const chunksSnapshot = await getFirestore()
+      .collection('documents')
+      .doc(input.documentId)
+      .collection('chunks')
+      .get();
+
+    const chunks = chunksSnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        text: data.text,
+        embedding: data.embedding,
+      };
+    });
+
+    // 5. Find the most relevant chunks to the user's query.
+    console.log(
+      `[${input.documentId}] Finding most relevant chunks to the query.`,
+    );
+    const relevantChunks = findMostRelevant(
+      queryEmbedding,
+      chunks.map((chunk) => ({
+        content: chunk.text,
+        embedding: chunk.embedding,
+      })),
+      5,
+    );
+
+    // 6. Generate the answer.
+    console.log(`[${input.documentId}] Generating answer.`);
+    const llmResponse = await generate({
+      model: 'googleai/gemini-1.5-flash',
+      prompt: {
+        ...history,
+      },
+      context: relevantChunks,
+      input: {
+        query: input.query,
+      },
+    });
+
+    return {
+      answer: llmResponse.text(),
+    };
+  },
 );

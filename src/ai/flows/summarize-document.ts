@@ -8,7 +8,7 @@
  * - SummarizeDocumentOutput - The return type for the summarizeDocument function.
  */
 
-import {ai} from '@/ai/genkit';
+import {ai} from '../genkit';
 import {z} from 'genkit';
 
 const SummarizeDocumentInputSchema = z.object({
@@ -42,7 +42,7 @@ const summarizeDocumentFlow = ai.defineFlow(
     inputSchema: SummarizeDocumentInputSchema,
     outputSchema: SummarizeDocumentOutputSchema,
   },
-  async input => {
+  async (input: SummarizeDocumentInput) => {
     const {output} = await prompt(input);
     return output!;
   }

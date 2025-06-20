@@ -4,13 +4,13 @@ import { useState, useEffect, useRef, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Send, User, Bot, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ChatMessage, DocumentMetadata } from '@/lib/types';
-import { getChatMessages, sendMessage } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
+import { queryDocumentAction } from '@/app/actions';
 
 interface ChatInterfaceProps {
   document: DocumentMetadata;
@@ -25,7 +25,6 @@ export default function ChatInterface({ document, initialMessages }: ChatInterfa
   const { toast } = useToast();
 
   useEffect(() => {
-    // Scroll to bottom when messages change
     if (scrollAreaRef.current) {
       const viewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
       if (viewport) {
@@ -38,32 +37,40 @@ export default function ChatInterface({ document, initialMessages }: ChatInterfa
     e.preventDefault();
     if (!input.trim() || isPending) return;
 
-    const optimisticUserMessage: ChatMessage = {
-      id: `temp-${Date.now()}`,
+    const userMessage: ChatMessage = {
+      id: `user-${Date.now()}`,
       documentId: document.id,
       role: 'user',
       content: input,
       timestamp: Date.now(),
     };
-    setMessages(prev => [...prev, optimisticUserMessage]);
+    
+    setMessages(prev => [...prev, userMessage]);
     const currentInput = input;
     setInput('');
 
     startTransition(async () => {
-      const result = await sendMessage({ documentId: document.id, message: currentInput });
-      
-      setMessages(prev => prev.filter(msg => msg.id !== optimisticUserMessage.id)); // Remove optimistic message
-
-      if (result.success && result.userMessage && result.aiMessage) {
-        setMessages(prev => [...prev, result.userMessage!, result.aiMessage!]);
-      } else {
+      try {
+        const aiMessage = await queryDocumentAction({ documentId: document.id, query: currentInput });
+        setMessages(prev => [...prev, aiMessage]);
+      } catch (error) {
+        console.error("Error querying document:", error);
+        const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred.";
+        
         toast({
           title: 'Error',
-          description: result.error || 'Failed to send message.',
+          description: `Failed to get a response: ${errorMessage}`,
           variant: 'destructive',
         });
-        // Add back user message if AI failed
-        setMessages(prev => [...prev, optimisticUserMessage]);
+
+        const errorAiMessage: ChatMessage = {
+            id: `error-${Date.now()}`,
+            documentId: document.id,
+            role: 'assistant',
+            content: "I'm sorry, but I encountered an error while trying to answer your question. Please try again.",
+            timestamp: Date.now(),
+        };
+        setMessages(prev => [...prev, errorAiMessage]);
       }
     });
   };
@@ -109,7 +116,7 @@ export default function ChatInterface({ document, initialMessages }: ChatInterfa
                 )}
               </div>
             ))}
-            {isPending && messages[messages.length-1]?.role === 'user' && ( // Show loader only if last message was user and pending
+            {isPending && (
                <div className="flex items-end space-x-3 justify-start">
                   <Avatar className="h-8 w-8">
                     <AvatarFallback><Bot size={18} /></AvatarFallback>
@@ -126,7 +133,7 @@ export default function ChatInterface({ document, initialMessages }: ChatInterfa
         <form onSubmit={handleSendMessage} className="flex w-full items-center space-x-3">
           <Input
             type="text"
-            placeholder="Ask something about the document..."
+            placeholder={document.status !== 'processed' ? 'Please wait, document is being processed...' : 'Ask something about the document...'}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             className="flex-1 text-base"
