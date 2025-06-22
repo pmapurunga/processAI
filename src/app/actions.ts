@@ -73,35 +73,46 @@ export async function getDocumentById(id: string): Promise < DocumentMetadata | 
  * @param {string} userId - The ID of the user whose documents to retrieve.
  * @returns {Promise<DocumentMetadata[]>} - A promise that resolves to an array of document metadata.
  */
-export async function getUserDocuments(userId: string): Promise < DocumentMetadata[] > {
+export async function getUserDocuments(userId: string): Promise<DocumentMetadata[]> {
     try {
         const admin = getAdmin();
         const db = admin.firestore();
-        // The .orderBy() clause required a composite index. By removing it, we can test if the index is the source of the error.
-        // We will sort the documents in the code instead.
         const documentsSnapshot = await db.collection('documents').where('userId', '==', userId).get();
 
         if (documentsSnapshot.empty) {
             return [];
         }
 
-        const documents: DocumentMetadata[] = documentsSnapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-                id: doc.id,
-                name: data.name,
-                status: data.status,
-                uploadedAt: data.uploadedAt ? new Date(data.uploadedAt._seconds * 1000).toISOString() : new Date().toISOString(),
-                updatedAt: data.updatedAt ? new Date(data.updatedAt._seconds * 1000).toISOString() : new Date().toISOString(),
-            };
-        });
-        
+        const documents = documentsSnapshot.docs
+            .map(doc => {
+                try {
+                    const data = doc.data();
+                    // Basic validation to ensure required fields exist before creating the object
+                    if (!data.name || !data.status || !data.uploadedAt) {
+                        console.warn(`Skipping malformed document with ID: ${doc.id}`);
+                        return null;
+                    }
+                    return {
+                        id: doc.id,
+                        name: data.name,
+                        status: data.status,
+                        uploadedAt: data.uploadedAt ? new Date(data.uploadedAt._seconds * 1000).toISOString() : new Date().toISOString(),
+                        updatedAt: data.updatedAt ? new Date(data.updatedAt._seconds * 1000).toISOString() : new Date().toISOString(),
+                    };
+                } catch (mapError) {
+                    console.error(`Failed to parse document with ID: ${doc.id}`, mapError);
+                    return null; // Return null for any documents that fail to parse
+                }
+            })
+            .filter((doc): doc is DocumentMetadata => doc !== null); // Filter out the nulls
+
         // Sort documents by date descending (newest first) in the application code.
         documents.sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
 
         return documents;
     } catch (error) {
         console.error(`Error fetching documents for user ${userId}:`, error);
+        // The error might be from the .get() call itself, so we still need this outer catch.
         throw new Error('Failed to fetch user documents.');
     }
 }
