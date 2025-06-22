@@ -1,4 +1,11 @@
 import * as admin from 'firebase-admin';
+// The service-account-key.json is located at the root of the project.
+// The build process will handle this import.
+import serviceAccountKey from '../../../service-account-key.json';
+
+// Type assertion for the imported JSON to satisfy the credential.cert method.
+const serviceAccount = serviceAccountKey as admin.ServiceAccount;
+
 
 /**
  * Implements "lazy initialization" for the Firebase Admin SDK.
@@ -24,11 +31,12 @@ export function getAdmin() {
     );
   }
 
-  console.log(`Initializing Firebase Admin SDK for project: ${projectId}`);
+  console.log(`Initializing Firebase Admin SDK for project: ${projectId} using explicit service account credentials.`);
 
   admin.initializeApp({
-    // Use Application Default Credentials, which is the standard for GCP environments.
-    credential: admin.credential.applicationDefault(),
+    // Use the explicit service account credentials from the imported JSON file.
+    // This bypasses potential issues with Application Default Credentials in some environments.
+    credential: admin.credential.cert(serviceAccount),
     // Explicitly provide the projectId and databaseURL to ensure the SDK
     // connects to the correct project and database.
     projectId: projectId,
