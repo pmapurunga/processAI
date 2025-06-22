@@ -1,3 +1,4 @@
+
 import * as admin from 'firebase-admin';
 // The service-account-key.json is located at the root of the project.
 // The build process will handle this import.
