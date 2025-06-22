@@ -113,7 +113,8 @@ export async function getUserDocuments(userId: string): Promise<DocumentMetadata
     } catch (error) {
         console.error(`Error fetching documents for user ${userId}:`, error);
         // The error might be from the .get() call itself, so we still need this outer catch.
-        throw new Error('Failed to fetch user documents.');
+        const errorMessage = error instanceof Error ? error.message : 'An unknown Firestore error occurred.';
+        throw new Error(`Failed to fetch user documents: ${errorMessage}`);
     }
 }
 
