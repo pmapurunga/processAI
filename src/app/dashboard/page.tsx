@@ -2,222 +2,194 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getDocuments } from '@/app/actions';
+import { getUserDocuments, deleteDocument } from '@/app/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileText, MessageSquare, UploadCloud, AlertCircle, CheckCircle, Loader2, Inbox } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { FileText, MessageSquare, UploadCloud, AlertCircle, CheckCircle, Loader2, Inbox, MoreVertical, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import type { DocumentMetadata } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
 
 function getStatusBadgeVariant(status: DocumentMetadata['status']) {
-  switch (status) {
-    case 'processed':
-      return 'default'; // Greenish or success color
-    case 'processing':
-    case 'queued':
-      return 'secondary'; // Bluish or neutral in-progress color
-    case 'error':
-      return 'destructive'; // Reddish color
-    default:
-      return 'outline';
-  }
-}
-
-function getStatusIcon(status: DocumentMetadata['status']) {
-  switch (status) {
-    case 'processed':
-      return <CheckCircle className="h-4 w-4 text-green-500" />;
-    case 'processing':
-    case 'queued':
-      return <Loader2 className="h-4 w-4 animate-spin text-blue-500" />;
-    case 'error':
-      return <AlertCircle className="h-4 w-4 text-red-500" />;
-    default:
-      return null;
-  }
+    switch (status) {
+        case 'processed': return 'default';
+        case 'processing': case 'queued': return 'secondary';
+        case 'error': return 'destructive';
+        default: return 'outline';
+    }
 }
 
 export default function DashboardPage() {
-  const { user, loading: authLoading } = useAuth();
-  const [documents, setDocuments] = useState<DocumentMetadata[]>([]);
-  const [loadingDocs, setLoadingDocs] = useState(true);
+    const { user, loading: authLoading } = useAuth();
+    const [documents, setDocuments] = useState<DocumentMetadata[]>([]);
+    const [loadingDocs, setLoadingDocs] = useState(true);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const { toast } = useToast();
 
-  useEffect(() => {
-    if (user?.uid && !authLoading) {
-      console.log(`DashboardPage: Auth loaded, user UID: ${user.uid}. Fetching documents.`);
-      setLoadingDocs(true);
-      getDocuments(user.uid)
-        .then(fetchedDocs => {
-          console.log("DashboardPage: Documents fetched from action: ", fetchedDocs);
-          setDocuments(fetchedDocs);
-        })
-        .catch(error => {
-          console.error("DashboardPage: Failed to fetch documents:", error);
-          setDocuments([]); 
-        })
-        .finally(() => setLoadingDocs(false));
-    } else if (!authLoading && !user) {
-      console.log("DashboardPage: Auth loaded, no user. Clearing documents.");
-      setDocuments([]);
-      setLoadingDocs(false);
-    } else if (authLoading) {
-      console.log("DashboardPage: Auth is loading...");
-    }
-  }, [user, authLoading]);
+    const fetchDocuments = useCallback(() => {
+        if (user?.uid && !authLoading) {
+            setLoadingDocs(true);
+            getUserDocuments(user.uid)
+                .then(setDocuments)
+                .catch(error => {
+                    console.error("DashboardPage: Failed to fetch documents:", error);
+                    toast({
+                        title: "Error fetching documents",
+                        description: "Could not retrieve your documents. Please try again later.",
+                        variant: "destructive",
+                    });
+                    setDocuments([]);
+                })
+                .finally(() => setLoadingDocs(false));
+        } else if (!authLoading) {
+            setDocuments([]);
+            setLoadingDocs(false);
+        }
+    }, [user, authLoading, toast]);
 
-  if (authLoading) {
-    return (
-      <div className="container mx-auto py-8">
-        <div className="flex justify-between items-center mb-8">
-          <Skeleton className="h-9 w-1/3" />
-          <Skeleton className="h-10 w-40" />
-        </div>
+    useEffect(() => {
+        fetchDocuments();
+    }, [fetchDocuments]);
+
+    const handleDeleteClick = (docId: string) => {
+        setDeletingId(docId);
+        setShowDeleteConfirm(true);
+    };
+
+    const confirmDelete = async () => {
+        if (!deletingId) return;
+
+        try {
+            const result = await deleteDocument(deletingId);
+            if (result.success) {
+                toast({
+                    title: "Document Deleted",
+                    description: "The document has been successfully deleted.",
+                });
+                setDocuments(prevDocs => prevDocs.filter(doc => doc.id !== deletingId));
+            } else {
+                throw new Error(result.message);
+            }
+        } catch (error) {
+            toast({
+                title: "Deletion Failed",
+                description: error instanceof Error ? error.message : "An unexpected error occurred.",
+                variant: "destructive",
+            });
+        } finally {
+            setShowDeleteConfirm(false);
+            setDeletingId(null);
+        }
+    };
+
+    const renderSkeleton = () => (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3].map((i) => (
-            <Card key={i} className="shadow-lg">
-              <CardHeader>
-                <Skeleton className="h-6 w-3/4 mb-2" />
-                <Skeleton className="h-4 w-1/2" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-4 w-1/4 mb-2" />
-                <Skeleton className="h-10 w-full" />
-              </CardContent>
-              <CardFooter className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-4 border-t">
-                <Skeleton className="h-9 w-28" />
-                <Skeleton className="h-9 w-24" />
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
-      </div>
-    );
-  }
-  
-  if (!user && !authLoading) {
-     return (
-      <div className="container mx-auto py-8 text-center">
-        <p className="text-lg text-muted-foreground">Please log in to view your dashboard.</p>
-         <Button asChild className="mt-4">
-            <Link href="/login">Go to Login</Link>
-        </Button>
-      </div>
-    );
-  }
-
-
-  return (
-    <div className="container mx-auto py-8">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-headline font-bold">Document Dashboard</h1>
-        <Button asChild>
-          <Link href="/upload">
-            <UploadCloud className="mr-2 h-4 w-4" /> Upload New PDF
-          </Link>
-        </Button>
-      </div>
-
-      {loadingDocs && ( // Show skeletons if loading documents, even if some old ones are there briefly
-         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3].map((i) => (
-            <Card key={`skeleton-${i}`} className="shadow-lg">
-              <CardHeader>
-                <Skeleton className="h-6 w-3/4 mb-2" />
-                <Skeleton className="h-4 w-1/2" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-4 w-1/4 mb-2" />
-                <Skeleton className="h-10 w-full" />
-              </CardContent>
-              <CardFooter className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-4 border-t">
-                <Skeleton className="h-9 w-28" />
-                <Skeleton className="h-9 w-24" />
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {!loadingDocs && documents.length === 0 ? (
-        <Card className="text-center py-12 shadow-lg">
-          <CardHeader>
-            <div className="mx-auto bg-primary/10 p-4 rounded-full w-fit mb-4">
-                <Inbox className="h-12 w-12 text-primary" />
-            </div>
-            <CardTitle className="text-2xl font-headline font-semibold">No Documents Found</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground mb-6">Get started by uploading your first PDF document for this user.</p>
-            <Button asChild size="lg">
-              <Link href="/upload">
-                <UploadCloud className="mr-2 h-5 w-5" /> Upload PDF
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        !loadingDocs && documents.length > 0 && ( // Ensure not loading and documents exist
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {documents.map((doc) => (
-              <Card key={doc.id} className="flex flex-col justify-between shadow-lg hover:shadow-xl transition-shadow duration-300">
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <CardTitle className="text-xl font-semibold mb-1 font-headline truncate" title={doc.name}>
-                      {doc.name}
-                    </CardTitle>
-                    {getStatusIcon(doc.status)}
-                  </div>
-                  <CardDescription>
-                    Uploaded: {doc.uploadedAt ? format(new Date(doc.uploadedAt), "PPp") : 'N/A'}
-                  </CardDescription>
-                  {doc.updatedAt && doc.updatedAt !== doc.uploadedAt && (
-                       <CardDescription>
-                          Last update: {doc.updatedAt ? format(new Date(doc.updatedAt), "PPp") : 'N/A'}
-                       </CardDescription>
-                  )}
-                </CardHeader>
-                <CardContent className="flex-grow">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <span className="text-sm font-medium">Status:</span>
-                    <Badge variant={getStatusBadgeVariant(doc.status)} className="capitalize">{doc.status.replace(/_/g, ' ')}</Badge>
-                  </div>
-                  {doc.status === 'error' && doc.errorMessage && (
-                      <p className="text-sm text-destructive line-clamp-3" title={doc.errorMessage}>
-                          <strong>Error:</strong> {doc.errorMessage}
-                      </p>
-                  )}
-                  {doc.status === 'processed' && doc.summary && (
-                    <p className="text-sm text-muted-foreground line-clamp-3" title={doc.summary}>
-                      <strong>Summary:</strong> {doc.summary}
-                    </p>
-                  )}
-                  {(doc.status === 'processing' || doc.status === 'queued') && !doc.summary && (
-                       <p className="text-sm text-muted-foreground italic">
-                          Document is being processed...
-                       </p>
-                  )}
-                </CardContent>
-                <CardFooter className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-4 border-t">
-                  <Button variant="outline" size="sm" asChild disabled={doc.status !== 'processed'}>
-                    <Link href={`/summary/${doc.id}`}>
-                      <FileText className="mr-2 h-4 w-4" /> View Summary
-                    </Link>
-                  </Button>
-                  <Button variant="default" size="sm" asChild disabled={doc.status !== 'processed'}>
-                    <Link href={`/chat/${doc.id}`}>
-                      <MessageSquare className="mr-2 h-4 w-4" /> Chat
-                    </Link>
-                  </Button>
-                </CardFooter>
-              </Card>
+            {[...Array(3)].map((_, i) => (
+                <Card key={i}>
+                    <CardHeader>
+                        <Skeleton className="h-5 w-3/4" />
+                        <Skeleton className="h-4 w-1/2" />
+                    </CardHeader>
+                    <CardContent>
+                        <Skeleton className="h-4 w-1/4" />
+                    </CardContent>
+                    <CardFooter className="flex justify-end">
+                        <Skeleton className="h-10 w-24" />
+                    </CardFooter>
+                </Card>
             ))}
-          </div>
-        )
-      )}
-    </div>
-  );
+        </div>
+    );
+
+    const renderEmptyState = () => (
+        <div className="text-center py-20">
+            <Inbox className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No documents yet</h3>
+            <p className="mt-1 text-sm text-gray-500">Get started by uploading your first document.</p>
+            <div className="mt-6">
+                <Button asChild>
+                    <Link href="/upload">
+                        <UploadCloud className="-ml-1 mr-2 h-5 w-5" />
+                        Upload Document
+                    </Link>
+                </Button>
+            </div>
+        </div>
+    );
+    return (
+        <div className="container mx-auto p-4 md:p-6">
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="text-2xl font-bold">Your Documents</h1>
+                <Button asChild>
+                    <Link href="/upload">
+                        <UploadCloud className="mr-2 h-4 w-4" /> Upload
+                    </Link>
+                </Button>
+            </div>
+
+            {loadingDocs ? renderSkeleton() : documents.length === 0 ? renderEmptyState() : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {documents.map(doc => (
+                        <Card key={doc.id}>
+                            <CardHeader>
+                                <CardTitle className="truncate">{doc.name}</CardTitle>
+                                <CardDescription>Uploaded on {doc.uploadedAt ? format(new Date(doc.uploadedAt), 'PPP') : 'N/A'}</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <Badge variant={getStatusBadgeVariant(doc.status)}>{doc.status}</Badge>
+                            </CardContent>
+                            <CardFooter className="flex justify-between">
+                                <Button variant="outline" asChild disabled={doc.status !== 'processed'}>
+                                    <Link href={doc.status === 'processed' ? `/chat/${doc.id}` : '#'}>
+                                        <MessageSquare className="mr-2 h-4 w-4" /> Chat
+                                    </Link>
+                                </Button>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon">
+                                            <MoreVertical className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem asChild>
+                                            <Link href={`/summary/${doc.id}`} className={doc.status !== 'processed' ? "pointer-events-none text-muted-foreground" : ""}>
+                                                <FileText className="mr-2 h-4 w-4" /> View Summary
+                                            </Link>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleDeleteClick(doc.id)} className="text-red-600">
+                                            <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </CardFooter>
+                        </Card>
+                    ))}
+                </div>
+            )}
+             <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure you want to delete this document?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the document and all associated data from our servers.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setShowDeleteConfirm(false)}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">
+                            {deletingId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </div>
+    );
 }

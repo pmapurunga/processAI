@@ -13,16 +13,9 @@ import type { DocumentMetadata, ChatMessage } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'; // Added Card imports for loading skeleton
 
-// ChatPageProps is no longer needed as params will be accessed via useParams hook
-// interface ChatPageProps {
-//   params: {
-//     documentId: string;
-//   };
-// }
-
-export default function ChatPage(/*{ params }: ChatPageProps*/) { // params removed from props
+export default function ChatPage() { 
   const routeParams = useParams();
-  const documentId = routeParams.documentId as string; // Get documentId from useParams
+  const documentId = routeParams.documentId as string;
 
   const { user, loading: authLoading } = useAuth();
 
@@ -32,15 +25,13 @@ export default function ChatPage(/*{ params }: ChatPageProps*/) { // params remo
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!documentId) return; // Wait if documentId is not yet available
+    if (!documentId) return;
 
     if (authLoading) {
-      return; // Wait for authentication to resolve
+      return;
     }
 
     if (!user) {
-      // User is not logged in, AppLayout should ideally redirect to /login
-      // Or, you can show a message here if preferred.
       setLoadingData(false);
       setError("User not authenticated.");
       return;
@@ -58,23 +49,21 @@ export default function ChatPage(/*{ params }: ChatPageProps*/) { // params remo
           const messages = await getChatMessages(documentId);
           setInitialMessages(messages);
         } else if (doc && doc.status !== 'processed') {
-          // Document exists but not ready for chat
-          setInitialMessages([]); // No messages to load
+          setInitialMessages([]);
         } else if (!doc) {
-          // Document not found
            setInitialMessages([]);
         }
       } catch (e) {
         console.error("Error fetching chat page data:", e);
         setError(e instanceof Error ? e.message : "Failed to load document data.");
-        setDocument(null); // Indicate document fetch failed or not found
+        setDocument(null);
       } finally {
         setLoadingData(false);
       }
     }
 
     fetchData();
-  }, [documentId, user, authLoading]); // documentId from useParams is now a dependency
+  }, [documentId, user, authLoading]);
 
   if (!documentId || authLoading || (loadingData && document === undefined)) {
     return (
@@ -87,7 +76,7 @@ export default function ChatPage(/*{ params }: ChatPageProps*/) { // params remo
     );
   }
 
-  if (error && !document) { // If there was an error and document is null (not just undefined)
+  if (error && !document) {
     return (
       <div className="container mx-auto py-8 text-center">
         <Alert variant="destructive" className="max-w-md mx-auto">
@@ -105,7 +94,7 @@ export default function ChatPage(/*{ params }: ChatPageProps*/) { // params remo
     );
   }
   
-  if (!document && !loadingData) { // Explicitly document not found after loading
+  if (!document && !loadingData) {
     return (
       <div className="container mx-auto py-8 text-center">
         <Alert variant="destructive" className="max-w-md mx-auto">
@@ -123,7 +112,6 @@ export default function ChatPage(/*{ params }: ChatPageProps*/) { // params remo
     );
   }
   
-  // Document exists, but might still be loading messages or be in a non-processed state
   if (document && document.status !== 'processed' && !loadingData) {
      return (
       <div className="container mx-auto py-8 text-center">
@@ -142,7 +130,6 @@ export default function ChatPage(/*{ params }: ChatPageProps*/) { // params remo
     );
   }
 
-  // If document is processed but still loading messages (initialMessages might be empty array initially)
   if (document && document.status === 'processed' && loadingData) {
      return (
       <div className="container mx-auto h-full flex flex-col items-center py-2">

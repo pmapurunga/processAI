@@ -1,137 +1,126 @@
-
-"use server"
-import * as z from 'zod';
-import { Document, findMostRelevant } from 'genkit';
+import { embed } from '@genkit-ai/ai';
+import * as genkit from '@genkit-ai/core';
+import { defineFlow, runFlow } from '@genkit-ai/flow';
+import { gemini15Pro } from '@genkit-ai/googleai';
+import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-// Removed Document as IFirestoreDocument to avoid conflict with genkit/Document
-// import { Document as IFirestoreDocument } from 'firebase-admin/firestore';
-import { ai } from '@/ai/genkit.config'; // Use the centrally configured AI instance
+import { z } from 'zod';
+import { getPlugins } from '../genkit.config';
 
-// Persona data structure (can be expanded)
-interface Persona {
-  name: string;
-  description: string;
+// Initialize Firebase Admin SDK
+try {
+  initializeApp();
+} catch (e) {
+  // Ignore the error if the app is already initialized
+  if ((e as any).code !== 'app/duplicate-app') {
+    console.error('Firebase initialization error', e);
+  }
 }
 
-export const QueryDocumentInputSchema = z.object({
-  query: z.string(),
+const QueryDocumentInputSchema = z.object({
   documentId: z.string(),
+  query: z.string(),
 });
-export type QueryDocumentInput = z.infer<typeof QueryDocumentInputSchema>;
 
-export const QueryDocumentOutputSchema = z.object({
+type QueryDocumentInput = z.infer<typeof QueryDocumentInputSchema>;
+
+const QueryDocumentOutputSchema = z.object({
   answer: z.string(),
 });
-export type QueryDocumentOutput = z.infer<typeof QueryDocumentOutputSchema>;
 
+type QueryDocumentOutput = z.infer<typeof QueryDocumentOutputSchema>;
 
-export async function queryDocumentFlow(input: QueryDocumentInput): Promise<QueryDocumentOutput> {
-  // 1. Get the persona from Firestore.
-  const personaSnapshot = await getFirestore().collection('personas').doc('default').get();
-  
-  if (!personaSnapshot.exists) {
-    throw new Error(
-      'Persona not found. Please configure a persona in the Firestore database.',
-    );
-  }
-  const persona = personaSnapshot.data() as Persona;
+async function queryDocumentLogic(
+  input: QueryDocumentInput,
+): Promise<QueryDocumentOutput> {
+  const personaSnapshot = await getFirestore()
+    .collection('config')
+    .doc('persona')
+    .get();
+  const persona = personaSnapshot.data() || {
+    name: 'AI Assistant',
+    description: 'a helpful assistant',
+  };
 
-
-  // 2. Prepare the prompt for the user's query.
-  // The prompt itself is now part of the ai.generate call context or system prompt if needed.
-  // For this structure, we'll format the input for the generate call.
-
-  // 3. Generate embedding for the user's query.
   console.log(
     `[${input.documentId}] Generating embedding for query: "${input.query}"`,
   );
-  const queryEmbedding = await ai.embed({
-    content: input.query, // Uses default embedder from genkit.config.ts
-  });
+  const queryEmbedding = await runFlow(embedText, input.query);
 
-  // 4. Fetch all chunk embeddings for the specified document.
-  console.log(
-    `[${input.documentId}] Fetching embeddings from Firestore.`,
-  );
-  const chunksSnapshot = await getFirestore()
-    .collection('documents')
-    .doc(input.documentId)
-    .collection('chunks') // Assuming chunks are stored here
-    .get();
-
-  // We need to fetch embeddings from the 'embeddings' subcollection as per 'functions/index.ts'
+  console.log(`[${input.documentId}] Fetching embeddings from Firestore.`);
   const embeddingsSnapshot = await getFirestore()
     .collection('documents')
     .doc(input.documentId)
     .collection('embeddings')
     .get();
-  
-  const chunkTexts: Record<string, string> = {};
-  chunksSnapshot.forEach(doc => {
-    chunkTexts[doc.id] = doc.data().text;
-  });
 
-  const documentChunksWithEmbeddings = embeddingsSnapshot.docs.map((doc) => {
-    const data = doc.data();
-    const chunkId = doc.id; // or data.chunkId if stored explicitly
-    return Document.fromText(chunkTexts[chunkId] || '', { // text comes from 'chunks' collection
-      chunkId: chunkId, // Pass chunkId in metadata
-      embedding: data.vector, // embedding comes from 'embeddings' collection
-    });
-  }).filter(doc => doc.text()); // Ensure we only include chunks with text
-
-
-  if (documentChunksWithEmbeddings.length === 0) {
-     console.warn(`[${input.documentId}] No text chunks or embeddings found for this document.`);
-     // Decide how to handle: throw error or return a specific message
-     return { answer: "I'm sorry, but I couldn't find any content in the document to search." };
+  if (embeddingsSnapshot.empty) {
+    console.warn(`[${input.documentId}] No embeddings found for this document.`);
+    return {
+      answer: "I'm sorry, but I couldn't find any content in the document to search.",
+    };
   }
 
+  const documentEmbeddings = embeddingsSnapshot.docs
+    .map((doc) => ({
+      chunkId: doc.id,
+      embedding: doc.data().embedding,
+    }))
+    .filter((doc) => Array.isArray(doc.embedding) && doc.embedding.length > 0);
 
-  // 5. Find the most relevant chunks to the user's query.
+  const distances = documentEmbeddings.map((doc) => ({
+    chunkId: doc.chunkId,
+    distance: cosineSimilarity(queryEmbedding, doc.embedding),
+  }));
+
+  distances.sort((a, b) => b.distance - a.distance);
+
+  const topN = 5;
+  const relevantChunkIds = distances.slice(0, topN).map((d) => d.chunkId);
+
+  if (relevantChunkIds.length === 0) {
+    return {
+      answer:
+        "I'm sorry, I was unable to find relevant information in the document to answer your question.",
+    };
+  }
+
   console.log(
-    `[${input.documentId}] Finding most relevant chunks to the query.`,
+    `[${input.documentId}] Fetching content for top ${relevantChunkIds.length} relevant chunks.`,
   );
-  // findMostRelevant expects an array of Document objects or objects with {content, embedding}
-  // Our Document.fromText above already includes embeddings in its metadata if `embedding` field is standard
-  // Let's ensure findMostRelevant can use Document objects directly or adapt.
-  // The Genkit Document type can hold an embedding in its metadata.
-  // We need to make sure `findMostRelevant` can access it.
-  // If `findMostRelevant` expects `data.embedding`, we might need to map.
-  // From docs, findMostRelevant wants an array of `Document<z.ZodTypeAny> | DocumentData<z.ZodTypeAny>`
-  // and DocumentData is `{ content: string; embedding?: number[] | Float32Array; }`
 
-  const relevantChunks = findMostRelevant(
-    queryEmbedding, // This is number[]
-    documentChunksWithEmbeddings.map(doc => ({
-        content: doc.text(), // Text content of the chunk
-        embedding: doc.metadata?.embedding || [], // Embedding vector. Ensure this path is correct.
-    })),
-    5 // Number of relevant chunks to retrieve
-  ).map(chunk => Document.fromText(chunk.content || '')); // Convert back to Document objects for context
+  const chunkPromises = relevantChunkIds.map((chunkId) =>
+    getFirestore()
+      .collection('documents')
+      .doc(input.documentId)
+      .collection('chunks')
+      .doc(chunkId)
+      .get(),
+  );
 
+  const chunkSnapshots = await Promise.all(chunkPromises);
+  const relevantChunks = chunkSnapshots
+    .map((doc) => ({
+      content: doc.exists ? doc.data()?.text || '' : '',
+    }))
+    .filter((chunk) => chunk.content);
 
-  // 6. Generate the answer.
-  console.log(`[${input.documentId}] Generating answer.`);
-  const llmResponse = await ai.generate({
-    // model: 'googleai/gemini-1.5-flash', // Uses default model from genkit.config.ts
-    prompt: `You are ${persona.name}, ${persona.description}.
-      Answer the user's QUESTION based on the provided DOCUMENT content.
+  console.log(
+    `[${input.documentId}] Retrieved chunks:`,
+    relevantChunks.map((c) => c.content.substring(0, 100) + '...'),
+  );
 
-      DOCUMENT:
-      """""
-      {{#each context}}
-      {{this.content}}
-      -----
-      {{/each}}
-      """""
-      
-      QUESTION:
-      """""
-      ${input.query}
-      """""`,
-    context: relevantChunks, // Pass relevant Document objects as context
-    // input variables for the prompt template are implicitly from the prompt string if not using schema
+  const documentContent = relevantChunks.map((c) => c.content).join('----');
+
+  const systemPrompt = `You are ${persona.name}, ${persona.description}. Answer the user's QUESTION based on the provided DOCUMENT content. If the user asks for a summary, please provide a comprehensive summary of the document.`;
+
+  const llmResponse = await gemini15Pro.generate({
+    system: systemPrompt,
+    prompt: `DOCUMENT:
+${documentContent}
+
+QUESTION:
+${input.query}`,
   });
 
   return {
@@ -139,22 +128,59 @@ export async function queryDocumentFlow(input: QueryDocumentInput): Promise<Quer
   };
 }
 
-// Defining the flow with ai.defineFlow allows it to be discoverable by Genkit tools
-// and provides better integration with the Genkit ecosystem.
-// However, since `queryDocumentFlow` is directly exported and used,
-// this explicit `ai.defineFlow` wrapper might be redundant if not called via Genkit's flow execution mechanisms elsewhere.
-// For now, the exported async function `queryDocumentFlow` is what `actions.ts` calls.
-// If we want to make it a formal Genkit flow runnable via CLI or other tools, we'd do:
-/*
-const queryDocumentGenkitFlow = ai.defineFlow(
+const embedText = defineFlow(
   {
-    name: 'queryDocumentFlow', // Name for Genkit to identify the flow
+    name: 'embedText',
+    inputSchema: z.string(),
+    outputSchema: z.array(z.number()),
+  },
+  async (text) => {
+    const { embedding } = await embed({
+      embedder: 'googleAI/text-embedding-004',
+      content: text,
+    });
+    return embedding;
+  },
+);
+
+export const queryDocumentFlow = defineFlow(
+  {
+    name: 'queryDocumentFlow',
     inputSchema: QueryDocumentInputSchema,
     outputSchema: QueryDocumentOutputSchema,
   },
-  queryDocumentFlow // Pass the async function directly
+  queryDocumentLogic,
 );
-// Then actions.ts would import and call queryDocumentGenkitFlow
-*/
-// For simplicity, and since actions.ts already calls the async function, we'll keep it as is.
-// The key was to use ai.embed and ai.generate.
+
+export async function runQueryDocumentFlow(
+  input: QueryDocumentInput,
+): Promise<QueryDocumentOutput> {
+  console.log('Running queryDocumentFlow via runQueryDocumentFlow wrapper.');
+  
+  genkit.configure({
+    plugins: getPlugins(),
+    logLevel: 'debug',
+    enableTracingAndMetrics: true,
+  });
+  
+  const result = await runFlow(queryDocumentFlow, input);
+  return result;
+}
+
+function cosineSimilarity(vecA: number[], vecB: number[]): number {
+  if (!vecA || !vecB || vecA.length !== vecB.length) {
+    return 0;
+  }
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < vecA.length; i++) {
+    dotProduct += vecA[i] * vecB[i];
+    normA += vecA[i] * vecA[i];
+    normB += vecB[i] * vecB[i];
+  }
+  if (normA === 0 || normB === 0) {
+    return 0;
+  }
+  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+}

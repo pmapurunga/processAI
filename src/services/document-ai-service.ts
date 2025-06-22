@@ -6,9 +6,9 @@ import {
 } from '@google-cloud/documentai';
 import type { google } from '@google-cloud/documentai/build/protos/protos';
 
-// Ensure these environment variables are set
+// Reading the environment variables as defined in your .env file
 const projectId = process.env.GCP_PROJECT_ID;
-const location = process.env.DOCUMENT_AI_LOCATION; // e.g. 'us' or 'eu'
+const location = process.env.DOCUMENT_AI_LOCATION;
 const processorId = process.env.DOCUMENT_AI_PROCESSOR_ID;
 
 if (!projectId || !location || !processorId) {
@@ -29,29 +29,19 @@ export async function extractTextWithDocumentAI(
   gcsDocumentUri: string,
   mimeType: string = 'application/pdf'
 ): Promise<string> {
-  console.log(`[Document AI Service] Received GCS URI: ${gcsDocumentUri}`);
+  // Encode the GCS URI to handle special characters in the file path.
+  const encodedGcsDocumentUri = encodeURI(gcsDocumentUri);
+  console.log(`[Document AI Service] Original GCS URI: ${gcsDocumentUri}`);
+  console.log(`[Document AI Service] Encoded GCS URI: ${encodedGcsDocumentUri}`);
 
-  let correctedGcsUri = gcsDocumentUri; 
-  const uriParts = gcsDocumentUri.replace('gs://', '').split('/');
-  if (uriParts.length > 1) {
-      const pathPart = uriParts.slice(1).join('/');
-      if (projectId) {
-           correctedGcsUri = `gs://${projectId}.appspot.com/${pathPart}`;
-           console.log(`[Document AI Service] Reconstructed GCS URI: ${correctedGcsUri}`);
-      } else {
-           console.warn('[Document AI Service] projectId is not available to reconstruct GCS URI.');
-      }
-  } else {
-       console.warn('[Document AI Service] GCS URI format unexpected, cannot reconstruct.');
-  }
-
+  // The full name of the processor resource.
   const name = `projects/${projectId}/locations/${location}/processors/${processorId}`;
 
-  // REVERTED TO CORRECT STRUCTURE: 'gcsDocument' is a top-level property.
+  // The request payload, using the encoded GCS URI.
   const request: google.cloud.documentai.v1.IProcessRequest = {
     name,
     gcsDocument: {
-        gcsUri: correctedGcsUri,
+        gcsUri: encodedGcsDocumentUri,
         mimeType: mimeType,
     },
     skipHumanReview: true,

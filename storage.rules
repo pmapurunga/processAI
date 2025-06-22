@@ -3,11 +3,11 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // This is the final, secure rule for the 'uploads' directory.
-    // It is the trigger path for our background Cloud Function.
-    match /uploads/{userId}/{documentId}/{allPaths=**} {
-      // Allow write access ONLY to the authenticated user who owns this directory path.
-      // This rule is now active and enforces security.
+    // This rule allows authenticated users to upload files to a directory
+    // specific to their user ID and the document ID.
+    match /pendingAnalysis/{userId}/{documentId}/{allPaths=**} {
+      // Allow write access only to the authenticated user who owns this path.
+      // Also, limit the file size to 20MB.
       allow write: if request.auth != null && request.auth.uid == userId
                     && request.resource.size < 20 * 1024 * 1024;
 

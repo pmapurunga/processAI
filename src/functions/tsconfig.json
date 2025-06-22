@@ -9,11 +9,17 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "baseUrl": "../",
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    }
   },
   "compileOnSave": true,
   "include": [
-    "./index.ts",
-    "./document-ai.ts"
+    "./**/*.ts",
+    "../ai/**/*.ts"
   ]
 }

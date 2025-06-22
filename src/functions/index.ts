@@ -21,19 +21,6 @@ try {
 const db = getFirestore();
 const storage = admin.storage();
 
-// Helper function for text splitting
-function splitTextIntoChunks(text: string, chunkSize: number, chunkOverlap: number): string[] {
-  const chunks: string[] = [];
-  let i = 0;
-  while (i < text.length) {
-    const end = Math.min(i + chunkSize, text.length);
-    chunks.push(text.substring(i, end));
-    i += chunkSize - chunkOverlap;
-  }
-  return chunks;
-}
-
-
 export const processDocumentOnUpload = functions
   .runWith({
     timeoutSeconds: 540,
@@ -166,33 +153,22 @@ export const processDocumentAIRecognition = functions
 
       // Update Firestore with the extracted text
       await docRef.update({
-        internalStatus: "chunking_and_embedding",
+        internalStatus: "embedding",
         extractedText: fullText,
         updatedAt: Timestamp.now(),
       });
 
-      // Split the text, create embeddings, and batch write to Firestore
-      const textChunks = splitTextIntoChunks(fullText, 1000, 150);
-      const batch = db.batch();
-      for (let i = 0; i < textChunks.length; i++) {
-        const chunkText = textChunks[i];
-        const chunkId = `chunk-${i}`;
-        const embedding = await ai.embed({
-            embedder: textEmbeddingGecko001,
-            content: chunkText,
-        });
-        batch.set(docRef.collection("chunks").doc(chunkId), {
-          documentId,
-          chunkId,
-          text: chunkText,
-        });
-        batch.set(docRef.collection("embeddings").doc(chunkId), {
-          documentId,
-          chunkId,
-          vector: embedding,
-        });
-      }
-      await batch.commit();
+      // Generate embedding for the entire document
+      const embedding = await ai.embed({
+        embedder: textEmbeddingGecko001,
+        content: fullText,
+      });
+
+      // Save the embedding in a separate collection
+      await docRef.collection("embeddings").doc("full_document").set({
+        documentId,
+        embedding,
+      });
 
       // Update the status to indicate summarization has started
       await docRef.update({
@@ -208,14 +184,13 @@ export const processDocumentAIRecognition = functions
         status: "processed",
         internalStatus: "completed",
         summary: summary || "Could not generate a summary.",
-        chunkCount: textChunks.length,
         updatedAt: Timestamp.now(),
         errorMessage: FieldValue.delete(),
       });
 
       console.log(
         `[${documentId}] Successfully processed and summarized document.`
-            );
+      );
     } catch (error: any) {
       const errorMessage =
         error instanceof Error

@@ -51,8 +51,19 @@ export default function ChatInterface({ document, initialMessages }: ChatInterfa
 
     startTransition(async () => {
       try {
-        const aiMessage = await queryDocumentAction({ documentId: document.id, query: currentInput });
-        setMessages(prev => [...prev, aiMessage]);
+        const result = await queryDocumentAction(document.id, currentInput, document.userId as string);
+        if (result.success && result.answer) {
+            const aiMessage: ChatMessage = {
+                id: `ai-${Date.now()}`,
+                documentId: document.id,
+                role: 'model',
+                content: result.answer,
+                timestamp: Date.now(),
+            };
+            setMessages(prev => [...prev, aiMessage]);
+        } else {
+            throw new Error(result.message || "An unknown error occurred.");
+        }
       } catch (error) {
         console.error("Error querying document:", error);
         const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred.";
@@ -83,9 +94,9 @@ export default function ChatInterface({ document, initialMessages }: ChatInterfa
       <CardContent className="flex-1 overflow-hidden p-0">
         <ScrollArea className="h-full p-6" ref={scrollAreaRef}>
           <div className="space-y-6">
-            {messages.map((msg) => (
+            {messages.map((msg, index) => (
               <div
-                key={msg.id}
+                key={`${msg.id}-${index}`}
                 className={cn(
                   'flex items-end space-x-3',
                   msg.role === 'user' ? 'justify-end' : 'justify-start'
