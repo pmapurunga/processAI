@@ -1,7 +1,7 @@
 import * as admin from 'firebase-admin';
 // The service-account-key.json is located at the root of the project.
 // The build process will handle this import.
-import serviceAccountKey from '../../../service-account-key.json';
+import serviceAccountKey from '../../service-account-key.json';
 
 // Type assertion for the imported JSON to satisfy the credential.cert method.
 const serviceAccount = serviceAccountKey as admin.ServiceAccount;
