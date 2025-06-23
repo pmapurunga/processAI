@@ -1,71 +1,68 @@
 
-'use server';
+// This is a self-contained service file for the Cloud Function.
+// It does not use 'use server' or any Next.js-specific features.
 
-import {
-  DocumentProcessorServiceClient
-} from '@google-cloud/documentai';
+import { DocumentProcessorServiceClient } from '@google-cloud/documentai';
 import type { google } from '@google-cloud/documentai/build/protos/protos';
 
-// Reading the environment variables as defined in your .env file
-const projectId = process.env.GCP_PROJECT_ID;
+// These should be set as environment variables on the Cloud Function
+const projectId = process.env.GCP_PROJECT;
 const location = process.env.DOCUMENT_AI_LOCATION;
 const processorId = process.env.DOCUMENT_AI_PROCESSOR_ID;
-
-if (!projectId || !location || !processorId) {
-  throw new Error(
-    'Missing GCP_PROJECT_ID, DOCUMENT_AI_LOCATION, or DOCUMENT_AI_PROCESSOR_ID environment variables for Document AI Service'
-  );
-}
 
 const client = new DocumentProcessorServiceClient();
 
 /**
- * Extracts text from a document in GCS using its URI.
- * @param gcsDocumentUri The GCS URI of the document (e.g., "gs://bucket-name/path/to/document.pdf").
- * @param mimeType The MIME type of the document (e.g., "application/pdf").
- * @returns The extracted text content of the document.
+ * Initiates a batch (asynchronous) processing job for a large document.
+ *
+ * @param gcsInputUri The GCS URI of the document to process.
+ * @param gcsOutputUri The GCS URI where the output JSON should be stored.
+ * @param mimeType The MIME type of the document.
+ * @returns The promise of a long-running operation.
  */
-export async function extractTextWithDocumentAI(
-  gcsDocumentUri: string,
-  mimeType: string = 'application/pdf'
-): Promise<string> {
-  // Encode the GCS URI to handle special characters in the file path.
-  const encodedGcsDocumentUri = encodeURI(gcsDocumentUri);
-  console.log(`[Document AI Service] Original GCS URI: ${gcsDocumentUri}`);
-  console.log(`[Document AI Service] Encoded GCS URI: ${encodedGcsDocumentUri}`);
+export async function startBatchDocumentProcessing(
+  gcsInputUri: string,
+  gcsOutputUri: string,
+  mimeType: string
+) {
+  if (!projectId || !location || !processorId) {
+    const errorMsg = 'Missing environment variables for Document AI Service in the Cloud Function environment.';
+    console.error(errorMsg);
+    throw new Error(errorMsg);
+  }
 
-  // The full name of the processor resource.
   const name = `projects/${projectId}/locations/${location}/processors/${processorId}`;
 
-  // The request payload, using the encoded GCS URI.
-  const request: google.cloud.documentai.v1.IProcessRequest = {
+  // Configure the batch process request
+  const request: google.cloud.documentai.v1.IBatchProcessRequest = {
     name,
-    gcsDocument: {
-        gcsUri: encodedGcsDocumentUri,
-        mimeType: mimeType,
+    inputDocuments: {
+      gcsDocuments: {
+        documents: [
+          {
+            gcsUri: gcsInputUri,
+            mimeType,
+          },
+        ],
+      },
+    },
+    documentOutputConfig: {
+      // Corrected property name from gcsConfig to gcsOutputConfig
+      gcsOutputConfig: {
+        gcsUri: gcsOutputUri,
+      },
     },
     skipHumanReview: true,
   };
 
-  console.log('[Document AI Service] Final Request object being sent:', 
-    JSON.stringify(request, null, 2)
-  );
-
   try {
-    const [result] = await client.processDocument(request);
-    const { document } = result;
-
-    if (!document || !document.text) {
-      console.warn('[Document AI Service] Document processed but no text extracted.');
-      return '';
-    }
-
-    console.log(`[Document AI Service] Text extracted successfully. Length: ${document.text.length}`);
-    return document.text;
+    console.log('[Function] Starting batch processing job with request:', JSON.stringify(request, null, 2));
+    const [operation] = await client.batchProcessDocuments(request);
+    console.log(`[Function] Batch processing job created. Operation name: ${operation.name}`);
+    return operation;
   } catch (error: any) {
-    console.error('[Document AI Service] Error processing document:', error);
+    console.error('[Function] Error starting batch processing job:', error);
     const errorMessage = error.details || (error instanceof Error ? error.message : String(error));
-    const errorCode = error.code || 'UNKNOWN_CODE';
-    throw new Error(`Failed to process document with Document AI: ${errorCode} ${errorMessage}`);
+    throw new Error(`Failed to start batch processing job: ${errorMessage}`);
   }
 }

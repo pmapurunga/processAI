@@ -9,17 +9,18 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "baseUrl": "../",
-    "paths": {
-      "@/*": [
-        "./*"
-      ]
-    }
+    "resolveJsonModule": true
   },
   "compileOnSave": true,
   "include": [
-    "./**/*.ts",
-    "../ai/**/*.ts"
+    "index.ts",
+    "document-ai.ts",
+    "genkit.config.ts",
+    "ai-flows/query-document.ts",
+    "ai-flows/summarize-document.ts",
+    "ai-flows/tune-ai-persona.ts"
+  ],
+  "exclude": [
+    "node_modules"
   ]
 }

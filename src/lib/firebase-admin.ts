@@ -5,6 +5,7 @@ import * as admin from 'firebase-admin';
 import serviceAccountKey from '../../service-account-key.json';
 
 // Type assertion for the imported JSON to satisfy the credential.cert method.
+// CORRECTED: Used the correct variable name 'serviceAccountKey'
 const serviceAccount = serviceAccountKey as admin.ServiceAccount;
 
 
@@ -39,10 +40,11 @@ export function getAdmin() {
     // This bypasses potential issues with Application Default Credentials in some environments.
     credential: admin.credential.cert(serviceAccount),
     // Explicitly provide the projectId and databaseURL to ensure the SDK
-    // connects to the correct project and database.
+    // connects to the correct project and a database.
     projectId: projectId,
     databaseURL: `https://${projectId}.firebaseio.com`,
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    // Use the server-side environment variable for the storage bucket.
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
   });
 
   // Return the admin namespace, which contains all the services like auth, firestore, etc.

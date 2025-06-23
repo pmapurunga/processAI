@@ -1,6 +1,12 @@
-import { GenkitPlugin } from '@genkit-ai/core';
+
+import { Plugin } from '@genkit-ai/core';
 import { googleAI, textEmbedding004 } from '@genkit-ai/googleai';
 import { vertexAI } from '@genkit-ai/vertexai';
+
+// Import the flows so that they are recognized as deployable Cloud Functions
+import './flows/query-document';
+import './flows/summarize-document';
+import './flows/tune-ai-persona';
 
 /**
  * Exports the AI plugins for the application.
@@ -9,7 +15,7 @@ import { vertexAI } from '@genkit-ai/vertexai';
  * initialization issues with Next.js and Turbopack. The plugins will be
  * initialized on-demand when a Genkit flow is called.
  */
-export function getPlugins(): GenkitPlugin[] {
+export function getPlugins(): Plugin[] {
   return [
     googleAI(),
     vertexAI({
