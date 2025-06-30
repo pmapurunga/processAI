@@ -1,7 +1,7 @@
 
 import { defineFlow, onFlow } from '@genkit-ai/flow';
 import { z } from 'zod';
-import { geminiPro } from '@genkit-ai/googleai';
+import { gemini15Pro } from '@genkit-ai/googleai';
 import { DocumentData, DocumentReference } from 'firebase-admin/firestore';
 
 // Define the input schema for the document summarization flow
@@ -32,7 +32,7 @@ export const summarizeDocumentFlow = defineFlow(
   
     ${documentText}`;
 
-    const llmResponse = await geminiPro.generate({
+    const llmResponse = await gemini15Pro.generate({
       prompt,
     });
 

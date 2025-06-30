@@ -1,7 +1,7 @@
 
 import { defineFlow, onFlow } from '@genkit-ai/flow';
 import { z } from 'zod';
-import { geminiPro } from '@genkit-ai/googleai';
+import { gemini15Pro } from '@genkit-ai/googleai';
 
 // Define the input schema for the AI persona tuning flow
 export const TuneAiPersonaInputSchema = z.object({
@@ -36,7 +36,7 @@ export const tuneAiPersonaFlow = defineFlow(
     Confirm that you have updated the AI persona description by returning the same description in the output.
     `;
 
-    const llmResponse = await geminiPro.generate({
+    const llmResponse = await gemini15Pro.generate({
       prompt,
     });
 
