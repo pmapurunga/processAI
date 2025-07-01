@@ -1,0 +1,42 @@
+import { defineFlow } from '@genkit-ai/flow';
+import { gemini }      from '@genkit-ai/googleai';
+import { z }           from 'zod';
+import { getFirestore, DocumentData } from 'firebase-admin/firestore';
+
+export const summarizeDocument = defineFlow({
+  name: 'summarize-document',
+  description: 'Gera um resumo de um documento armazenado no Firestore',
+  input: z.object({
+    // caminho completo do documento no Firestore, e.g. "colecao/docId"
+    docRef: z.string(),
+  }),
+
+  async run({ input }) {
+    const firestore = getFirestore();
+    const snap = await firestore.doc(input.docRef).get();
+
+    if (!snap.exists) {
+      throw new Error(`Documento ${input.docRef} não encontrado`);
+    }
+
+    const data = snap.data() as DocumentData;
+    const texto = data.text as string | undefined;
+    if (!texto) {
+      throw new Error('Campo `text` ausente no documento');
+    }
+
+    // Escolhe em runtime o modelo Gemini que você quiser
+    // — pode trocar por 'gemini15Pro', 'gemini20FlashLite', etc.
+    const modelRef = gemini('gemini15Pro');
+
+    // Chama o modelo para gerar o resumo
+    const resposta = await modelRef.generate({
+      prompt: `Resuma o seguinte texto:\n\n${texto}`,
+      maxTokens: 300,
+    });
+
+    const resumo = resposta.text.trim();
+
+    return { summary: resumo };
+  },
+});

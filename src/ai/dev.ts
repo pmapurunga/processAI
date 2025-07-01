@@ -1,6 +1,5 @@
-import { config } from 'dotenv';
-config();
-
-import '@/ai/flows/query-document.ts';
-import '@/ai/flows/tune-ai-persona.ts';
-import '@/ai/flows/summarize-document.ts';
+// src/ai/dev.ts
+import 'dotenv/config';              // carrega suas variáveis de ambiente
+import './flows/query-document';     // importa os módulos onde você chama defineFlow(...)
+import './flows/tune-ai-persona';
+import './flows/summarize-document';
