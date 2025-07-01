@@ -1,0 +1,35 @@
+{
+  "firebase": {
+    "projectId": "processai-v9qza",
+    "storageBucket": "processai-v9qza.firebasestorage.app"
+  },
+  "vertex": {
+    "index_endpoint_id": "projects/76998520011/locations/us-central1/indexEndpoints/7430976768556662784",
+    "deployed_index_id": "document_rag_index_1750085225564"
+  },
+  "google_cloud": {
+    "project_id": "processai-v9qza"
+  },
+  "app": {
+    "storage_bucket": "processai-v9qza.appspot.com"
+  },
+  "documentai": {
+    "processor_id": "516b53c39b09990f",
+    "location": "us"
+  },
+  "document_ai": {
+    "location": "us",
+    "processor_id": "516b53c39b09990f"
+  },
+  "gemini": {
+    "api_key": "AIzaSyBPjFs8oBpSrRjZ6Q9VJ7dHE37fotgQEZI"
+  },
+  "gcp": {
+    "location": "us-central1",
+    "project_id": "processai-v9qza",
+    "project": "processai-v9qza"
+  },
+  "vector_search": {
+    "index_id": "7019108508884795392"
+  }
+}

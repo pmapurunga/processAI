@@ -280,31 +280,34 @@ process-ai/
 ├── firebase.json
 ├── firestore.rules
 ├── storage.rules
-├── functions/
-│   ├── src/
-│   │   ├── ai/
-│   │   │   ├── flows/
-│   │   │   │   ├── query-document.ts
-│   │   │   │   ├── summarize-document.ts
-│   │   │   │   └── tune-ai-persona.ts
-│   │   │   ├── genkit.config.ts
-│   │   │   └── dev.ts
-│   │   ├── functions/
-│   │   │   └── document-ai.ts
-│   │   └── index.ts
-│   ├── package.json
-│   └── tsconfig.json
-└── src/ (Next.js app)
-    ├── app/
-    │   ├── api/
-    │   ├── chat/
-    │   ├── dashboard/
-    │   └── ...
-    ├── components/
-    ├── contexts/
-    ├── hooks/
-    ├── lib/
-    └── ...
+├── src/
+│   ├── app/
+│   │   ├── api/
+│   │   ├── chat/
+│   │   ├── dashboard/
+│   │   └── ...
+│   ├── components/
+│   ├── contexts/
+│   ├── hooks/
+│   ├── lib/
+│   ├── functions/
+│   │   ├── ai-flows/
+│   │   │   ├── query-document.ts
+│   │   │   ├── summarize-document.ts
+│   │   │   └── tune-ai-persona.ts
+│   │   ├── document-ai.ts
+│   │   ├── index.ts
+│   │   ├── package.json
+│   │   └── tsconfig.json
+│   ├── ai/
+│   │   ├── flows/
+│   │   │   ├── query-document.ts
+│   │   │   ├── summarize-document.ts
+│   │   │   └── tune-ai-persona.ts
+│   │   ├── genkit.config.ts
+│   │   └── dev.ts
+│   └── ...
+└── ...
 ```
 
 This structure separates the frontend (Next.js) from the backend (Cloud Functions and Genkit).
