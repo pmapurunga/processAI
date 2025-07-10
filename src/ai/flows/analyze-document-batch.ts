@@ -11,7 +11,7 @@
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import {z} from 'zod';
 import { saveDocumentAnalysis } from '@/lib/firebase'; // Import for saving
 
 // Schema for the input to the Server Action
@@ -69,7 +69,7 @@ export async function analyzeDocumentBatch(input: AnalyzeDocumentBatchInput): Pr
   } catch (flowError) {
     console.error("Error in analyzeDocumentBatchFlowInternal:", flowError);
     // If the entire flow fails, mark all documents as errored
-    input.documents.forEach(doc => {
+    input.documents.forEach((doc: AnalyzeDocumentBatchInput['documents'][number]) => {
       processingStatuses.push({
         fileName: doc.fileName,
         status: 'error',
@@ -150,8 +150,8 @@ const analyzeDocumentBatchFlowInternal = ai.defineFlow(
     }),
     outputSchema: AIAnalysisOutputSchema,
   },
-  async (input) => {
-    const analysisResultsPromises = input.documents.map(async (document) => {
+  async (input: { documents: AnalyzeDocumentBatchInput['documents']; analysisPrompt: string }) => {
+    const analysisResultsPromises = input.documents.map(async (document: AnalyzeDocumentBatchInput['documents'][number]) => {
       try {
         const { output } = await analyzeDocumentPrompt({
           fileName: document.fileName,
