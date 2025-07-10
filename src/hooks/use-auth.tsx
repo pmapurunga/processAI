@@ -86,7 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = useCallback(async () => {
     // setLoading(true); // User will be set to null by onAuthStateChanged, which also sets loading to false
     try {
-      await firebaseSignOut();
+      await firebaseSignOut(auth);
       // Auth state change will be handled by onAuthStateChanged listener
     } catch (error) {
       console.error('Error signing out:', error);
