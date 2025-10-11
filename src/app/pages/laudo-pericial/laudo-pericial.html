@@ -1,0 +1,96 @@
+<div class="laudo-container">
+  @if (laudo$ | async; as laudo) {
+    <div class="header">
+      <h1>LAUDO MÉDICO PERICIAL</h1>
+      <button class="copy-json-button" (click)="copyJsonToClipboard()">
+        <i class="icon-copy"></i>
+        <span>{{ copyButtonText() }}</span>
+      </button>
+    </div>
+
+    <div class="section">
+      <h2>1. IDENTIFICAÇÃO DO PROCESSO</h2>
+      <div class="grid">
+        <p><strong>PROCESSO Nº:</strong> {{ laudo.identificacaoProcesso?.PROCESSO_NUM }}</p>
+        <p><strong>JUÍZO:</strong> {{ laudo.identificacaoProcesso?.JUIZO }}</p>
+        <p><strong>NOME DO(A) PERICIANDO(A):</strong> {{ laudo.identificacaoProcesso?.NOME_PERICIANDO }}</p>
+        <p><strong>DATA DO EXAME:</strong> {{ laudo.identificacaoProcesso?.DATA_EXAME }}</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>2. DADOS DO(A) PERICIANDO(A)</h2>
+      <div class="grid">
+        <p><strong>DATA DE NASCIMENTO:</strong> {{ laudo.dadosPericiando?.DATA_NASCIMENTO }}</p>
+        <p><strong>SEXO:</strong> {{ laudo.dadosPericiando?.SEXO }}</p>
+        <p><strong>ESTADO CIVIL:</strong> {{ laudo.dadosPericiando?.ESTADO_CIVIL }}</p>
+        <p><strong>ESCOLARIDADE:</strong> {{ laudo.dadosPericiando?.ESCOLARIDADE }}</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>3. HISTÓRICO LABORAL</h2>
+      <div class="subsection">
+        <h3>Função Habitual/Atual</h3>
+        <p><strong>Descrição:</strong> {{ laudo.historicoLaboral?.FUNCAO_HABITUAL_ATUAL?.descricao }}</p>
+        <p><strong>Vínculo:</strong> {{ laudo.historicoLaboral?.FUNCAO_HABITUAL_ATUAL?.vinculo }}</p>
+        <p><strong>Período:</strong> {{ laudo.historicoLaboral?.FUNCAO_HABITUAL_ATUAL?.periodo }}</p>
+      </div>
+      <p><strong>TEMPO TOTAL DE ATIVIDADE:</strong> {{ laudo.historicoLaboral?.TEMPO_TOTAL_ATIVIDADE }}</p>
+      <p><strong>DATA DE AFASTAMENTO DECLARADA:</strong> {{ laudo.historicoLaboral?.DATA_AFASTAMENTO_DECLARADA }}</p>
+      <h3>Histórico Ocupacional Completo</h3>
+      <p>{{ laudo.historicoLaboral?.HISTORICO_OCUPACIONAL_COMPLETO }}</p>
+
+      <h3>Experiências Laborais Anteriores</h3>
+        @for (experiencia of laudo.historicoLaboral?.EXPERIENCIAS_LABORAIS_ANTERIORES; track experiencia) {
+          <div class="card">
+            <p><strong>Função:</strong> {{ experiencia.funcao }}</p>
+            <p><strong>Tipo de Vínculo:</strong> {{ experiencia.vinculo }}</p>
+            <p><strong>Período de Atuação:</strong> {{ experiencia.periodo }}</p>
+          </div>
+        }
+
+      <div class="subsection">
+        <h3>Profissiografia</h3>
+        <p><strong>Atividade Analisada:</strong> {{ laudo.historicoLaboral?.PROFISSIOGRAFIA?.atividade_analisada }}</p>
+        <h4>Tarefas Executadas:</h4>
+        <p>{{ laudo.historicoLaboral?.PROFISSIOGRAFIA?.tarefas_executadas }}</p>
+        <p><strong>Postura Corporal:</strong> {{ laudo.historicoLaboral?.PROFISSIOGRAFIA?.postura_corporal }}</p>
+        <p><strong>Movimentos Repetitivos:</strong> {{ laudo.historicoLaboral?.PROFISSIOGRAFIA?.movimentos_repetitivos }}</p>
+        <p><strong>Carga Física:</strong> {{ laudo.historicoLaboral?.PROFISSIOGRAFIA?.carga_fisica }}</p>
+        <p><strong>Ambiente de Trabalho:</strong> {{ laudo.historicoLaboral?.PROFISSIOGRAFIA?.ambiente_trabalho }}</p>
+        <h4>Exigências Físicas:</h4>
+        <p>{{ laudo.historicoLaboral?.PROFISSIOGRAFIA?.exigencias_fisicas }}</p>
+        <h4>Equipamentos Utilizados:</h4>
+        <p>{{ laudo.historicoLaboral?.PROFISSIOGRAFIA?.equipamentos_utilizados }}</p>
+        <h4>Sumário Profissiográfico:</h4>
+        <p>{{ laudo.historicoLaboral?.PROFISSIOGRAFIA?.SUMARIO_PROFISSIOGRAFICO }}</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>4. DADOS MÉDICOS</h2>
+      <h3>História Clínica</h3>
+      <p>{{ laudo.dadosMedicos?.HISTORIA_CLINICA }}</p>
+      <h3>Exames</h3>
+      <markdown [data]="laudo.dadosMedicos?.EXAMES"></markdown>
+      <h3>Exame Clínico</h3>
+      <markdown [data]="laudo.dadosMedicos?.EXAME_CLINICO"></markdown>
+    </div>
+
+    <div class="section">
+      <h2>5. RESPOSTAS AOS QUESITOS</h2>
+      @for (quesito of objectKeys(laudo.respostasQuesitos); track quesito) {
+        <div class="quesito">
+          <p><strong>{{ quesito }}:</strong> {{ laudo.respostasQuesitos[quesito] }}</p>
+        </div>
+      }
+    </div>
+
+    <div class="footer">
+      <p>LAUDO EMITIDO EM {{ laudo.dadosLaudo?.DIA_LAUDO }} DE {{ laudo.dadosLaudo?.MES_LAUDO }} DE {{ laudo.dadosLaudo?.ANO_LAUDO }}.</p>
+    </div>
+  } @else {
+    <p>Carregando laudo...</p>
+  }
+</div>

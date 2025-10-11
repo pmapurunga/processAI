@@ -1,0 +1,68 @@
+<div class="container">
+  <header class="header">
+    <h1>Iniciar Nova Análise de Processo</h1>
+    <p>Forneça o link da pasta do Google Drive, o número do processo e o prompt de análise.</p>
+  </header>
+
+  @if (status() === 'idle' || status() === 'loading') {
+    <form (submit)="startAnalysis()" class="form">
+      <fieldset [disabled]="status() === 'loading'">
+
+        <div class="form-field">
+          <label for="drive-url">Link da Pasta do Google Drive</label>
+          <input
+            id="drive-url"
+            type="url"
+            [(ngModel)]="driveUrl"
+            name="driveUrl"
+            placeholder="https://drive.google.com/drive/folders/..."
+            required
+          >
+        </div>
+
+        <div class="form-field">
+          <label for="process-id">Número do Processo (ID)</label>
+          <input
+            id="process-id"
+            type="text"
+            [(ngModel)]="processId"
+            name="processId"
+            placeholder="Ex: 0801234-56.2023.4.05.8100"
+            required
+          >
+        </div>
+
+        <div class="form-field">
+          <label for="prompt-id">Prompt de Análise</label>
+          @if (prompts().length > 0) {
+            <select id="prompt-id" [(ngModel)]="promptId" name="promptId" required>
+              @for (prompt of prompts(); track prompt.id) {
+                <option [value]="prompt.id">{{ prompt.nome }}</option>
+              }
+            </select>
+          } @else {
+            <p>Carregando prompts...</p>
+          }
+        </div>
+
+        <button type="submit" class="submit-button" [class.loading]="status() === 'loading'">
+          @if (status() === 'loading') {
+            <div class="spinner"></div>
+            <span>Enviando...</span>
+          } @else {
+            <i class="icon-rocket"></i>
+            <span>Iniciar Análise</span>
+          }
+        </button>
+      </fieldset>
+    </form>
+  }
+
+  @if (status() === 'success' || status() === 'error') {
+    <div class="feedback" [class.success]="status() === 'success'" [class.error]="status() === 'error'">
+      <h2>{{ status() === 'success' ? 'Sucesso!' : 'Erro!' }}</h2>
+      <p>{{ feedbackMessage() }}</p>
+      <button (click)="reset()" class="feedback-button">Iniciar Nova Análise</button>
+    </div>
+  }
+</div>

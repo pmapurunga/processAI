@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["https://9000-firebase-processai-1755094476287.cluster-xjjtef2b2bcimvtuq3yrbpdsa6.cloudworkstations.dev", "http://localhost:4200"],
+    "method": ["GET", "HEAD", "PUT", "POST", "DELETE"],
+    "responseHeader": ["Content-Type", "Access-Control-Allow-Origin"],
+    "maxAgeSeconds": 3600
+  }
+]

@@ -1,0 +1,94 @@
+<div class="container">
+  <div class="process-list-card">
+    <header class="list-header">
+      <h2>Processos em Análise</h2>
+      <p>Acompanhe e gerencie os processos enviados para análise.</p>
+    </header>
+
+    <div class="list-toolbar">
+      <div class="search-bar">
+        <i class="icon-search"></i>
+        <input
+          type="text"
+          placeholder="Buscar por número do processo..."
+          [value]="searchTerm()"
+          (input)="onSearchTermChange($event)"
+          [disabled]="isLoading()"
+        >
+      </div>
+    </div>
+
+    @if (isLoading()) {
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <p>Apagando processo...</p>
+      </div>
+    } @else {
+      @if (filteredProcesses().length > 0) {
+        <ul class="process-list">
+          @for (process of paginatedProcesses(); track process.id) {
+            <li class="process-item">
+              <div class="item-content" (click)="viewDetails(process.id)">
+                <i class="icon-file"></i>
+                <span class="process-id">Processo: {{ process.id }}</span>
+              </div>
+              <div class="item-actions">
+                <button
+                  class="details-button"
+                  (click)="viewDetails(process.id)"
+                  [disabled]="isLoading()"
+                >
+                  <span>Ver Detalhes</span>
+                  <i class="icon-arrow-right"></i>
+                </button>
+                <button
+                  class="delete-button"
+                  (click)="deleteProcess(process.id)"
+                  [disabled]="isLoading()"
+                >
+                  <i class="icon-trash"></i>
+                  <span>Apagar</span>
+                </button>
+              </div>
+            </li>
+          }
+        </ul>
+
+        @if (totalPages() > 1) {
+          <div class="list-pagination">
+            <button
+              class="pagination-button"
+              (click)="previousPage()"
+              [disabled]="currentPage() === 1 || isLoading()"
+            >
+              <i class="icon-arrow-left"></i>
+              <span>Anterior</span>
+            </button>
+            <span class="pagination-info">
+              Página {{ currentPage() }} de {{ totalPages() }}
+            </span>
+            <button
+              class="pagination-button"
+              (click)="nextPage()"
+              [disabled]="currentPage() === totalPages() || isLoading()"
+            >
+              <span>Próximo</span>
+              <i class="icon-arrow-right"></i>
+            </button>
+          </div>
+        }
+
+      } @else {
+        <div class="empty-state">
+          <i class="icon-empty"></i>
+          <h3>Nenhum processo encontrado</h3>
+          @if (searchTerm()) {
+            <p>Nenhum processo corresponde à busca "{{ searchTerm() }}".</p>
+          } @else {
+            <p>Quando um novo processo for enviado, ele aparecerá aqui.</p>
+          }
+        </div>
+      }
+    }
+  </div>
+</div>

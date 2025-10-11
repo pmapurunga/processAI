@@ -1,0 +1,28 @@
+.medical-documents-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.document-card {
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 1rem;
+  background-color: #f9f9f9;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.document-card h3 {
+  margin-top: 0;
+  color: #333;
+}
+
+.document-card p {
+  margin: 0.5rem 0;
+  color: #666;
+}
+
+.document-card strong {
+  color: #333;
+}

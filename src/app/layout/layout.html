@@ -1,0 +1,29 @@
+<div class="layout-container">
+  <aside class="sidebar">
+    <div class="logo">
+      <h1>ProcessAI</h1>
+    </div>
+    <nav class="navigation">
+      <ul>
+        <li><a routerLink="/new-analysis">Nova Análise</a></li>
+        <li><a routerLink="/process-list">Processos</a></li>
+        <li><a routerLink="/prompt-manager">Gerenciar Prompts</a></li>
+      </ul>
+    </nav>
+  </aside>
+  <main class="main-content">
+    <header class="header">
+      <div class="header-content">
+        @if (user()) {
+          <div class="user-info">
+            <span>Bem-vindo, {{ user()?.displayName }}</span>
+            <button (click)="logout()" class="btn btn-logout">Logout</button>
+          </div>
+        }
+      </div>
+    </header>
+    <div class="content">
+      <router-outlet></router-outlet>
+    </div>
+  </main>
+</div>

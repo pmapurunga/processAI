@@ -1,0 +1,13 @@
+<div class="medical-documents-container">
+  @for (doc of medicalDocuments(); track doc) {
+    <div class="document-card">
+      <h3>{{ doc.tipo }}</h3>
+      <p><strong>Data:</strong> {{ doc.data || 'Não informado' }}</p>
+      <p><strong>Profissional/Serviço:</strong> {{ doc.profissionalServico || 'Não informado' }}</p>
+      <p><strong>Resumo:</strong> {{ doc.resumoConteudo }}</p>
+      <p><strong>Fonte:</strong> ID: {{ doc.idDocumento }}, página: {{ doc.paginaNoArquivo || 'Não informado' }}</p>
+    </div>
+  } @empty {
+    <p>Nenhum documento médico encontrado.</p>
+  }
+</div>

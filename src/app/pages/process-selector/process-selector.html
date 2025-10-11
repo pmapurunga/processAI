@@ -1,0 +1,65 @@
+<div class="page-container">
+  <header class="page-header">
+    @if (processId()) {
+      <h1>Detalhes do Processo: {{ processId() }}</h1>
+      <p>Selecione uma das opções abaixo para visualizar os detalhes da análise.</p>
+    } @else {
+      <h1>Detalhes do Processo</h1>
+      <p>Selecione uma opção para visualizar.</p>
+    }
+  </header>
+
+  <main class="card-grid">
+    <a [routerLink]="['/process', processId(), 'avaliacao-pericial']" class="card-link">
+      <div class="card">
+        <div class="card-icon">📊</div>
+        <div class="card-body">
+          <h3>Avaliação Pericial</h3>
+          <p>Análise detalhada e avaliação técnica da perícia.</p>
+        </div>
+        <div class="card-footer">
+          <span>Acessar</span> →
+        </div>
+      </div>
+    </a>
+
+    <a [routerLink]="['/process', processId(), 'documentos-consolidados']" class="card-link">
+      <div class="card">
+        <div class="card-icon">📚</div>
+        <div class="card-body">
+          <h3>Documentos Consolidados</h3>
+          <p>Visualize os documentos unificados e seus resumos.</p>
+        </div>
+        <div class="card-footer">
+          <span>Acessar</span> →
+        </div>
+      </div>
+    </a>
+
+    <a [routerLink]="['/process', processId(), 'laudo-pericial']" class="card-link">
+      <div class="card">
+        <div class="card-icon">📝</div>
+        <div class="card-body">
+          <h3>Laudo Pericial</h3>
+          <p>Confira o laudo pericial gerado a partir da análise.</p>
+        </div>
+        <div class="card-footer">
+          <span>Acessar</span> →
+        </div>
+      </div>
+    </a>
+
+    <a [routerLink]="['/process', processId(), 'documentos-analisados']" class="card-link">
+      <div class="card">
+        <div class="card-icon">📂</div>
+        <div class="card-body">
+          <h3>Documentos Analisados</h3>
+          <p>Veja a lista completa de todos os documentos processados.</p>
+        </div>
+        <div class="card-footer">
+          <span>Acessar</span> →
+        </div>
+      </div>
+    </a>
+  </main>
+</div>

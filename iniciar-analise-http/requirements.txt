@@ -1,0 +1,6 @@
+functions-framework
+flask
+flask-cors
+google-cloud-storage
+google-cloud-firestore
+pytz

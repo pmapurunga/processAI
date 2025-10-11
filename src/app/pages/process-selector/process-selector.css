@@ -1,0 +1,99 @@
+:host {
+  display: block;
+  padding: 2rem;
+  background-color: #f9fafb;
+  min-height: 100vh;
+}
+
+.page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.page-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.page-header h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+}
+
+.page-header p {
+  font-size: 1.125rem;
+  color: #6b7280;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+}
+
+.card-link {
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  display: block;
+}
+
+.card-link:hover,
+.card-link:focus {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.card {
+  background-color: #ffffff;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.card-icon {
+  font-size: 3rem;
+  line-height: 1;
+  padding: 1.5rem;
+  background-color: #e0e7ff;
+  color: #4f46e5;
+  text-align: center;
+}
+
+.card-body {
+  padding: 1.5rem;
+  flex-grow: 1;
+}
+
+.card-body h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #1f2937;
+}
+
+.card-body p {
+  font-size: 1rem;
+  color: #6b7280;
+}
+
+.card-footer {
+  padding: 1rem 1.5rem;
+  background-color: #f3f4f6;
+  border-top: 1px solid #e5e7eb;
+  text-align: right;
+  font-weight: 600;
+  color: #4f46e5;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.card-link:hover .card-footer {
+  background-color: #e0e7ff;
+}

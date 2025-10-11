@@ -1,0 +1,30 @@
+<div class="page-container">
+  <div class="page-header">
+    <button (click)="goBack()" class="back-button">← Voltar</button>
+    @if (processId()) {
+      <h1>Processo: {{ processId() }}</h1>
+    }
+    <button class="btn btn-secondary" (click)="toggleMedicalDocs()">
+      Documentos Médicos
+    </button>
+    <button class="btn btn-secondary" (click)="copyJsonsToClipboard()">
+      {{ copyButtonText() }}
+    </button>
+  </div>
+
+  <div class="container">
+    @if (showMedicalDocs()) {
+      <app-medical-documents [medicalDocuments]="medicalDocuments()"></app-medical-documents>
+    } @else {
+      @if (process()) {
+        <div class="document-list">
+          @for (doc of process(); track doc.id) {
+            <app-document-card [document]="doc"></app-document-card>
+          }
+        </div>
+      } @else {
+        <p>Carregando...</p>
+      }
+    }
+  </div>
+</div>

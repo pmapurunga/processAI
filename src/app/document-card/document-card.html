@@ -1,0 +1,51 @@
+<div class="card" [class.success]="document().status === 'Sucesso'" [class.failure]="document().status === 'Falha'">
+
+  <div class="card-header">
+    <div class="header-content">
+      <span class="document-type-icon">📄</span>
+      <h3>{{ document().tipoDocumentoGeral }}</h3>
+    </div>
+    <div class="status-indicator">
+      <span>{{ document().status }}</span>
+    </div>
+  </div>
+
+  <div class="card-content">
+    <p class="filename"><strong>Arquivo:</strong> {{ document().nomeArquivoOriginal }}</p>
+    <p><strong>ID do Documento:</strong> {{ document().idDocumento }}</p>
+
+    @if (document().status === 'Sucesso') {
+      @if(document().dadosRelevantesParaLaudo.ResumoGeralConteudoArquivo; as resumo) {
+        <h4>Resumo do Conteúdo</h4>
+        <p>{{ resumo }}</p>
+      }
+
+      @if(document().observacoes; as observacoes) {
+        <h4>Observações</h4>
+        <p>{{ observacoes }}</p>
+      }
+
+      @if(document().documentosMedicosAnexados && document().documentosMedicosAnexados.length > 0) {
+        <h4>Documentos Médicos Anexados</h4>
+        <ul class="medical-docs-list">
+          @for (medDoc of document().documentosMedicosAnexados; track medDoc) {
+            <li>
+              <p><strong>Tipo:</strong> {{ medDoc.tipo }}</p>
+              <p><strong>Profissional:</strong> {{ medDoc.profissionalServico }}</p>
+              <p><strong>Resumo:</strong> {{ medDoc.resumoConteudo }}</p>
+            </li>
+          }
+        </ul>
+      }
+    } @else {
+      <div class="error-container">
+        <h4>Erro no Processamento</h4>
+        <p class="error-message">{{ document().erro }}</p>
+      </div>
+    }
+  </div>
+
+  <div class="card-footer">
+    <a [href]="document().linkArquivoPDF" target="_blank" class="btn btn-primary">Ver PDF</a>
+  </div>
+</div>

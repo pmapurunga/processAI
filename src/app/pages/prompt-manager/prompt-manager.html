@@ -1,0 +1,81 @@
+<div class="container">
+  <header class="header">
+    <h1>Gerenciador de Prompts</h1>
+    <button (click)="openModal()" class="add-button">
+      <i class="icon-plus"></i>
+      Adicionar Novo Prompt
+    </button>
+  </header>
+
+  @if (isLoading()) {
+    <div class="loading-spinner"></div>
+  } @else {
+    <div class="prompt-list">
+      @for (prompt of prompts(); track prompt.id) {
+        <div class="prompt-card">
+          <div class="card-content">
+            <h2 class="card-title">{{ prompt.nome }}</h2>
+            <p class="card-id">ID: {{ prompt.id }}</p>
+            <p class="card-text">{{ prompt.prompt_text }}</p>
+          </div>
+          <div class="card-actions">
+            <button (click)="openModal(prompt)" class="edit-button">Editar</button>
+            <button (click)="deletePrompt(prompt.id)" class="delete-button">Excluir</button>
+          </div>
+        </div>
+      } @empty {
+        <p class="empty-state">Nenhum prompt encontrado. Comece adicionando um novo.</p>
+      }
+    </div>
+  }
+</div>
+
+<!-- Modal -->
+@if (isModalOpen() && currentPrompt(); as prompt) {
+  <div class="modal-backdrop" (click)="closeModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <h2>{{ modalTitle() }}</h2>
+        <button (click)="closeModal()" class="close-button">&times;</button>
+      </header>
+      <main class="modal-body">
+        
+        <div class="form-field">
+          <label for="prompt-id">ID do Prompt</label>
+          <input 
+            id="prompt-id" 
+            type="text" 
+            [(ngModel)]="prompt.id"
+            placeholder="Ex: pericia_padrao_v2"
+            [disabled]="modalTitle() === 'Editar Prompt'"
+          >
+        </div>
+
+        <div class="form-field">
+          <label for="prompt-name">Nome do Prompt</label>
+          <input 
+            id="prompt-name" 
+            type="text" 
+            [(ngModel)]="prompt.nome"
+            placeholder="Ex: Perícia Padrão (V2)"
+          >
+        </div>
+
+        <div class="form-field">
+          <label for="prompt-text">Texto do Prompt</label>
+          <textarea 
+            id="prompt-text"
+            rows="12" 
+            [(ngModel)]="prompt.prompt_text"
+            placeholder="Descreva o que a IA deve fazer com o documento..."
+          ></textarea>
+        </div>
+
+      </main>
+      <footer class="modal-footer">
+        <button (click)="closeModal()" class="cancel-button">Cancelar</button>
+        <button (click)="savePrompt()" class="save-button">Salvar</button>
+      </footer>
+    </div>
+  </div>
+}

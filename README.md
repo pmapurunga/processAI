@@ -1,6 +1,19 @@
+<<<<<<< HEAD
 # Myapp
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 20.3.5.
+This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 20.1.5.
+=======
+<<<<<<< HEAD
+# Firebase Studio
+
+This is a NextJS starter in Firebase Studio.
+
+To get started, take a look at src/app/page.tsx.
+=======
+# PericiaMedicaApp
+
+This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.2.14.
+>>>>>>> 3b6eac17852f95ef01a73db1f985205afab1fce7
 
 ## Development server
 
@@ -57,3 +70,7 @@ Angular CLI does not come with an end-to-end testing framework by default. You c
 ## Additional Resources
 
 For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+<<<<<<< HEAD
+=======
+>>>>>>> origin/main
+>>>>>>> 3b6eac17852f95ef01a73db1f985205afab1fce7

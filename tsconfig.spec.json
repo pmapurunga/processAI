@@ -9,6 +9,11 @@
     ]
   },
   "include": [
+<<<<<<< HEAD
     "src/**/*.ts"
+=======
+    "src/**/*.spec.ts",
+    "src/**/*.d.ts"
+>>>>>>> 3b6eac17852f95ef01a73db1f985205afab1fce7
   ]
 }
