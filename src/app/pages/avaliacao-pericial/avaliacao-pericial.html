@@ -1,0 +1,196 @@
+
+<div class="container" *ngIf="avaliacao$ | async as avaliacao">
+  <h1>Formulário de Avaliação Pericial</h1>
+
+  <form [formGroup]="form" (ngSubmit)="save()">
+    
+    <!-- Seção de Identificação do Processo -->
+    <div class="card" formGroupName="identificacaoProcesso">
+      <h2><i class="icon-case"></i>Identificação do Processo</h2>
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="processoNum">Número do Processo</label>
+          <input id="processoNum" type="text" formControlName="PROCESSO_NUM" placeholder="Ex: 0001234-56.2023.8.26.0001">
+        </div>
+        <div class="form-group">
+          <label for="juizo">Juízo</label>
+          <input id="juizo" type="text" formControlName="JUIZO" placeholder="Ex: 1ª Vara Cível de São Paulo">
+        </div>
+        <div class="form-group">
+          <label for="nomePericiando">Nome do Periciando</label>
+          <input id="nomePericiando" type="text" formControlName="NOME_PERICIANDO" placeholder="Nome completo">
+        </div>
+        <div class="form-group">
+          <label for="dataExame">Data do Exame</label>
+          <input id="dataExame" type="date" formControlName="DATA_EXAME">
+        </div>
+      </div>
+    </div>
+
+    <!-- Seção de Dados do Periciando -->
+    <div class="card" formGroupName="dadosPericiando">
+      <h2><i class="icon-user"></i>Dados do Periciando</h2>
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="dataNascimento">Data de Nascimento</label>
+          <input id="dataNascimento" type="date" formControlName="DATA_NASCIMENTO">
+        </div>
+        <div class="form-group">
+          <label for="sexo">Sexo</label>
+          <input id="sexo" type="text" formControlName="SEXO" placeholder="Masculino, Feminino, etc.">
+        </div>
+        <div class="form-group">
+          <label for="estadoCivil">Estado Civil</label>
+          <input id="estadoCivil" type="text" formControlName="ESTADO_CIVIL" placeholder="Solteiro(a), Casado(a), etc.">
+        </div>
+        <div class="form-group">
+          <label for="escolaridade">Escolaridade</label>
+          <input id="escolaridade" type="text" formControlName="ESCOLARIDADE" placeholder="Nível de instrução">
+        </div>
+      </div>
+    </div>
+
+    <!-- Seção de Histórico Laboral -->
+    <div class="card" formGroupName="historicoLaboral">
+      <h2><i class="icon-briefcase"></i>Histórico Laboral</h2>
+      
+      <div formGroupName="FUNCAO_HABITUAL_ATUAL">
+        <h3>Função Habitual Atual</h3>
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="funcaoDescricao">Descrição</label>
+                <input id="funcaoDescricao" type="text" formControlName="descricao">
+            </div>
+            <div class="form-group">
+                <label for="funcaoVinculo">Vínculo</label>
+                <input id="funcaoVinculo" type="text" formControlName="vinculo">
+            </div>
+            <div class="form-group">
+                <label for="funcaoPeriodo">Período</label>
+                <input id="funcaoPeriodo" type="text" formControlName="periodo">
+            </div>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="tempoTotal">Tempo Total de Atividade</label>
+          <input id="tempoTotal" type="text" formControlName="TEMPO_TOTAL_ATIVIDADE">
+        </div>
+        <div class="form-group">
+          <label for="dataAfastamento">Data de Afastamento Declarada</label>
+          <input id="dataAfastamento" type="date" formControlName="DATA_AFASTAMENTO_DECLARADA">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="historicoOcupacional">Histórico Ocupacional Completo</label>
+        <textarea id="historicoOcupacional" formControlName="HISTORICO_OCUPACIONAL_COMPLETO"></textarea>
+      </div>
+
+      <div formArrayName="EXPERIENCIAS_LABORAIS_ANTERIORES">
+        <h3>Experiências Laborais Anteriores</h3>
+        <div *ngFor="let exp of $any(form.get('historicoLaboral.EXPERIENCIAS_LABORAIS_ANTERIORES')).controls; let i = index" 
+             [formGroupName]="i" class="experience-array-item">
+          <h4>Experiência {{ i + 1 }}</h4>
+          <div class="form-grid">
+              <div class="form-group">
+                  <label for="expDescricao{{i}}">Descrição</label>
+                  <input id="expDescricao{{i}}" type="text" formControlName="descricao">
+              </div>
+              <div class="form-group">
+                  <label for="expVinculo{{i}}">Vínculo</label>
+                  <input id="expVinculo{{i}}" type="text" formControlName="vinculo">
+              </div>
+              <div class="form-group">
+                  <label for="expPeriodo{{i}}">Período</label>
+                  <input id="expPeriodo{{i}}" type="text" formControlName="periodo">
+              </div>
+          </div>
+        </div>
+      </div>
+
+      <div formGroupName="PROFISSIOGRAFIA">
+        <h3>Profissiografia</h3>
+        <div class="form-group">
+            <label for="atividadeAnalisada">Atividade Analisada</label>
+            <input id="atividadeAnalisada" type="text" formControlName="atividade_analisada">
+        </div>
+        <div class="form-group">
+            <label for="tarefasExecutadas">Tarefas Executadas</label>
+            <textarea id="tarefasExecutadas" formControlName="tarefas_executadas"></textarea>
+        </div>
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="posturaCorporal">Postura Corporal</label>
+                <input id="posturaCorporal" type="text" formControlName="postura_corporal">
+            </div>
+            <div class="form-group">
+                <label for="movimentosRepetitivos">Movimentos Repetitivos</label>
+                <input id="movimentosRepetitivos" type="text" formControlName="movimentos_repetitivos">
+            </div>
+            <div class="form-group">
+                <label for="cargaFisica">Carga Física</label>
+                <input id="cargaFisica" type="text" formControlName="carga_fisica">
+            </div>
+            <div class="form-group">
+                <label for="ambienteTrabalho">Ambiente de Trabalho</label>
+                <input id="ambienteTrabalho" type="text" formControlName="ambiente_trabalho">
+            </div>
+            <div class="form-group">
+                <label for="exigenciasFisicas">Exigências Físicas</label>
+                <input id="exigenciasFisicas" type="text" formControlName="exigencias_fisicas">
+            </div>
+            <div class="form-group">
+                <label for="equipamentosUtilizados">Equipamentos Utilizados</label>
+                <input id="equipamentosUtilizados" type="text" formControlName="equipamentos_utilizados">
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="sumarioProfissiografico">Sumário Profissiográfico</label>
+            <textarea id="sumarioProfissiografico" formControlName="SUMARIO_PROFISSIOGRAFICO"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Seção de Dados Médicos -->
+    <div class="card" formGroupName="dadosMedicos">
+      <h2><i class="icon-heartbeat"></i>Dados Médicos</h2>
+      <div class="form-group">
+        <label for="historiaClinica">História Clínica</label>
+        <textarea id="historiaClinica" formControlName="HISTORIA_CLINICA"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="exames">Exames</label>
+        <textarea id="exames" formControlName="EXAMES"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="exameClinico">Exame Clínico</label>
+        <textarea id="exameClinico" formControlName="EXAME_CLINICO"></textarea>
+      </div>
+    </div>
+
+    <!-- Seção de Dados do Laudo -->
+    <div class="card" formGroupName="dadosLaudo">
+      <h2><i class="icon-file-text"></i>Dados do Laudo</h2>
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="diaLaudo">Dia do Laudo</label>
+          <input id="diaLaudo" type="text" formControlName="DIA_LAUDO">
+        </div>
+        <div class="form-group">
+          <label for="mesLaudo">Mês do Laudo</label>
+          <input id="mesLaudo" type="text" formControlName="MES_LAUDO">
+        </div>
+        <div class="form-group">
+          <label for="anoLaudo">Ano do Laudo</label>
+          <input id="anoLaudo" type="text" formControlName="ANO_LAUDO">
+        </div>
+      </div>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" [disabled]="form.invalid">Salvar Alterações</button>
+    </div>
+  </form>
+</div>

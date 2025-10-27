@@ -1,81 +1,51 @@
-<div class="container">
-  <header class="header">
-    <h1>Gerenciador de Prompts</h1>
-    <button (click)="openModal()" class="add-button">
-      <i class="icon-plus"></i>
-      Adicionar Novo Prompt
-    </button>
-  </header>
 
-  @if (isLoading()) {
-    <div class="loading-spinner"></div>
-  } @else {
-    <div class="prompt-list">
-      @for (prompt of prompts(); track prompt.id) {
-        <div class="prompt-card">
-          <div class="card-content">
-            <h2 class="card-title">{{ prompt.nome }}</h2>
-            <p class="card-id">ID: {{ prompt.id }}</p>
-            <p class="card-text">{{ prompt.prompt_text }}</p>
-          </div>
-          <div class="card-actions">
-            <button (click)="openModal(prompt)" class="edit-button">Editar</button>
-            <button (click)="deletePrompt(prompt.id)" class="delete-button">Excluir</button>
-          </div>
-        </div>
-      } @empty {
-        <p class="empty-state">Nenhum prompt encontrado. Comece adicionando um novo.</p>
-      }
+<div class="container mt-4">
+  <h1>Gerenciador de Prompts</h1>
+
+  <div class="mb-3">
+    <button class="btn btn-primary" (click)="editPrompt(null)">Novo Prompt</button>
+  </div>
+
+  <!-- Formulário de Edição/Criação -->
+  <div *ngIf="selectedPrompt() as prompt" class="card mb-4">
+    <div class="card-header">
+      {{ prompt.id ? 'Editar Prompt' : 'Novo Prompt' }}
     </div>
-  }
-</div>
-
-<!-- Modal -->
-@if (isModalOpen() && currentPrompt(); as prompt) {
-  <div class="modal-backdrop" (click)="closeModal()">
-    <div class="modal-content" (click)="$event.stopPropagation()">
-      <header class="modal-header">
-        <h2>{{ modalTitle() }}</h2>
-        <button (click)="closeModal()" class="close-button">&times;</button>
-      </header>
-      <main class="modal-body">
-        
-        <div class="form-field">
-          <label for="prompt-id">ID do Prompt</label>
-          <input 
-            id="prompt-id" 
-            type="text" 
-            [(ngModel)]="prompt.id"
-            placeholder="Ex: pericia_padrao_v2"
-            [disabled]="modalTitle() === 'Editar Prompt'"
-          >
+    <div class="card-body">
+      <form (ngSubmit)="savePrompt(prompt)">
+        <div class="mb-3">
+          <label for="nome" class="form-label">Nome</label>
+          <input type="text" class="form-control" id="nome" name="nome" [(ngModel)]="prompt.nome" required>
         </div>
-
-        <div class="form-field">
-          <label for="prompt-name">Nome do Prompt</label>
-          <input 
-            id="prompt-name" 
-            type="text" 
-            [(ngModel)]="prompt.nome"
-            placeholder="Ex: Perícia Padrão (V2)"
-          >
+        <div class="mb-3">
+          <label for="descricao" class="form-label">Descrição</label>
+          <input type="text" class="form-control" id="descricao" name="descricao" [(ngModel)]="prompt.descricao">
         </div>
-
-        <div class="form-field">
-          <label for="prompt-text">Texto do Prompt</label>
-          <textarea 
-            id="prompt-text"
-            rows="12" 
-            [(ngModel)]="prompt.prompt_text"
-            placeholder="Descreva o que a IA deve fazer com o documento..."
-          ></textarea>
+        <div class="mb-3">
+          <label for="texto" class="form-label">Texto do Prompt</label>
+          <textarea class="form-control" id="texto" name="texto" rows="5" [(ngModel)]="prompt.texto" required></textarea>
         </div>
-
-      </main>
-      <footer class="modal-footer">
-        <button (click)="closeModal()" class="cancel-button">Cancelar</button>
-        <button (click)="savePrompt()" class="save-button">Salvar</button>
-      </footer>
+        <button type="submit" class="btn btn-success">Salvar</button>
+        <button type="button" class="btn btn-secondary ms-2" (click)="selectedPrompt.set(null)">Cancelar</button>
+      </form>
     </div>
   </div>
-}
+
+  <!-- Lista de Prompts -->
+  <div class="list-group">
+    <div *ngFor="let prompt of prompts()" class="list-group-item list-group-item-action">
+      <div class="d-flex w-100 justify-content-between">
+        <h5 class="mb-1">{{ prompt.nome }}</h5>
+        <div>
+          <button class="btn btn-outline-primary btn-sm" (click)="editPrompt(prompt)">Editar</button>
+          <button class="btn btn-outline-danger btn-sm ms-2" (click)="deletePrompt(prompt.id)">Excluir</button>
+        </div>
+      </div>
+      <p class="mb-1">{{ prompt.descricao }}</p>
+      <small class="text-muted">{{ prompt.texto | slice:0:100 }}{{ prompt.texto.length > 100 ? '...' : '' }}</small>
+    </div>
+  </div>
+  <div *ngIf="prompts().length === 0" class="text-center mt-3">
+    <p>Nenhum prompt cadastrado.</p>
+  </div>
+</div>

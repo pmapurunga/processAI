@@ -10,6 +10,7 @@ import { provideFunctions, getFunctions } from '@angular/fire/functions';
 import { provideAuth, getAuth } from '@angular/fire/auth';
 import { MarkdownModule } from 'ngx-markdown';
 import { environment } from '../environments/environment';
+import { provideAnimations } from '@angular/platform-browser/animations';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -20,6 +21,7 @@ export const appConfig: ApplicationConfig = {
     provideStorage(() => getStorage()),
     provideFunctions(() => getFunctions()),
     provideAuth(() => getAuth()),
-    importProvidersFrom(FormsModule, ReactiveFormsModule, MarkdownModule.forRoot())
+    importProvidersFrom(FormsModule, ReactiveFormsModule, MarkdownModule.forRoot()),
+    provideAnimations()
   ]
 };

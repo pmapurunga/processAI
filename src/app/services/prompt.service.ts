@@ -1,48 +1,50 @@
-import { Injectable, inject } from '@angular/core';
-import { Firestore, collection, onSnapshot, QuerySnapshot, DocumentData, doc, setDoc, deleteDoc } from '@angular/fire/firestore';
-import { Observable, from } from 'rxjs';
 
+import { Injectable, inject } from '@angular/core';
+import { Firestore, collection, collectionData, doc, setDoc, deleteDoc } from '@angular/fire/firestore';
+import { Observable } from 'rxjs';
+
+// Interface restaurada para o estado original
 export interface Prompt {
   id: string;
-  nome: string; 
-  prompt_text: string;
+  nome: string;
+  descricao: string;
+  texto: string; 
 }
 
 @Injectable({
   providedIn: 'root'
 })
 export class PromptService {
-  private firestore = inject(Firestore);
-  private promptsCollection = collection(this.firestore, 'configuracoes_prompts');
+  private firestore: Firestore = inject(Firestore);
+  private promptsCollection = collection(this.firestore, 'prompts');
+
+  constructor() { }
 
   getPrompts(): Observable<Prompt[]> {
-    return new Observable(subscriber => {
-      const unsubscribe = onSnapshot(this.promptsCollection, (snapshot: QuerySnapshot<DocumentData>) => {
-        const prompts: Prompt[] = snapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            nome: data['nome'] || doc.id, // Fallback para o ID se o nome não existir
-            prompt_text: data['prompt_text'] || ''
-          };
-        });
-        subscriber.next(prompts);
-      }, (error) => {
-        console.error("Error fetching prompts: ", error);
-        subscriber.error(error);
-      });
-      
-      return () => unsubscribe();
-    });
+    return collectionData(this.promptsCollection, { idField: 'id' }) as Observable<Prompt[]>;
   }
 
   savePrompt(prompt: Prompt): Observable<void> {
-    const promptDoc = doc(this.firestore, 'configuracoes_prompts', prompt.id);
-    return from(setDoc(promptDoc, { nome: prompt.nome, prompt_text: prompt.prompt_text }, { merge: true }));
+    const docRef = doc(this.promptsCollection, prompt.id || doc(collection(this.firestore, '_')).id);
+    return new Observable(observer => {
+      setDoc(docRef, prompt, { merge: true })
+        .then(() => {
+          observer.next();
+          observer.complete();
+        })
+        .catch(error => observer.error(error));
+    });
   }
 
   deletePrompt(id: string): Observable<void> {
-    const promptDoc = doc(this.firestore, 'configuracoes_prompts', id);
-    return from(deleteDoc(promptDoc));
+    const docRef = doc(this.promptsCollection, id);
+    return new Observable(observer => {
+      deleteDoc(docRef)
+        .then(() => {
+          observer.next();
+          observer.complete();
+        })
+        .catch(error => observer.error(error));
+    });
   }
 }

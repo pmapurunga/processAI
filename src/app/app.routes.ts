@@ -24,7 +24,7 @@ export const routes: Routes = [
       { path: 'prompt-manager', component: PromptManagerComponent },
       { path: 'process/:id', component: ProcessSelectorComponent },
       { path: 'process/:id/documentos-analisados', component: ProcessDetailComponent },
-      { path: 'process/:numero_processo/avaliacao-pericial', component: AvaliacaoPericialComponent },
+      { path: 'process/:processoId/avaliacao-pericial', component: AvaliacaoPericialComponent },
       { path: 'process/:numero_processo/documentos-consolidados', component: DocumentosConsolidadosComponent },
       { path: 'process/:numero_processo/laudo-pericial', component: LaudoPericialComponent },
     ]

@@ -6,81 +6,50 @@
     </header>
 
     <div class="list-toolbar">
-      <div class="search-bar">
-        <i class="icon-search"></i>
-        <input
-          type="text"
-          placeholder="Buscar por número do processo..."
-          [value]="searchTerm()"
-          (input)="onSearchTermChange($event)"
-          [disabled]="isLoading()"
-        >
-      </div>
+      <mat-form-field class="search-bar">
+        <mat-label>Buscar por número do processo...</mat-label>
+        <input matInput type="text" [value]="searchTerm()" (input)="onSearchTermChange($event)" [disabled]="isLoading()">
+      </mat-form-field>
+      <button mat-icon-button (click)="refreshProcesses()" [disabled]="isLoading()">
+        <mat-icon>refresh</mat-icon>
+      </button>
     </div>
 
     @if (isLoading()) {
       <div class="loading-state">
-        <div class="spinner"></div>
-        <p>Apagando processo...</p>
+        <mat-progress-spinner mode="indeterminate" diameter="50"></mat-progress-spinner>
+        <p>Carregando processos...</p>
       </div>
     } @else {
       @if (filteredProcesses().length > 0) {
-        <ul class="process-list">
+        <mat-list>
           @for (process of paginatedProcesses(); track process.id) {
-            <li class="process-item">
-              <div class="item-content" (click)="viewDetails(process.id)">
-                <i class="icon-file"></i>
-                <span class="process-id">Processo: {{ process.id }}</span>
-              </div>
-              <div class="item-actions">
-                <button
-                  class="details-button"
-                  (click)="viewDetails(process.id)"
-                  [disabled]="isLoading()"
-                >
-                  <span>Ver Detalhes</span>
-                  <i class="icon-arrow-right"></i>
+            <mat-list-item>
+              <mat-icon matListItemIcon>assignment</mat-icon>
+              <div matListItemTitle>Processo: {{ process.id }}</div>
+              <div matListItemMeta>
+                <button mat-icon-button (click)="viewDetails(process.id)" aria-label="Ver detalhes do processo">
+                  <mat-icon>visibility</mat-icon>
                 </button>
-                <button
-                  class="delete-button"
-                  (click)="deleteProcess(process.id)"
-                  [disabled]="isLoading()"
-                >
-                  <i class="icon-trash"></i>
-                  <span>Apagar</span>
+                <button mat-icon-button color="warn" (click)="deleteProcess(process.id)" aria-label="Apagar processo">
+                  <mat-icon>delete</mat-icon>
                 </button>
               </div>
-            </li>
+            </mat-list-item>
           }
-        </ul>
+        </mat-list>
 
-        @if (totalPages() > 1) {
-          <div class="list-pagination">
-            <button
-              class="pagination-button"
-              (click)="previousPage()"
-              [disabled]="currentPage() === 1 || isLoading()"
-            >
-              <i class="icon-arrow-left"></i>
-              <span>Anterior</span>
-            </button>
-            <span class="pagination-info">
-              Página {{ currentPage() }} de {{ totalPages() }}
-            </span>
-            <button
-              class="pagination-button"
-              (click)="nextPage()"
-              [disabled]="currentPage() === totalPages() || isLoading()"
-            >
-              <span>Próximo</span>
-              <i class="icon-arrow-right"></i>
-            </button>
-          </div>
-        }
+        <mat-paginator
+          [length]="paginatorConfig().length"
+          [pageSize]="paginatorConfig().pageSize"
+          [pageIndex]="paginatorConfig().pageIndex"
+          (page)="handlePageEvent($event)"
+          aria-label="Select page">
+        </mat-paginator>
 
       } @else {
         <div class="empty-state">
-          <i class="icon-empty"></i>
+          <mat-icon class="empty-icon">search_off</mat-icon>
           <h3>Nenhum processo encontrado</h3>
           @if (searchTerm()) {
             <p>Nenhum processo corresponde à busca "{{ searchTerm() }}".</p>

@@ -26,72 +26,6 @@ import {
   SettableMetadata 
 } from "firebase/storage";
 
-// =====================================================================================
-// GUIA DE SOLUÇÃO DE PROBLEMAS DE AUTENTICAÇÃO E CONFIGURAÇÃO DO FIREBASE (Projeto: processai-v9qza)
-// =====================================================================================
-//
-// Erro Comum 1: "auth/requests-from-referer...-are-blocked" (Firebase Auth)
-// -------------------------------------------------------------------------
-// Causa: O domínio de onde seu app está sendo servido (ex: SEU_DOMINIO.cloudworkstations.dev,
-//        SEU_DOMINIO.web.app, localhost) NÃO está na lista de "Domínios autorizados"
-//        nas configurações de Autenticação do Firebase para o projeto `processai-v9qza`.
-// Solução no Firebase Console (para o projeto `processai-v9qza`):
-// 1. Vá para Firebase Console > Projeto `processai-v9qza` > Authentication > Settings.
-// 2. Em "Authorized domains", clique em "Add domain".
-// 3. Adicione o domínio EXATO que aparece na mensagem de erro (sem https:// ou porta).
-//    Exemplos:
-//    - `6000-firebase-studio-1749115397750.cluster-etsqrqvqyvd4erxx7qq32imrjk.cloudworkstations.dev` (para o erro atual)
-//    - `studio--processai-v9qza.us-central1.hosted.app` (para Firebase Hosting Preview)
-//    - `processai-v9qza.web.app` (para Firebase Hosting)
-//    - `localhost` (para desenvolvimento local)
-//
-// Erro Comum 2: "The requested action is invalid." (no popup de login do Google)
-// ----------------------------------------------------------------------------
-// Causa: Problema de configuração no Firebase Console ou Google Cloud Console para `processai-v9qza`.
-// Solução:
-// 1. Firebase Console (`processai-v9qza`) > Authentication > Sign-in method:
-//    - Provedor "Google" HABILITADO?
-//    - "E-mail de suporte do projeto" selecionado para o provedor Google?
-// 2. Google Cloud Console (Projeto: `processai-v9qza`) > APIs & Serviços > Tela de consentimento OAuth:
-//    - Tela de consentimento configurada? (Nome do app, E-mail de suporte, Domínios autorizados, Contato do desenvolvedor).
-//    - Se "Status da Publicação" = "Em teste", seu e-mail de login é um "Usuário de teste"?
-//
-// Erro Comum 3: 403 Forbidden - "Requests from referer ... are blocked." (API_KEY_HTTP_REFERRER_BLOCKED)
-// ----------------------------------------------------------------------------------------------------
-// Causa: A Chave de API usada pelo Firebase SDK (valor de NEXT_PUBLIC_FIREBASE_API_KEY para `processai-v9qza`)
-//        tem "Restrições de aplicativos" > "Referenciadores HTTP (websites)" ATIVADAS
-//        no Google Cloud Console, e o domínio de origem da solicitação NÃO está na lista de permissões.
-// Solução no Google Cloud Console (Projeto: `processai-v9qza`):
-// 1. Vá para Google Cloud Console > Projeto `processai-v9qza` > APIs & Serviços > Credenciais.
-// 2. Encontre a Chave de API correspondente a NEXT_PUBLIC_FIREBASE_API_KEY.
-// 3. Clique no nome da chave para editar.
-// 4. Em "Restrições de aplicativos":
-//    - Se "Referenciadores HTTP (websites)" estiver selecionado, ADICIONE os domínios necessários:
-//      - `6000-firebase-studio-1749115397750.cluster-etsqrqvqyvd4erxx7qq32imrjk.cloudworkstations.dev`
-//      - `processai-v9qza.firebaseapp.com`
-//      - `processai-v9qza.web.app`
-//      - `studio--processai-v9qza.us-central1.hosted.app`
-//      - `localhost` (se usado para desenvolvimento local)
-// 5. Salve as alterações e aguarde a propagação (alguns minutos).
-//
-// Erro Comum 4: "FirebaseError: Missing or insufficient permissions." (Firestore)
-// -----------------------------------------------------------------------------
-// Causa: As Regras de Segurança do Firestore para `processai-v9qza` estão bloqueando a operação.
-// Solução no Firebase Console (Projeto: `processai-v9qza`) > Firestore Database > Aba "Regras".
-//
-// Erro Comum 5: "FirebaseError: The query requires an index." (Firestore)
-// ------------------------------------------------------------------------
-// Causa: Uma consulta composta requer um índice composto que não existe em `processai-v9qza`.
-// Solução no Firebase Console (Projeto: `processai-v9qza`) > Firestore Database > Aba "Índices".
-//
-// APIs Habilitadas no Google Cloud Console (para `processai-v9qza`):
-// - "Identity Toolkit API" (Firebase Authentication)
-// - "Cloud Firestore API"
-// - "Cloud Storage"
-// - "Document AI API"
-// - "Vertex AI API"
-//
-// =====================================================================================
 
 // Ajuste para evitar conflito de nomenclatura com os tipos Firebase, se necessário.
 import type { Process as AppProcessSummary, DocumentRecord as AppDocumentAnalysis, ProcessSummaryData } from "@/types";
@@ -101,7 +35,7 @@ import type { ExtractSummaryFromPdfOutput } from "@/ai/flows/extract-summary-fro
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID, // Deve ser 'processai-v9qza' via .env
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID, 
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
