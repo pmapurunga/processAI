@@ -1,0 +1,107 @@
+<mat-toolbar color="primary">
+  <button mat-icon-button (click)="goBack()" matTooltip="Voltar">
+    <mat-icon>arrow_back</mat-icon>
+  </button>
+  <span>Documento Consolidado</span>
+</mat-toolbar>
+
+<div class="container">
+  @if (documento$ | async; as doc) {
+    <mat-card class="info-card">
+      <mat-card-header>
+        <mat-card-title>{{ doc.tipoDocumentoGeral }}</mat-card-title>
+        <mat-card-subtitle>ID: {{ doc.idDocumento }} | Período: {{ doc.periodoAnalisado }}</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <p><strong>Arquivo Original:</strong> {{ doc.nomeArquivoOriginal }}</p>
+        <p><strong>Tribunal:</strong> {{ doc.dadosRelevantesParaLaudo.Tribunal }} | <strong>Vara:</strong> {{ doc.dadosRelevantesParaLaudo.Vara }}</p>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-accordion multi>
+      <!-- Resumo do Caso -->
+      <mat-expansion-panel [expanded]="true">
+        <mat-expansion-panel-header>
+          <mat-panel-title>Resumo Geral do Caso</mat-panel-title>
+        </mat-expansion-panel-header>
+        <p>{{ doc.dadosRelevantesParaLaudo.ResumoGeralDoCaso }}</p>
+      </mat-expansion-panel>
+
+      <!-- Identificação das Partes -->
+      <mat-expansion-panel>
+        <mat-expansion-panel-header>
+          <mat-panel-title>Identificação das Partes</mat-panel-title>
+        </mat-expansion-panel-header>
+        <div class="party-section">
+          <div class="party-column">
+            <h3>Polo Ativo</h3>
+            <mat-list>
+              <mat-list-item><strong>Nome:</strong> {{ doc.dadosRelevantesParaLaudo.identificacaoDasPartes.poloAtivo.nome }}</mat-list-item>
+              <mat-list-item><strong>CPF:</strong> {{ doc.dadosRelevantesParaLaudo.identificacaoDasPartes.poloAtivo.cpf }}</mat-list-item>
+              <mat-list-item><strong>Dados Consolidados:</strong> {{ doc.dadosRelevantesParaLaudo.identificacaoDasPartes.poloAtivo.dadosPessoaisConsolidados }}</mat-list-item>
+            </mat-list>
+          </div>
+          <mat-divider [vertical]="true"></mat-divider>
+          <div class="party-column">
+            <h3>Polo Passivo</h3>
+            <mat-list>
+              <mat-list-item><strong>Nome:</strong> {{ doc.dadosRelevantesParaLaudo.identificacaoDasPartes.poloPassivo.nome }}</mat-list-item>
+              <mat-list-item><strong>CNPJ:</strong> {{ doc.dadosRelevantesParaLaudo.identificacaoDasPartes.poloPassivo.cnpj }}</mat-list-item>
+              <mat-list-item><strong>Dados Consolidados:</strong> {{ doc.dadosRelevantesParaLaudo.identificacaoDasPartes.poloPassivo.dadosGeraisConsolidados }}</mat-list-item>
+            </mat-list>
+          </div>
+        </div>
+      </mat-expansion-panel>
+
+      <!-- Histórico Ocupacional -->
+      <mat-expansion-panel>
+        <mat-expansion-panel-header>
+          <mat-panel-title>Histórico Ocupacional Consolidado</mat-panel-title>
+        </mat-expansion-panel-header>
+        @for (item of doc.historicoOcupacionalConsolidado; track item.empresa) {
+          <mat-card class="nested-card">
+            <mat-card-header>
+              <mat-card-title>{{ item.ocupacao }} em {{ item.empresa }}</mat-card-title>
+              <mat-card-subtitle>Período: {{ item.periodoFuncao }} | Tipo: {{ item.tipoOcupacao }}</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+              <p><strong>Descrição da Função:</strong> {{ item.descricaoFuncao }}</p>
+              <mat-chip-listbox aria-label="Ambiente de trabalho">
+                <mat-chip-option color="accent" selected>Amb. Físico: {{ item.ambienteFisico }}</mat-chip-option>
+                <mat-chip-option color="accent" selected>Amb. Psicossocial: {{ item.ambientePsicossocial }}</mat-chip-option>
+              </mat-chip-listbox>
+            </mat-card-content>
+          </mat-card>
+        } @empty {
+          <p>Nenhum histórico ocupacional encontrado.</p>
+        }
+      </mat-expansion-panel>
+      
+      <!-- Documentos Médicos Anexados -->
+      <mat-expansion-panel>
+        <mat-expansion-panel-header>
+          <mat-panel-title>Documentos Médicos Anexados ({{ doc.documentosMedicosAnexados.length }})</mat-panel-title>
+        </mat-expansion-panel-header>
+        <mat-list>
+          @for (medDoc of doc.documentosMedicosAnexados; track $index) {
+            <mat-list-item>
+              <mat-icon matListItemIcon>description</mat-icon>
+              <div matListItemTitle><strong>{{ medDoc.tipo }}</strong> - {{ medDoc.data }}</div>
+              <div matListItemLine><span>{{ medDoc.profissionalServico }} (Pág. {{ medDoc.paginaNoArquivo }})</span></div>
+              <div matListItemLine><span>{{ medDoc.resumoConteudo }}</span></div>
+            </mat-list-item>
+            <mat-divider></mat-divider>
+          } @empty {
+            <p>Nenhum documento médico encontrado.</p>
+          }
+        </mat-list>
+      </mat-expansion-panel>
+
+    </mat-accordion>
+  } @else {
+    <div class="loading-container">
+        <p>Carregando documento consolidado...</p>
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+    </div>
+  }
+</div>
