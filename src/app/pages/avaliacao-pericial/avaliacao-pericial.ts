@@ -5,6 +5,15 @@ import { ActivatedRoute } from '@angular/router';
 import { Firestore, doc, docData, setDoc } from '@angular/fire/firestore';
 import { Observable } from 'rxjs';
 import { CommonModule } from '@angular/common';
+import { MatInputModule } from '@angular/material/input';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatButtonModule } from '@angular/material/button';
+import { MatCardModule } from '@angular/material/card';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
+import { MatSelectModule } from '@angular/material/select';
+import { MatDividerModule } from '@angular/material/divider';
+import { MatIconModule } from '@angular/material/icon';
 
 export interface AvaliacaoPericial {
   identificacaoProcesso?: {
@@ -63,7 +72,19 @@ export interface AvaliacaoPericial {
   selector: 'app-avaliacao-pericial',
   templateUrl: './avaliacao-pericial.html',
   styleUrls: ['./avaliacao-pericial.css'],
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [
+    CommonModule, 
+    ReactiveFormsModule,
+    MatInputModule,
+    MatFormFieldModule,
+    MatButtonModule,
+    MatCardModule,
+    MatDatepickerModule,
+    MatNativeDateModule,
+    MatSelectModule,
+    MatDividerModule,
+    MatIconModule
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AvaliacaoPericialComponent {
@@ -130,6 +151,7 @@ export class AvaliacaoPericialComponent {
   constructor() {
     if (this.processoId) {
       const docRef = doc(this.firestore, `analises_processos/${this.processoId}/pericia/avaliacao_pericial`);
+      // Tentar carregar dados existentes, mas não bloquear se não existirem
       this.avaliacao$ = docData(docRef) as Observable<AvaliacaoPericial | undefined>;
       this.avaliacao$.subscribe(data => {
         if (data) {
@@ -139,12 +161,40 @@ export class AvaliacaoPericialComponent {
     } else {
       this.avaliacao$ = new Observable();
     }
+
+    // Configurar auto-save quando os campos forem alterados
+    this.form.valueChanges.subscribe(() => {
+      this.save();
+    });
   }
 
   save() {
     if (this.processoId) {
       const docRef = doc(this.firestore, `analises_processos/${this.processoId}/pericia/avaliacao_pericial`);
-      setDoc(docRef, this.form.value, { merge: true });
+      // Criar ou atualizar o documento
+      setDoc(docRef, this.form.value, { merge: true }).catch(error => {
+        console.error('Erro ao salvar dados:', error);
+      });
     }
+  }
+
+  get experienciasArray() {
+    return this.form.get('historicoLaboral.EXPERIENCIAS_LABORAIS_ANTERIORES') as FormArray;
+  }
+
+  adicionarExperiencia() {
+    this.experienciasArray.push(this.fb.group({
+      descricao: [''],
+      vinculo: [''],
+      periodo: ['']
+    }));
+  }
+
+  removeExperiencia(index: number) {
+    this.experienciasArray.removeAt(index);
+  }
+
+  podeRemoverExperiencia(): boolean {
+    return this.experienciasArray.length > 1;
   }
 }
