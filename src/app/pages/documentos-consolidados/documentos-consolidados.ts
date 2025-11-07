@@ -16,8 +16,10 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatTabsModule } from '@angular/material/tabs';
 
 import { DocumentoConsolidado } from '../../models/documento-consolidado.model';
+import { SafeHtmlPipe } from '../../pipes/safe-html.pipe';
 
 @Component({
   selector: 'app-documentos-consolidados',
@@ -34,6 +36,8 @@ import { DocumentoConsolidado } from '../../models/documento-consolidado.model';
     MatProgressBarModule,
     MatChipsModule,
     MatTooltipModule,
+    MatTabsModule,
+    SafeHtmlPipe
   ],
   templateUrl: './documentos-consolidados.html',
   styleUrls: ['./documentos-consolidados.css'],
@@ -55,7 +59,7 @@ export class DocumentosConsolidadosComponent {
           return of(undefined);
         }
 
-        const docPath = `processos/${processId}/documentos_consolidados/analise_principal`;
+        const docPath = `analises_processos/${processId}/documentos_consolidados/analise_principal`;
         const docRef = doc(this.firestore, docPath);
 
         return docData(docRef) as Observable<DocumentoConsolidado | undefined>;

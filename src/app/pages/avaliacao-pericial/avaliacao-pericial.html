@@ -1,6 +1,10 @@
 <div class="container">
-  <h1>Formulário de Avaliação Pericial</h1>
-
+  <div class="header">
+    <button mat-icon-button color="primary" (click)="voltar()" aria-label="Voltar para a página anterior">
+      <mat-icon>arrow_back</mat-icon>
+    </button>
+    <h1>Formulário de Avaliação Pericial</h1>
+  </div>
   <form [formGroup]="form" (ngSubmit)="save()">
     <!-- Seção de Identificação do Processo -->
     <mat-card formGroupName="identificacaoProcesso">
@@ -156,40 +160,43 @@
             Experiências Laborais Anteriores
           </h3>
           
-          <div *ngFor="let exp of $any(form.get('historicoLaboral.EXPERIENCIAS_LABORAIS_ANTERIORES')).controls; let i = index" 
-               [formGroupName]="i" class="experience-array-item mat-elevation-z1">
-            <h4>
-              <mat-icon>work_outline</mat-icon>
-              Experiência {{ i + 1 }}
-            </h4>
-            <div class="form-grid">
-              <mat-form-field appearance="outline">
-                <mat-label>Descrição</mat-label>
-                <input matInput formControlName="descricao" placeholder="Descreva a experiência">
-              </mat-form-field>
+          @for (exp of experienciasControls; track $index) {
+            <div [formGroupName]="$index" class="experience-array-item mat-elevation-z1">
+              <h4>
+                <mat-icon>work_outline</mat-icon>
+                Experiência {{ $index + 1 }}
+              </h4>
+              <div class="form-grid">
+                <mat-form-field appearance="outline">
+                  <mat-label>Descrição</mat-label>
+                  <input matInput formControlName="descricao" placeholder="Descreva a experiência">
+                </mat-form-field>
 
-              <mat-form-field appearance="outline">
-                <mat-label>Vínculo</mat-label>
-                <mat-select formControlName="vinculo">
-                  <mat-option value="CLT">CLT</mat-option>
-                  <mat-option value="Estatutário">Estatutário</mat-option>
-                  <mat-option value="Autônomo">Autônomo</mat-option>
-                  <mat-option value="Terceirizado">Terceirizado</mat-option>
-                  <mat-option value="Outros">Outros</mat-option>
-                </mat-select>
-              </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Vínculo</mat-label>
+                  <mat-select formControlName="vinculo">
+                    <mat-option value="CLT">CLT</mat-option>
+                    <mat-option value="Estatutário">Estatutário</mat-option>
+                    <mat-option value="Autônomo">Autônomo</mat-option>
+                    <mat-option value="Terceirizado">Terceirizado</mat-option>
+                    <mat-option value="Outros">Outros</mat-option>
+                  </mat-select>
+                </mat-form-field>
 
-              <mat-form-field appearance="outline">
-                <mat-label>Período</mat-label>
-                <input matInput formControlName="periodo" placeholder="Ex: Jan/2018 - Dez/2019">
-              </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Período</mat-label>
+                  <input matInput formControlName="periodo" placeholder="Ex: Jan/2018 - Dez/2019">
+                </mat-form-field>
+              </div>
+              <div class="form-actions-secondary">
+                @if (podeRemoverExperiencia()) {
+                  <button mat-icon-button color="warn" type="button" (click)="removeExperiencia($index)">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                }
+              </div>
             </div>
-            <div class="form-actions-secondary">
-              <button mat-icon-button color="warn" type="button" (click)="removeExperiencia(i)" *ngIf="podeRemoverExperiencia()">
-                <mat-icon>delete</mat-icon>
-              </button>
-            </div>
-          </div>
+          }
           
           <div class="form-actions-secondary">
             <button mat-stroked-button color="primary" type="button" (click)="adicionarExperiencia()">
@@ -327,6 +334,10 @@
     </mat-card>
 
     <div class="form-actions">
+      <button mat-stroked-button (click)="voltar()">
+        <mat-icon>arrow_back</mat-icon>
+        Voltar
+      </button>
       <button mat-raised-button color="primary" type="submit" [disabled]="form.invalid">
         <mat-icon>save</mat-icon>
         Salvar Alterações

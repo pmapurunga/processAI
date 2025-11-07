@@ -4,7 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators, FormArray } from '@angula
 import { ActivatedRoute } from '@angular/router';
 import { Firestore, doc, docData, setDoc } from '@angular/fire/firestore';
 import { Observable } from 'rxjs';
-import { CommonModule } from '@angular/common';
+import { CommonModule, Location } from '@angular/common';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatButtonModule } from '@angular/material/button';
@@ -91,6 +91,7 @@ export class AvaliacaoPericialComponent {
   private firestore: Firestore = inject(Firestore);
   private route: ActivatedRoute = inject(ActivatedRoute);
   private fb: FormBuilder = inject(FormBuilder);
+  private location: Location = inject(Location);
 
   processoId = this.route.snapshot.paramMap.get('processoId');
   avaliacao$: Observable<AvaliacaoPericial | undefined>;
@@ -182,6 +183,10 @@ export class AvaliacaoPericialComponent {
     return this.form.get('historicoLaboral.EXPERIENCIAS_LABORAIS_ANTERIORES') as FormArray;
   }
 
+  get experienciasControls() {
+    return (this.form.get('historicoLaboral.EXPERIENCIAS_LABORAIS_ANTERIORES') as FormArray).controls;
+  }
+
   adicionarExperiencia() {
     this.experienciasArray.push(this.fb.group({
       descricao: [''],
@@ -196,5 +201,9 @@ export class AvaliacaoPericialComponent {
 
   podeRemoverExperiencia(): boolean {
     return this.experienciasArray.length > 1;
+  }
+
+  voltar(): void {
+    this.location.back();
   }
 }

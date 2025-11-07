@@ -25,7 +25,7 @@ export const routes: Routes = [
       { path: 'process/:id', component: ProcessSelectorComponent },
       { path: 'process/:id/documentos-analisados', component: ProcessDetailComponent },
       { path: 'process/:processoId/avaliacao-pericial', component: AvaliacaoPericialComponent },
-      { path: 'process/:numero_processo/documentos-consolidados', component: DocumentosConsolidadosComponent },
+      { path: 'process/:processId/documentos-consolidados', component: DocumentosConsolidadosComponent },
       { path: 'process/:numero_processo/laudo-pericial', component: LaudoPericialComponent },
     ]
   }
