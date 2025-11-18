@@ -1,75 +1,74 @@
+/* Layout container wraps the Material sidenav container */
 .layout-container {
-  display: flex;
   height: 100vh;
 }
 
+/* Sidenav (mat-sidenav) styling */
 .sidebar {
-  width: 250px;
-  background-color: #333;
-  color: #fff;
-  padding: 1rem;
+  width: 240px;
+  padding: 1rem 0.5rem;
+  box-sizing: border-box;
+  background: var(--mat-sidenav-background, #fafafa);
 }
 
 .logo h1 {
-  margin: 0;
-  font-size: 1.5rem;
+  margin: 0 0 0.75rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  padding: 0 1rem;
 }
 
-.navigation ul {
-  list-style: none;
-  padding: 0;
-  margin: 2rem 0 0 0;
+/* Use Material nav list default spacing, but ensure links expand full width */
+mat-nav-list a.mat-list-item {
+  width: 100%;
 }
 
-.navigation li a {
-  display: block;
-  padding: 0.5rem 0;
-  color: #fff;
-  text-decoration: none;
-}
-
+/* Sidenav content area */
 .main-content {
-  flex-grow: 1;
   display: flex;
   flex-direction: column;
+  height: 100vh;
 }
 
+/* Toolbar */
 .header {
-  padding: 1rem;
-  background-color: #fff;
-  border-bottom: 1px solid #ccc;
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
-.header-content {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
+.toolbar-title {
+  margin-left: 8px;
+  font-weight: 600;
+}
+
+.toolbar-spacer {
+  flex: 1 1 auto;
+}
+
+.menu-button {
+  margin-right: 8px;
 }
 
 .user-info {
   display: flex;
   align-items: center;
-}
-
-.user-info span {
-  margin-right: 1rem;
-}
-
-.btn-logout {
-  padding: 0.5rem 1rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  background-color: #f5f5f5;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-
-.btn-logout:hover {
-  background-color: #ddd;
+  gap: 12px;
 }
 
 .content {
   padding: 1rem;
   flex-grow: 1;
   overflow-y: auto;
+  background: var(--mat-background, #fff);
+}
+
+/* Responsive: collapse sidenav on small screens (mat-sidenav mode handled in template) */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 200px;
+  }
+  .logo h1 {
+    font-size: 1rem;
+  }
 }
