@@ -1,29 +1,30 @@
-<div class="layout-container">
-  <aside class="sidebar">
+<mat-sidenav-container class="layout-container" autosize>
+  <mat-sidenav #sidenav mode="side" opened class="sidebar">
     <div class="logo">
       <h1>ProcessAI</h1>
     </div>
-    <nav class="navigation">
-      <ul>
-        <li><a routerLink="/new-analysis">Nova Análise</a></li>
-        <li><a routerLink="/process-list">Processos</a></li>
-        <li><a routerLink="/prompt-manager">Gerenciar Prompts</a></li>
-      </ul>
-    </nav>
-  </aside>
-  <main class="main-content">
-    <header class="header">
-      <div class="header-content">
-        @if (user()) {
-          <div class="user-info">
-            <span>Bem-vindo, {{ user()?.displayName }}</span>
-            <button (click)="logout()" class="btn btn-logout">Logout</button>
-          </div>
-        }
-      </div>
-    </header>
+    <mat-nav-list>
+      <a mat-list-item routerLink="/new-analysis">Nova Análise</a>
+      <a mat-list-item routerLink="/process-list">Processos</a>
+      <a mat-list-item routerLink="/prompt-manager">Gerenciar Prompts</a>
+    </mat-nav-list>
+  </mat-sidenav>
+
+  <mat-sidenav-content class="main-content">
+    <mat-toolbar color="primary" class="header">
+      <button mat-icon-button (click)="sidenav.toggle()" class="menu-button" aria-label="Toggle sidenav">
+        <mat-icon>menu</mat-icon>
+      </button>
+      <span class="toolbar-title">ProcessAI</span>
+      <span class="toolbar-spacer"></span>
+      <ng-container *ngIf="user() as u">
+        <span class="user-info">Bem-vindo, {{ u.displayName }}</span>
+        <button mat-button (click)="logout()">Logout</button>
+      </ng-container>
+    </mat-toolbar>
+
     <div class="content">
       <router-outlet></router-outlet>
     </div>
-  </main>
-</div>
+  </mat-sidenav-content>
+</mat-sidenav-container>
