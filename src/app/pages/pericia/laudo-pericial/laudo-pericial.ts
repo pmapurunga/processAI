@@ -1,6 +1,6 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { map, switchMap, tap, firstValueFrom } from 'rxjs';
+import { map, switchMap, tap, firstValueFrom, Subscription } from 'rxjs';
 import { FirestoreService } from '../../../core/services/firestore.service';
 import { CommonModule, Location } from '@angular/common';
 import { Clipboard } from '@angular/cdk/clipboard';
@@ -55,7 +55,7 @@ import { MatInputModule } from '@angular/material/input';
     MatProgressSpinnerModule
   ],
 })
-export class LaudoPericialComponent {
+export class LaudoPericialComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private firestoreService = inject(FirestoreService);
   private diretrizesService = inject(DiretrizesService);
@@ -64,15 +64,19 @@ export class LaudoPericialComponent {
   private clipboard = inject(Clipboard);
   private snackBar = inject(MatSnackBar);
   private location = inject(Location);
+  private cdr = inject(ChangeDetectorRef); // Injeção para atualização manual da tela
 
   laudoData: any = null;
   laudoBackup: any = null; // Para restaurar se cancelar
   processoId: string | null = null;
 
+  // Variável para gerenciar a inscrição e evitar vazamento de memória
+  private laudoSubscription: Subscription | null = null;
+
   // Controle do Modo de Edição
   isEditing = signal(false);
 
-  // Ajuste no laudo$ para garantir que laudoData esteja sempre sincronizado
+  // Ajuste no laudo$ para garantir que laudoData esteja sempre sincronizado e a tela atualize
   laudo$ = this.route.paramMap.pipe(
     map(params => params.get('id')),
     tap(id => this.processoId = id),
@@ -81,13 +85,21 @@ export class LaudoPericialComponent {
       return this.firestoreService.getLaudoPericial(id);
     }),
     tap(laudo => {
+      console.log('Laudo recebido no tap:', laudo); // Debug
       this.laudoData = laudo; 
+      
       // Se o laudo já tiver uma análise salva, carrega no signal
       if (laudo && laudo.analiseIA) {
         this.resultadoAnaliseIA.set(laudo.analiseIA);
       }
+
+      // FORÇA A ATUALIZAÇÃO DA TELA
+      // Como estamos usando OnPush e a resposta vem de um evento assíncrono,
+      // precisamos avisar o Angular explicitamente.
+      this.cdr.markForCheck();
     })
   );
+
   // --- Lógica das Diretrizes e IA ---
 
   // 1. Carrega todas as diretrizes do banco
@@ -109,6 +121,27 @@ export class LaudoPericialComponent {
   // 5. Estado da Análise IA
   resultadoAnaliseIA = signal<string | null>(null);
   isAnalisando = signal(false);
+
+  // --- CICLO DE VIDA (OnInit e OnDestroy) ---
+
+  ngOnInit(): void {
+    // Realiza a inscrição (subscribe) para disparar a busca dos dados
+    this.laudoSubscription = this.laudo$.subscribe({
+      error: (err) => {
+        console.error('Erro ao carregar laudo:', err);
+        this.showCopyMessage('Erro ao carregar dados do laudo.');
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    // Cancela a inscrição ao sair da tela para evitar vazamento de memória
+    if (this.laudoSubscription) {
+      this.laudoSubscription.unsubscribe();
+    }
+  }
+
+  // --- MÉTODOS AUXILIARES ---
 
   objectKeys(obj: any): string[] {
     return Object.keys(obj || {});
@@ -146,12 +179,19 @@ export class LaudoPericialComponent {
     if (!this.processoId || !this.laudoData) return;
 
     try {
+      
+      if (this.resultadoAnaliseIA()) {
+        this.laudoData.analiseIA = this.resultadoAnaliseIA();
+      }
+      // ---------------------
+
       // Chama o serviço do Firestore para atualizar
       await this.firestoreService.updateLaudoPericial(this.processoId, this.laudoData);
       
       this.showCopyMessage('Alterações salvas com sucesso!');
       this.isEditing.set(false);
       this.laudoBackup = null;
+      this.cdr.markForCheck(); 
     } catch (error) {
       console.error('Erro ao salvar:', error);
       this.showCopyMessage('Erro ao salvar alterações.');
@@ -173,9 +213,6 @@ export class LaudoPericialComponent {
 
     this.isAnalisando.set(true);
     
-    // Opcional: Limpar resultado anterior para dar feedback de "nova geração"
-    // this.resultadoAnaliseIA.set(null); 
-
     try {
       // 1. Busca o Prompt de Sistema (analise_federal)
       const promptConfig = await firstValueFrom(this.promptService.getPromptById('analise_federal'));
@@ -217,6 +254,7 @@ ${textoDiretrizes}
       // 5. Atualiza a tela
       this.resultadoAnaliseIA.set(textoGerado);
       this.showCopyMessage('Análise realizada e salva com sucesso!');
+      this.cdr.markForCheck(); // Atualiza tela após retorno da IA
 
     } catch (error: any) {
       console.error('Erro durante a análise com IA:', error);
@@ -226,8 +264,10 @@ ${textoDiretrizes}
       if (this.laudoData?.analiseIA) {
         this.resultadoAnaliseIA.set(this.laudoData.analiseIA);
       }
+      this.cdr.markForCheck();
     } finally {
       this.isAnalisando.set(false);
+      this.cdr.markForCheck();
     }
   }
 
