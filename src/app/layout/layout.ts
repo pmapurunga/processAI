@@ -1,42 +1,41 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterLink, RouterOutlet } from '@angular/router';
-import { AuthService } from '../auth.service';
-import { toSignal } from '@angular/core/rxjs-interop';
-// Angular Material modules
+import { RouterModule } from '@angular/router';
+import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
+import { Observable } from 'rxjs';
+import { map, shareReplay } from 'rxjs/operators';
+
+// Material Modules
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatListModule } from '@angular/material/list';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+import { MatMenuModule } from '@angular/material/menu'; // Opcional, para menu de utilizador
 
 @Component({
   selector: 'app-layout',
+  standalone: true,
   imports: [
     CommonModule,
-    RouterOutlet,
-    RouterLink,
-    // Material
+    RouterModule,
     MatSidenavModule,
     MatToolbarModule,
     MatListModule,
-    MatButtonModule,
     MatIconModule,
+    MatButtonModule,
+    MatMenuModule
   ],
   templateUrl: './layout.html',
-  styleUrls: ['./layout.css'],
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  standalone: true
+  styleUrls: ['./layout.css']
 })
 export class LayoutComponent {
-  private authService = inject(AuthService);
-  private router = inject(Router);
+  private breakpointObserver = inject(BreakpointObserver);
 
-  user = toSignal(this.authService.user$);
-
-  logout() {
-    this.authService.logout().then(() => {
-      this.router.navigate(['/login']);
-    });
-  }
+  // Deteta se o ecrã é pequeno (Handset/Telemóvel)
+  isHandset$: Observable<boolean> = this.breakpointObserver.observe(Breakpoints.Handset)
+    .pipe(
+      map(result => result.matches),
+      shareReplay()
+    );
 }

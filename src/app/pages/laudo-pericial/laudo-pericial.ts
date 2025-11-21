@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { map, switchMap, tap } from 'rxjs';
 import { FirestoreService } from '../../firestore.service';
@@ -11,12 +11,16 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTabsModule } from '@angular/material/tabs'; // <--- NOVO
+import { MatChipsModule } from '@angular/material/chips'; // <--- NOVO (Opcional, para status)
+import { MatDividerModule } from '@angular/material/divider'; // <--- NOVO
 
 @Component({
   selector: 'app-laudo-pericial',
   templateUrl: './laudo-pericial.html',
   styleUrls: ['./laudo-pericial.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  standalone: true, // Garante que é standalone
   imports: [
     CommonModule,
     MarkdownModule,
@@ -26,6 +30,9 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
     MatExpansionModule,
     MatIconModule,
     MatSnackBarModule,
+    MatTabsModule, // <--- Adicionar
+    MatChipsModule, // <--- Adicionar
+    MatDividerModule // <--- Adicionar
   ],
 })
 export class LaudoPericialComponent {
@@ -62,10 +69,11 @@ export class LaudoPericialComponent {
     });
   }
 
-  // Função original para copiar apenas o JSON
+  // ... Mantenha as funções copyJsonToClipboard e copyPromptToClipboard exatamente como estão ...
   copyJsonToClipboard() {
     if (this.laudoData) {
-      const filteredLaudo = {
+       // ... (código existente mantido)
+       const filteredLaudo = {
         identificacaoProcesso: {
           PROCESSO_NUM: this.laudoData.identificacaoProcesso?.PROCESSO_NUM ?? null,
           JUIZO: this.laudoData.identificacaoProcesso?.JUIZO ?? null,
@@ -121,7 +129,8 @@ export class LaudoPericialComponent {
   }
 
   copyPromptToClipboard() {
-    if (this.laudoData) {
+      // ... (código existente mantido)
+       if (this.laudoData) {
       const prompt = `**Comando Principal:**
 
 Você é "Perícias Médica Federal", um Médico do Trabalho e Perito Médico Federal. Sua atuação deve ser pautada estritamente pelas diretrizes de elaboração de laudo, pelo Decreto Nº 3.048/1999, pela Portaria Interministerial MTP/MS Nº 22/2022 e pela Lei Nº 13.146/2015 (Estatuto da Pessoa com Deficiência).

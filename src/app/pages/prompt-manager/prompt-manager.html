@@ -1,51 +1,79 @@
+<div class="container">
+  <header class="page-header">
+    <h1>Gerenciador de Prompts</h1>
+    <p>Configure os textos utilizados pela IA nas análises.</p>
+  </header>
 
-<div class="container mt-4">
-  <h1>Gerenciador de Prompts</h1>
-
-  <div class="mb-3">
-    <button class="btn btn-primary" (click)="editPrompt(null)">Novo Prompt</button>
+  <div class="actions-bar" *ngIf="!selectedPrompt()">
+    <button mat-raised-button color="primary" (click)="editPrompt(null)">
+      <mat-icon>add</mat-icon>
+      Novo Prompt
+    </button>
   </div>
 
-  <!-- Formulário de Edição/Criação -->
-  <div *ngIf="selectedPrompt() as prompt" class="card mb-4">
-    <div class="card-header">
-      {{ prompt.id ? 'Editar Prompt' : 'Novo Prompt' }}
-    </div>
-    <div class="card-body">
-      <form (ngSubmit)="savePrompt(prompt)">
-        <div class="mb-3">
-          <label for="nome" class="form-label">Nome</label>
-          <input type="text" class="form-control" id="nome" name="nome" [(ngModel)]="prompt.nome" required>
-        </div>
-        <div class="mb-3">
-          <label for="descricao" class="form-label">Descrição</label>
-          <input type="text" class="form-control" id="descricao" name="descricao" [(ngModel)]="prompt.descricao">
-        </div>
-        <div class="mb-3">
-          <label for="texto" class="form-label">Texto do Prompt</label>
-          <textarea class="form-control" id="texto" name="texto" rows="5" [(ngModel)]="prompt.texto" required></textarea>
-        </div>
-        <button type="submit" class="btn btn-success">Salvar</button>
-        <button type="button" class="btn btn-secondary ms-2" (click)="selectedPrompt.set(null)">Cancelar</button>
-      </form>
-    </div>
+  <div *ngIf="selectedPrompt() as prompt" class="edit-section">
+    <mat-card class="edit-card">
+      <mat-card-header>
+        <mat-card-title>{{ prompt.id ? 'Editar Prompt' : 'Novo Prompt' }}</mat-card-title>
+      </mat-card-header>
+      
+      <mat-card-content>
+        <form #promptForm="ngForm" (ngSubmit)="savePrompt(prompt)">
+          
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Nome do Prompt (Identificador)</mat-label>
+            <input matInput [(ngModel)]="prompt.nome" name="nome" required placeholder="Ex: pericia_federal">
+            <mat-hint>Use um nome único para identificar este prompt no sistema.</mat-hint>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width mt-3">
+            <mat-label>Texto do Prompt</mat-label>
+            <textarea matInput [(ngModel)]="prompt.prompt_text" name="prompt_text" rows="15" required placeholder="Digite as instruções da IA aqui..."></textarea>
+          </mat-form-field>
+
+          <div class="form-actions">
+            <button mat-button type="button" (click)="selectedPrompt.set(null)">Cancelar</button>
+            <button mat-flat-button color="primary" type="submit" [disabled]="!promptForm.form.valid">
+              Salvar Alterações
+            </button>
+          </div>
+        </form>
+      </mat-card-content>
+    </mat-card>
   </div>
 
-  <!-- Lista de Prompts -->
-  <div class="list-group">
-    <div *ngFor="let prompt of prompts()" class="list-group-item list-group-item-action">
-      <div class="d-flex w-100 justify-content-between">
-        <h5 class="mb-1">{{ prompt.nome }}</h5>
-        <div>
-          <button class="btn btn-outline-primary btn-sm" (click)="editPrompt(prompt)">Editar</button>
-          <button class="btn btn-outline-danger btn-sm ms-2" (click)="deletePrompt(prompt.id)">Excluir</button>
+  <div class="prompts-grid" *ngIf="!selectedPrompt()">
+    @for (prompt of prompts(); track prompt.id) {
+      <mat-card class="prompt-card" (click)="editPrompt(prompt)">
+        <div class="card-content-wrapper">
+          <div class="prompt-header">
+            <div class="prompt-icon">
+              <mat-icon>smart_toy</mat-icon>
+            </div>
+            <div class="prompt-title">
+              <h3>{{ prompt.nome }}</h3>
+              <span class="prompt-id-badge">{{ prompt.id }}</span>
+            </div>
+            <button mat-icon-button color="warn" (click)="deletePrompt(prompt.id, $event)" matTooltip="Excluir">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+          
+          <mat-divider></mat-divider>
+          
+          <div class="prompt-preview">
+            <p>{{ prompt.prompt_text }}</p>
+          </div>
         </div>
+        <div class="card-hover-action">
+          <span>Clique para editar</span>
+        </div>
+      </mat-card>
+    } @empty {
+      <div class="empty-state">
+        <mat-icon>text_fields</mat-icon>
+        <p>Nenhum prompt encontrado.</p>
       </div>
-      <p class="mb-1">{{ prompt.descricao }}</p>
-      <small class="text-muted">{{ prompt.texto | slice:0:100 }}{{ prompt.texto.length > 100 ? '...' : '' }}</small>
-    </div>
-  </div>
-  <div *ngIf="prompts().length === 0" class="text-center mt-3">
-    <p>Nenhum prompt cadastrado.</p>
+    }
   </div>
 </div>

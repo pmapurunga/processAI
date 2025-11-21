@@ -1,74 +1,127 @@
-/* Layout container wraps the Material sidenav container */
-.layout-container {
+/* Ocupa toda a altura do ecrã */
+.sidenav-container {
   height: 100vh;
+  background-color: #f5f7fa; /* Fundo cinza claro para o conteúdo principal */
 }
 
-/* Sidenav (mat-sidenav) styling */
-.sidebar {
-  width: 240px;
-  padding: 1rem 0.5rem;
-  box-sizing: border-box;
-  background: var(--mat-sidenav-background, #fafafa);
+/* Estilo da Barra Lateral */
+.sidenav {
+  width: 260px;
+  background-color: #ffffff;
+  border-right: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.02);
 }
 
-.logo h1 {
-  margin: 0 0 0.75rem 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-  padding: 0 1rem;
+/* Cabeçalho da Sidebar (Marca) */
+.sidenav-header {
+  padding: 24px 20px;
+  background: linear-gradient(45deg, #1976d2, #1565c0); /* Azul Material */
+  color: white;
 }
 
-/* Use Material nav list default spacing, but ensure links expand full width */
-mat-nav-list a.mat-list-item {
-  width: 100%;
-}
-
-/* Sidenav content area */
-.main-content {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-}
-
-/* Toolbar */
-.header {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-}
-
-.toolbar-title {
-  margin-left: 8px;
-  font-weight: 600;
-}
-
-.toolbar-spacer {
-  flex: 1 1 auto;
-}
-
-.menu-button {
-  margin-right: 8px;
-}
-
-.user-info {
+.logo-container {
   display: flex;
   align-items: center;
   gap: 12px;
+  margin-bottom: 4px;
 }
 
-.content {
-  padding: 1rem;
-  flex-grow: 1;
-  overflow-y: auto;
-  background: var(--mat-background, #fff);
+.logo-icon {
+  font-size: 28px;
+  width: 28px;
+  height: 28px;
 }
 
-/* Responsive: collapse sidenav on small screens (mat-sidenav mode handled in template) */
-@media (max-width: 768px) {
-  .sidebar {
-    width: 200px;
-  }
-  .logo h1 {
-    font-size: 1rem;
-  }
+.app-title {
+  font-size: 1.4rem;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+.app-subtitle {
+  margin: 0;
+  font-size: 0.8rem;
+  opacity: 0.85;
+  margin-left: 40px; /* Alinha com o texto do título */
+}
+
+/* Estilo dos Links de Navegação */
+mat-nav-list a[mat-list-item] {
+  height: 48px;
+  border-radius: 0 24px 24px 0; /* Borda arredondada apenas na direita */
+  margin-right: 12px; /* Espaço para o arredondamento */
+  margin-bottom: 4px;
+  color: #5f6368; /* Cinza escuro para texto inativo */
+}
+
+mat-nav-list mat-icon {
+  color: #757575;
+  margin-right: 12px;
+}
+
+/* Item Ativo (Selecionado) */
+.active-link {
+  background-color: #e3f2fd !important; /* Azul muito claro */
+  color: #1565c0 !important; /* Azul primário */
+  font-weight: 500;
+}
+
+.active-link mat-icon {
+  color: #1565c0 !important;
+}
+
+/* Subtítulos (Análise, Configurações) */
+h3[matSubheader] {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: #9e9e9e;
+  letter-spacing: 1px;
+  margin-top: 16px;
+}
+
+.menu-divider {
+  margin: 8px 0;
+}
+
+/* Toolbar Superior */
+.app-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background-color: #ffffff;
+  color: #333; /* Texto escuro no topo */
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.toolbar-title {
+  font-size: 1.1rem;
+  font-weight: 400;
+  margin-left: 8px;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+/* Conteúdo Principal */
+.main-content {
+  padding: 24px;
+  max-width: 1600px; /* Evita que o conteúdo fique demasiado esticado em ecrãs gigantes */
+  margin: 0 auto;
+  min-height: calc(100vh - 64px);
+}
+
+/* Ajustes para Scrollbar mais bonita (Opcional) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #bdbdbd;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
 }
