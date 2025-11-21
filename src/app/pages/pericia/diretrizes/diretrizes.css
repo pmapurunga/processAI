@@ -108,3 +108,26 @@
     height: 48px;
     margin-bottom: 16px;
   }
+
+  /* ... estilos anteriores ... */
+
+.conteudo-preview {
+  margin-top: 1rem;
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+.content-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: #2e7d32; /* Verde sucesso */
+  margin-top: 16px;
+  margin-bottom: 0;
+  opacity: 0.9;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}

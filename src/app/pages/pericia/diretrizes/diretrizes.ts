@@ -14,6 +14,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+// Novos imports para o botão de download
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 @Component({
   selector: 'app-diretrizes',
@@ -29,7 +32,9 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
     MatIconModule,
     MatChipsModule,
     MatDividerModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    MatTooltipModule,        // <-- Novo
+    MatProgressSpinnerModule // <-- Novo
   ],
   templateUrl: './diretrizes.html',
   styleUrls: ['./diretrizes.css'],
@@ -42,33 +47,78 @@ export class DiretrizesComponent {
 
   // Sinais
   diretrizes = toSignal(this.diretrizesService.getDiretrizes(), { initialValue: [] });
-  isFormVisible = signal(false); // Controla se o formulário aparece ou não
+  isFormVisible = signal(false); 
+  isLoadingContent = signal(false); // <-- Novo: Controla o spinner de carregamento
 
   // Formulário
   form = this.fb.group({
     nome: ['', Validators.required],
-    justica: ['Justiça Federal', Validators.required], // Valor padrão
-    link: ['', [Validators.required]] // Poderíamos adicionar validação de URL aqui se necessário
+    justica: ['Justiça Federal', Validators.required], 
+    link: ['', [Validators.required]], 
+    conteudo: [''] // <-- Novo: Campo para guardar o Markdown (pode ser hidden ou visível)
   });
 
   toggleForm() {
     this.isFormVisible.update(v => !v);
   }
 
+  // --- Nova Função: Importar Conteúdo ---
+  // ... dentro de src/app/pages/pericia/diretrizes/diretrizes.ts
+
+  async importContent() {
+    const url = this.form.get('link')?.value;
+    console.log('--- [DEBUG UI] Botão Importar Clicado ---');
+    console.log('Link no formulário:', url);
+    
+    if (!url) return;
+
+    this.isLoadingContent.set(true);
+
+    try {
+      // Chama o serviço
+      const markdown = await this.diretrizesService.getDocContent(url);
+      console.log('--- [DEBUG UI] Markdown recebido no componente ---');
+      console.log('Tamanho do texto:', markdown.length);
+      
+      // Preenche o formulário
+      this.form.patchValue({ conteudo: markdown });
+      
+      // Verifica se o formulário atualizou mesmo
+      const valorNoForm = this.form.get('conteudo')?.value;
+      console.log('Valor atualizado no Input do Form:', valorNoForm ? 'OK (Preenchido)' : 'ERRO (Vazio)');
+
+      this.snackBar.open('Conteúdo importado com sucesso!', 'OK', { duration: 3000 });
+    } catch (err: any) {
+      console.error('Erro no importContent:', err);
+      this.snackBar.open(err.message || 'Erro ao importar conteúdo.', 'Fechar', { duration: 5000 });
+    } finally {
+      this.isLoadingContent.set(false);
+    }
+  }
+
   onSubmit() {
+    console.log('--- [DEBUG UI] Tentando Salvar ---');
+    
     if (this.form.valid) {
-      const novaDiretriz = this.form.value as Diretriz;
+      const formValue = this.form.value;
+      console.log('Dados do formulário a enviar:', formValue); // <--- AQUI VAMOS VER SE O 'conteudo' ESTÁ LÁ
+
+      const novaDiretriz = formValue as Diretriz;
       
       this.diretrizesService.addDiretriz(novaDiretriz)
         .then(() => {
+          console.log('Sucesso ao salvar no Firestore');
           this.snackBar.open('Diretriz adicionada com sucesso!', 'Fechar', { duration: 3000 });
-          this.form.reset({ justica: 'Justiça Federal' }); // Reseta mantendo o padrão
+          this.form.reset({ justica: 'Justiça Federal' }); 
           this.isFormVisible.set(false);
+          this.isLoadingContent.set(false);
         })
         .catch(err => {
-          console.error(err);
+          console.error('Erro ao salvar no Firestore:', err);
           this.snackBar.open('Erro ao salvar.', 'Fechar', { duration: 3000 });
         });
+    } else {
+      console.warn('Formulário inválido:', this.form.errors);
     }
   }
 
@@ -84,12 +134,11 @@ export class DiretrizesComponent {
     window.open(url, '_blank');
   }
 
-  // Auxiliar para cor do chip
   getJusticaColor(tipo: string): string {
     switch(tipo) {
       case 'Justiça Federal': return 'primary';
       case 'Justiça do Trabalho': return 'warn';
-      default: return 'accent'; // Justiça Comum
+      default: return 'accent'; 
     }
   }
 }
