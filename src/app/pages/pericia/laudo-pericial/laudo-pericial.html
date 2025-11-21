@@ -354,7 +354,7 @@
           @if (resultadoAnaliseIA()) {
             <mat-divider class="my-4"></mat-divider>
             <div class="ai-result-box">
-              <h3><mat-icon class="ai-icon">auto_awesome</mat-icon> Sugestão da IA</h3>
+              <h3><mat-icon class="ai-icon">auto_awesome</mat-icon> Análise da IA</h3>
               @if(!isEditing()) {
                   <markdown [data]="resultadoAnaliseIA()"></markdown>
                } @else {

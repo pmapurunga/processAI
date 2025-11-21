@@ -287,7 +287,6 @@ ${textoDiretrizes}
       dadosMedicos: this.laudoData.dadosMedicos,
       OBSERVACOES: this.laudoData.OBSERVACOES,
       respostasQuesitos: this.laudoData.respostasQuesitos
-      // Removemos metadados irrelevantes para a IA
     };
   }
 
