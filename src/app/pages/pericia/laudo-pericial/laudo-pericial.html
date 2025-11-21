@@ -1,21 +1,44 @@
 <div class="container">
-  @if (laudo$ | async; as laudo) {
-    @if(laudo) {
+  @if (laudoData) { 
+      
       <header class="page-header">
         <div class="header-info">
           <h1 class="mat-headline-5 mb-0">Laudo Pericial</h1>
-          <span class="processo-badge">{{ laudo.identificacaoProcesso?.PROCESSO_NUM }}</span>
+          
+          @if(!isEditing()) {
+            <span class="processo-badge">{{ laudoData.identificacaoProcesso?.PROCESSO_NUM }}</span>
+          } @else {
+            <mat-form-field density="compact" subscriptSizing="dynamic">
+              <mat-label>Nº Processo</mat-label>
+              <input matInput [(ngModel)]="laudoData.identificacaoProcesso.PROCESSO_NUM">
+            </mat-form-field>
+          }
         </div>
+
         <div class="actions">
-          <button mat-button (click)="goBack()">
-            <mat-icon>arrow_back</mat-icon> Voltar
-          </button>
-          <button mat-stroked-button (click)="copyJsonToClipboard()">
-            <mat-icon>content_copy</mat-icon> JSON
-          </button>
-          <button mat-flat-button color="primary" (click)="copyPromptToClipboard()">
-            <mat-icon>smart_toy</mat-icon> Prompt AI
-          </button>
+          @if(!isEditing()) {
+            <button mat-button (click)="goBack()">
+              <mat-icon>arrow_back</mat-icon> Voltar
+            </button>
+            
+            <button mat-stroked-button color="primary" (click)="toggleEdit()">
+              <mat-icon>edit</mat-icon> Editar
+            </button>
+
+            <button mat-stroked-button (click)="copyJsonToClipboard()">
+              <mat-icon>content_copy</mat-icon> JSON
+            </button>
+            <button mat-flat-button color="primary" (click)="copyPromptToClipboard()">
+              <mat-icon>smart_toy</mat-icon> Prompt AI
+            </button>
+          } @else {
+            <button mat-button color="warn" (click)="cancelarEdicao()">
+              <mat-icon>cancel</mat-icon> Cancelar
+            </button>
+            <button mat-flat-button color="primary" (click)="salvarEdicao()">
+              <mat-icon>save</mat-icon> Salvar Alterações
+            </button>
+          }
         </div>
       </header>
 
@@ -27,25 +50,51 @@
           </mat-card-header>
           <mat-card-content>
             <div class="data-row">
-              <div class="data-item">
+              <div class="data-item full-width">
                 <label>Nome</label>
-                <p><strong>{{ laudo.identificacaoProcesso?.NOME_PERICIANDO }}</strong></p>
-              </div>
-              <div class="data-item">
-                <label>Idade / Nasc.</label>
-                <p>{{ laudo.dadosPericiando?.DATA_NASCIMENTO }}</p>
+                @if(!isEditing()) {
+                  <p><strong>{{ laudoData.identificacaoProcesso?.NOME_PERICIANDO }}</strong></p>
+                } @else {
+                  <mat-form-field appearance="outline" class="w-full">
+                    <input matInput [(ngModel)]="laudoData.identificacaoProcesso.NOME_PERICIANDO">
+                  </mat-form-field>
+                }
               </div>
             </div>
             <div class="data-row">
               <div class="data-item">
-                <label>Escolaridade</label>
-                <p>{{ laudo.dadosPericiando?.ESCOLARIDADE }}</p>
+                <label>Idade / Nasc.</label>
+                @if(!isEditing()) {
+                  <p>{{ laudoData.dadosPericiando?.DATA_NASCIMENTO }}</p>
+                } @else {
+                  <mat-form-field appearance="outline">
+                     <input matInput [(ngModel)]="laudoData.dadosPericiando.DATA_NASCIMENTO">
+                  </mat-form-field>
+                }
               </div>
-               <div class="data-item">
-                <label>Estado Civil</label>
-                <p>{{ laudo.dadosPericiando?.ESTADO_CIVIL }}</p>
+              <div class="data-item">
+                <label>Escolaridade</label>
+                @if(!isEditing()) {
+                   <p>{{ laudoData.dadosPericiando?.ESCOLARIDADE }}</p>
+                } @else {
+                  <mat-form-field appearance="outline">
+                    <input matInput [(ngModel)]="laudoData.dadosPericiando.ESCOLARIDADE">
+                  </mat-form-field>
+                }
               </div>
             </div>
+             <div class="data-row">
+               <div class="data-item">
+                <label>Estado Civil</label>
+                @if(!isEditing()) {
+                  <p>{{ laudoData.dadosPericiando?.ESTADO_CIVIL }}</p>
+                } @else {
+                  <mat-form-field appearance="outline">
+                    <input matInput [(ngModel)]="laudoData.dadosPericiando.ESTADO_CIVIL">
+                  </mat-form-field>
+                }
+              </div>
+             </div>
           </mat-card-content>
         </mat-card>
 
@@ -57,11 +106,23 @@
           <mat-card-content>
              <div class="data-item full-width">
                 <label>Juízo</label>
-                <p>{{ laudo.identificacaoProcesso?.JUIZO }}</p>
+                @if(!isEditing()) {
+                  <p>{{ laudoData.identificacaoProcesso?.JUIZO }}</p>
+                } @else {
+                  <mat-form-field appearance="outline" class="w-full">
+                    <textarea matInput [(ngModel)]="laudoData.identificacaoProcesso.JUIZO" rows="2"></textarea>
+                  </mat-form-field>
+                }
              </div>
              <div class="data-item">
                 <label>Data do Exame</label>
-                <p>{{ laudo.identificacaoProcesso?.DATA_EXAME }}</p>
+                @if(!isEditing()) {
+                  <p>{{ laudoData.identificacaoProcesso?.DATA_EXAME }}</p>
+                } @else {
+                   <mat-form-field appearance="outline">
+                    <input matInput [(ngModel)]="laudoData.identificacaoProcesso.DATA_EXAME">
+                  </mat-form-field>
+                }
              </div>
           </mat-card-content>
         </mat-card>
@@ -79,7 +140,14 @@
                 <mat-icon class="tab-icon">history_edu</mat-icon> História Clínica
               </ng-template>
               <div class="tab-content">
-                <markdown [data]="laudo.dadosMedicos?.HISTORIA_CLINICA"></markdown>
+                @if(!isEditing()) {
+                  <markdown [data]="laudoData.dadosMedicos?.HISTORIA_CLINICA"></markdown>
+                } @else {
+                  <mat-form-field appearance="outline" class="w-full">
+                    <mat-label>História Clínica (Markdown suportado)</mat-label>
+                    <textarea matInput [(ngModel)]="laudoData.dadosMedicos.HISTORIA_CLINICA" rows="15"></textarea>
+                  </mat-form-field>
+                }
               </div>
             </mat-tab>
 
@@ -88,10 +156,17 @@
                 <mat-icon class="tab-icon">radiology</mat-icon> Exames Complementares
               </ng-template>
               <div class="tab-content bg-light">
-                @if(laudo.dadosMedicos?.EXAMES) {
-                  <markdown [data]="laudo.dadosMedicos?.EXAMES"></markdown>
+                @if(!isEditing()) {
+                  @if(laudoData.dadosMedicos?.EXAMES) {
+                    <markdown [data]="laudoData.dadosMedicos?.EXAMES"></markdown>
+                  } @else {
+                    <p class="text-muted">Nenhum exame registrado.</p>
+                  }
                 } @else {
-                  <p class="text-muted">Nenhum exame registrado.</p>
+                   <mat-form-field appearance="outline" class="w-full">
+                    <mat-label>Exames Complementares</mat-label>
+                    <textarea matInput [(ngModel)]="laudoData.dadosMedicos.EXAMES" rows="15"></textarea>
+                  </mat-form-field>
                 }
               </div>
             </mat-tab>
@@ -101,10 +176,17 @@
                 <mat-icon class="tab-icon">medical_services</mat-icon> Exame Físico
               </ng-template>
               <div class="tab-content">
-                 @if(laudo.dadosMedicos?.EXAME_CLINICO) {
-                  <markdown [data]="laudo.dadosMedicos?.EXAME_CLINICO"></markdown>
+                @if(!isEditing()) {
+                   @if(laudoData.dadosMedicos?.EXAME_CLINICO) {
+                    <markdown [data]="laudoData.dadosMedicos?.EXAME_CLINICO"></markdown>
+                  } @else {
+                    <p class="text-muted">Exame físico não detalhado.</p>
+                  }
                 } @else {
-                  <p class="text-muted">Exame físico não detalhado.</p>
+                  <mat-form-field appearance="outline" class="w-full">
+                    <mat-label>Exame Clínico</mat-label>
+                    <textarea matInput [(ngModel)]="laudoData.dadosMedicos.EXAME_CLINICO" rows="15"></textarea>
+                  </mat-form-field>
                 }
               </div>
             </mat-tab>
@@ -124,40 +206,87 @@
           <div class="info-grid-compact">
              <div class="data-item">
                 <label>Função Declarada</label>
-                <p><strong>{{ laudo.historicoLaboral?.FUNCAO_HABITUAL_ATUAL?.descricao }}</strong></p>
+                @if(!isEditing()) {
+                  <p><strong>{{ laudoData.historicoLaboral?.FUNCAO_HABITUAL_ATUAL?.descricao }}</strong></p>
+                } @else {
+                  @if(laudoData.historicoLaboral?.FUNCAO_HABITUAL_ATUAL) {
+                      <mat-form-field appearance="outline">
+                        <input matInput [(ngModel)]="laudoData.historicoLaboral.FUNCAO_HABITUAL_ATUAL.descricao">
+                      </mat-form-field>
+                   }
+                }
              </div>
              <div class="data-item">
                 <label>Tempo Total</label>
-                <p>{{ laudo.historicoLaboral?.TEMPO_TOTAL_ATIVIDADE }}</p>
+                @if(!isEditing()) {
+                   <p>{{ laudoData.historicoLaboral?.TEMPO_TOTAL_ATIVIDADE }}</p>
+                } @else {
+                   <mat-form-field appearance="outline">
+                      <input matInput [(ngModel)]="laudoData.historicoLaboral.TEMPO_TOTAL_ATIVIDADE">
+                   </mat-form-field>
+                }
              </div>
              <div class="data-item">
                 <label>Afastamento</label>
-                <p>{{ laudo.historicoLaboral?.DATA_AFASTAMENTO_DECLARADA }}</p>
+                 @if(!isEditing()) {
+                    <p>{{ laudoData.historicoLaboral?.DATA_AFASTAMENTO_DECLARADA }}</p>
+                 } @else {
+                    <mat-form-field appearance="outline">
+                      <input matInput [(ngModel)]="laudoData.historicoLaboral.DATA_AFASTAMENTO_DECLARADA">
+                   </mat-form-field>
+                 }
              </div>
           </div>
 
           <mat-divider class="my-3"></mat-divider>
           
           <h3 class="subsection-title">Narrativa Ocupacional</h3>
-          <markdown [data]="laudo.historicoLaboral?.HISTORICO_OCUPACIONAL_COMPLETO"></markdown>
+          @if(!isEditing()) {
+            <markdown [data]="laudoData.historicoLaboral?.HISTORICO_OCUPACIONAL_COMPLETO"></markdown>
+          } @else {
+             <mat-form-field appearance="outline" class="w-full">
+                <textarea matInput [(ngModel)]="laudoData.historicoLaboral.HISTORICO_OCUPACIONAL_COMPLETO" rows="8"></textarea>
+             </mat-form-field>
+          }
 
-          @if(laudo.historicoLaboral?.PROFISSIOGRAFIA; as prof) {
+          @if(laudoData.historicoLaboral?.PROFISSIOGRAFIA; as prof) {
             <div class="profissiografia-box">
-              <h4>Análise da Atividade: {{ prof.atividade_analisada }}</h4>
+              @if(!isEditing()) {
+                 <h4>Análise da Atividade: {{ prof.atividade_analisada }}</h4>
+              } @else {
+                 <mat-form-field appearance="outline" class="w-full">
+                    <mat-label>Atividade Analisada</mat-label>
+                    <input matInput [(ngModel)]="prof.atividade_analisada">
+                 </mat-form-field>
+              }
               
               <div class="prof-grid">
                 <div>
                   <strong>Tarefas Executadas:</strong>
-                  <ul>
-                    @for(tarefa of prof.tarefas_executadas; track tarefa) {
-                      <li>{{ tarefa }}</li>
-                    }
-                  </ul>
+                   @if(!isEditing()) {
+                    <ul>
+                      @for(tarefa of prof.tarefas_executadas; track tarefa) {
+                        <li>{{ tarefa }}</li>
+                      }
+                    </ul>
+                   } @else {
+                     <p class="text-small text-muted">Edite as tarefas separando por vírgula (simplificação)</p>
+                     <p><em>Edição de lista de tarefas não suportada neste modo rápido. Use a edição JSON.</em></p>
+                   }
                 </div>
                 <div>
-                   <p><strong>Postura:</strong> {{ prof.postura_corporal }}</p>
-                   <p><strong>Carga:</strong> {{ prof.carga_fisica }}</p>
-                   <p><strong>Exigências:</strong> {{ prof.exigencias_fisicas }}</p>
+                   <div class="mb-2">
+                      <strong>Postura:</strong> 
+                      @if(!isEditing()) { {{ prof.postura_corporal }} } @else { <input class="simple-input" [(ngModel)]="prof.postura_corporal"> }
+                   </div>
+                   <div class="mb-2">
+                      <strong>Carga:</strong> 
+                      @if(!isEditing()) { {{ prof.carga_fisica }} } @else { <input class="simple-input" [(ngModel)]="prof.carga_fisica"> }
+                   </div>
+                   <div>
+                      <strong>Exigências:</strong> 
+                      @if(!isEditing()) { {{ prof.exigencias_fisicas }} } @else { <input class="simple-input" [(ngModel)]="prof.exigencias_fisicas"> }
+                   </div>
                 </div>
               </div>
             </div>
@@ -174,7 +303,7 @@
             Selecione normas para fundamentar a análise
           </mat-panel-description>
         </mat-expansion-panel-header>
-
+        
         <div class="diretrizes-container">
           
           <div class="filter-section">
@@ -226,11 +355,19 @@
             <mat-divider class="my-4"></mat-divider>
             <div class="ai-result-box">
               <h3><mat-icon class="ai-icon">auto_awesome</mat-icon> Sugestão da IA</h3>
-              <markdown [data]="resultadoAnaliseIA()"></markdown>
+              @if(!isEditing()) {
+                  <markdown [data]="resultadoAnaliseIA()"></markdown>
+               } @else {
+                  <mat-form-field appearance="outline" class="w-full">
+                    <mat-label>Resultado da Análise IA</mat-label>
+                    <textarea matInput [ngModel]="resultadoAnaliseIA()" (ngModelChange)="resultadoAnaliseIA.set($event)" rows="10"></textarea>
+                  </mat-form-field>
+               }
             </div>
           }
 
         </div>
+
       </mat-expansion-panel>
 
       <mat-expansion-panel>
@@ -241,11 +378,17 @@
         </mat-expansion-panel-header>
         
         <div class="obs-content">
-          <markdown [data]="laudo.OBSERVACOES"></markdown>
+          @if(!isEditing()) {
+            <markdown [data]="laudoData.OBSERVACOES"></markdown>
+          } @else {
+             <mat-form-field appearance="outline" class="w-full">
+                <textarea matInput [(ngModel)]="laudoData.OBSERVACOES" rows="6"></textarea>
+             </mat-form-field>
+          }
         </div>
       </mat-expansion-panel>
       
-      @if(objectKeys(laudo.respostasQuesitos).length > 0) {
+      @if(objectKeys(laudoData.respostasQuesitos).length > 0) {
         <mat-expansion-panel class="mt-3">
           <mat-expansion-panel-header>
             <mat-panel-title class="section-title">
@@ -253,10 +396,16 @@
             </mat-panel-title>
           </mat-expansion-panel-header>
           <div class="quesitos-list">
-            @for (quesito of objectKeys(laudo.respostasQuesitos); track quesito) {
+            @for (quesito of objectKeys(laudoData.respostasQuesitos); track quesito) {
               <div class="quesito-item">
                 <strong class="q-label">{{ quesito }}</strong>
-                <p class="q-answer">{{ laudo.respostasQuesitos[quesito] }}</p>
+                @if(!isEditing()) {
+                   <p class="q-answer">{{ laudoData.respostasQuesitos[quesito] }}</p>
+                } @else {
+                   <mat-form-field appearance="outline" class="w-full">
+                      <textarea matInput [(ngModel)]="laudoData.respostasQuesitos[quesito]" rows="3"></textarea>
+                   </mat-form-field>
+                }
               </div>
             }
           </div>
@@ -264,16 +413,13 @@
       }
 
       <footer class="doc-footer">
-        <p>Laudo emitido eletronicamente em {{ laudo.dadosLaudo?.DIA_LAUDO }}/{{ laudo.dadosLaudo?.MES_LAUDO }}/{{ laudo.dadosLaudo?.ANO_LAUDO }}</p>
+        <p>Laudo emitido eletronicamente em {{ laudoData.dadosLaudo?.DIA_LAUDO }}/{{ laudoData.dadosLaudo?.MES_LAUDO }}/{{ laudoData.dadosLaudo?.ANO_LAUDO }}</p>
       </footer>
 
-    } @else {
-      <div class="empty-state">
-        <mat-icon>folder_off</mat-icon>
-        <p>Nenhum laudo encontrado para este processo.</p>
-      </div>
-    }
   } @else {
-    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+    <div class="loading-container">
+       <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+       <p style="text-align:center; margin-top: 1rem;">Carregando laudo...</p>
+    </div>
   }
 </div>

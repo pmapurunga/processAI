@@ -325,3 +325,9 @@
   .w-full {
     width: 100%;
   }
+
+  .simple-input {
+    border: 1px solid #ccc;
+    padding: 4px;
+    border-radius: 4px;
+  }

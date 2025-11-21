@@ -27,6 +27,7 @@ import { MatListModule } from '@angular/material/list';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatInputModule } from '@angular/material/input';
 
 @Component({
   selector: 'app-laudo-pericial',
@@ -43,6 +44,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
     MatProgressBarModule,
     MatExpansionModule,
     MatIconModule,
+    MatInputModule,
     MatSnackBarModule,
     MatTabsModule,
     MatChipsModule,
@@ -64,27 +66,28 @@ export class LaudoPericialComponent {
   private location = inject(Location);
 
   laudoData: any = null;
+  laudoBackup: any = null; // Para restaurar se cancelar
   processoId: string | null = null;
 
-  // Carrega o Laudo do Firestore
+  // Controle do Modo de Edição
+  isEditing = signal(false);
+
+  // Ajuste no laudo$ para garantir que laudoData esteja sempre sincronizado
   laudo$ = this.route.paramMap.pipe(
     map(params => params.get('id')),
-    tap(id => this.processoId = id), // Armazena o ID do processo para uso posterior
+    tap(id => this.processoId = id),
     switchMap(id => { 
-      if (!id) {
-        return [];
-      }
+      if (!id) return [];
       return this.firestoreService.getLaudoPericial(id);
     }),
     tap(laudo => {
-      this.laudoData = laudo;
-      // Se o laudo já tiver uma análise salva, carrega no signal para exibir
+      this.laudoData = laudo; 
+      // Se o laudo já tiver uma análise salva, carrega no signal
       if (laudo && laudo.analiseIA) {
         this.resultadoAnaliseIA.set(laudo.analiseIA);
       }
     })
   );
-
   // --- Lógica das Diretrizes e IA ---
 
   // 1. Carrega todas as diretrizes do banco
@@ -119,6 +122,40 @@ export class LaudoPericialComponent {
     this.snackBar.open(message, 'Fechar', {
       duration: 3000,
     });
+  }
+
+  toggleEdit() {
+    if (this.isEditing()) {
+      // Se estava editando e clicou de novo (sem salvar), cancela
+      this.cancelarEdicao();
+    } else {
+      // Entrar no modo de edição: faz backup dos dados
+      this.laudoBackup = JSON.parse(JSON.stringify(this.laudoData));
+      this.isEditing.set(true);
+    }
+  }
+
+  cancelarEdicao() {
+    // Restaura os dados originais
+    this.laudoData = JSON.parse(JSON.stringify(this.laudoBackup));
+    this.isEditing.set(false);
+    this.laudoBackup = null;
+  }
+
+  async salvarEdicao() {
+    if (!this.processoId || !this.laudoData) return;
+
+    try {
+      // Chama o serviço do Firestore para atualizar
+      await this.firestoreService.updateLaudoPericial(this.processoId, this.laudoData);
+      
+      this.showCopyMessage('Alterações salvas com sucesso!');
+      this.isEditing.set(false);
+      this.laudoBackup = null;
+    } catch (error) {
+      console.error('Erro ao salvar:', error);
+      this.showCopyMessage('Erro ao salvar alterações.');
+    }
   }
 
   // --- INTEGRAÇÃO COM IA (GEMINI) ---
