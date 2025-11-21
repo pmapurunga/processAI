@@ -15,7 +15,7 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 interface ProcessAnalysis {
-  metadadosConsolidacao: {
+    metadadosConsolidacao?: { 
     numeroProcesso: string;
     dataUltimaMovimentacao: string;
     dataExamePericial: string;
@@ -25,7 +25,8 @@ interface ProcessAnalysis {
       fim: string;
     };
   };
-  dadosCadastrais: {
+  // Adicionámos o '?' aqui
+  dadosCadastrais?: {
     autor: {
       nomeCompleto: string;
       cpf: string;
@@ -45,7 +46,8 @@ interface ProcessAnalysis {
       tribunal: string;
     };
   };
-  resumoProcessual: {
+  // Adicionámos o '?' aqui, que é o que estava a causar o aviso específico
+  resumoProcessual?: {
     objetoDaAcao: string;
     teseInicial: string;
     teseDefesa: string;
@@ -55,10 +57,11 @@ interface ProcessAnalysis {
       evento: string;
     }[];
   };
-  saudeConsolidada: {
+  // É boa prática colocar '?' nos outros também se não forem garantidos
+  saudeConsolidada?: {
     historicoClinicoNarrativo: string;
   };
-  ocupacionalConsolidado: {
+  ocupacionalConsolidado?: {
     historicoNarrativo: string;
     cargosIdentificados: {
       cargo: string;
@@ -66,7 +69,7 @@ interface ProcessAnalysis {
       empresa: string;
     }[];
   };
-  pontosDeAtencao: string;
+  pontosDeAtencao?: string;
 }
 
 @Component({

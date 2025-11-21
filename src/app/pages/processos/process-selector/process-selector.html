@@ -7,7 +7,7 @@
         <h1>Processo nº {{ data.metadadosConsolidacao.numeroProcesso }}</h1>
         <div class="header-meta">
           @if (data.resumoProcessual?.statusAtual) {
-            <mat-chip>{{ data.resumoProcessual.statusAtual }}</mat-chip>
+            <mat-chip>{{ data.resumoProcessual?.statusAtual }}</mat-chip>
           }
           <span>Última mov: {{ data.metadadosConsolidacao.dataUltimaMovimentacao }}</span>
         </div>

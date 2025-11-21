@@ -1,60 +1,84 @@
-import { inject, Injectable } from '@angular/core';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, throwError } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { Injectable } from '@angular/core';
+import { Observable, from } from 'rxjs';
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 
-// Interfaces existentes para análise de documentos
-export interface AnalysisRequest {
-  driveUrl: string;
-  processId: string;
-  promptId: string;
-}
+// Importação do ambiente
+import { environment } from '../../../environments/environment';
 
-export interface AnalysisResponse {
-  message: string;
-  processId: string;
-  filesFound: number;
-}
-
-// NOVA INTERFACE: Payload para a geração de texto com IA
+// Interface do Payload para a IA
 export interface GenAIPayload {
-  model: string;            // Ex: 'gemini-1.5-pro'
-  systemInstruction: string; // O prompt do sistema (configuração)
-  userContent: string;       // O conteúdo dinâmico (JSON do laudo + Diretrizes)
-  temperature?: number;      // Opcional: Criatividade da IA (0.0 a 1.0)
+  model: string;            
+  systemInstruction: string; 
+  userContent: string;       
+  temperature?: number;      
 }
 
 @Injectable({
   providedIn: 'root',
 })
 export class AnalysisService {
-  private http = inject(HttpClient);
+  // --- CONFIGURAÇÃO DO GEMINI (CLIENT-SIDE) ---
+  private readonly API_KEY = environment.geminiApiKey;
+  private genAI: GoogleGenerativeAI;
 
-  // URL existente para processamento de arquivos
-  private analysisFunctionUrl = 'https://iniciar-analise-http-dh5jkkqpaa-uc.a.run.app';
-
-  // NOVA URL: Endpoint para geração de texto/chat (IA)
-  // IMPORTANTE: Substitua pela URL real da sua Cloud Function quando a criar.
-  // Exemplo: 'https://us-central1-seu-projeto.cloudfunctions.net/gerarAnaliseLaudo'
-  private genAiFunctionUrl = 'https://us-central1-processai-468612.cloudfunctions.net/gerarAnaliseLaudo';
-
-  // Método existente: Inicia a análise de documentos do Drive
-  startAnalysis(request: AnalysisRequest): Observable<AnalysisResponse> {
-    return this.http.post<AnalysisResponse>(this.analysisFunctionUrl, request).pipe(
-      catchError((error: HttpErrorResponse) => {
-        console.error('Ocorreu um erro ao chamar a Cloud Function (Start Analysis):', error.message);
-        return throwError(() => new Error(error.error?.message || 'Erro desconhecido do servidor.'));
-      })
-    );
+  constructor() {
+    // Inicializa o SDK
+    if (!this.API_KEY) {
+      console.error('ERRO CRÍTICO: API Key do Gemini não encontrada em environment.ts');
+    }
+    this.genAI = new GoogleGenerativeAI(this.API_KEY || '');
   }
 
-  // NOVO MÉTODO: Gera a análise textual do Laudo usando IA
+  // Método: Gera a análise textual usando IA (Gemini)
   generateLaudoAnalysis(payload: GenAIPayload): Observable<{ responseText: string }> {
-    return this.http.post<{ responseText: string }>(this.genAiFunctionUrl, payload).pipe(
-      catchError((error: HttpErrorResponse) => {
-        console.error('Erro na chamada da IA (Generate Laudo):', error);
-        return throwError(() => new Error(error.error?.message || 'Falha ao gerar análise com IA.'));
-      })
-    );
+    
+    const model = this.genAI.getGenerativeModel({
+      model: payload.model || 'gemini-1.5-pro',
+      systemInstruction: payload.systemInstruction,
+      safetySettings: [
+        {
+          category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+          threshold: HarmBlockThreshold.BLOCK_NONE,
+        },
+        {
+          category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+          threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+        },
+        {
+            category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+            threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+        },
+        {
+            category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+            threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+        }
+      ]
+    });
+
+    const generationConfig = {
+      temperature: payload.temperature ?? 0.4,
+      topK: 32,
+      topP: 1,
+      maxOutputTokens: 8192,
+    };
+
+    const aiPromise = async () => {
+      try {
+        const result = await model.generateContent({
+          contents: [{ role: 'user', parts: [{ text: payload.userContent }] }],
+          generationConfig,
+        });
+
+        const response = await result.response;
+        const text = response.text();
+        
+        return { responseText: text };
+      } catch (error: any) {
+        console.error('Erro local no Gemini SDK:', error);
+        throw new Error('Falha ao gerar texto com Gemini: ' + (error.message || error));
+      }
+    };
+
+    return from(aiPromise()); 
   }
 }

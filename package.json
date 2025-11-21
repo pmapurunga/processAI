@@ -20,6 +20,7 @@
     "@angular/material": "^20.2.12",
     "@angular/platform-browser": "^20.1.0",
     "@angular/router": "^20.1.0",
+    "@google/generative-ai": "^0.24.1",
     "firebase": "^11.8.1",
     "ngx-markdown": "^20.1.0",
     "rxjs": "~7.8.0",
