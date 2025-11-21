@@ -1,76 +1,92 @@
-<<<<<<< HEAD
-# Myapp
+# ProcessAI
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 20.1.5.
-=======
-<<<<<<< HEAD
-# Firebase Studio
+**ProcessAI** é uma aplicação web desenvolvida em **Angular** projetada para auxiliar na gestão e análise de processos judiciais. O sistema foca na otimização de tarefas como análise de documentos médicos, avaliações periciais e geração de laudos, integrando funcionalidades de inteligência artificial e gestão documental.
 
-This is a NextJS starter in Firebase Studio.
+## 🚀 Funcionalidades Principais
 
-To get started, take a look at src/app/page.tsx.
-=======
-# PericiaMedicaApp
+* **Autenticação Segura:** Login integrado com Google (Firebase Authentication).
+* **Gestão de Processos:** Listagem, seleção e gerenciamento de detalhes de processos.
+* **Análise de Documentos:** Upload e visualização de documentos (PDFs) com foco em documentos médicos.
+* **Perícia Digital:**
+    * Avaliação Pericial detalhada.
+    * Geração e visualização de Laudos Periciais.
+* **Gestão de Prompts:** Interface para configurar e testar prompts utilizados na análise de IA.
+* **Diretrizes:** Área para configuração de diretrizes de análise.
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.2.14.
->>>>>>> 3b6eac17852f95ef01a73db1f985205afab1fce7
+## 🛠 Tecnologias Utilizadas
 
-## Development server
+O projeto utiliza uma stack moderna baseada no ecossistema Angular e Google Firebase:
 
-To start a local development server, run:
+* **Frontend:** [Angular](https://angular.io/) (v19+)
+    * Arquitetura baseada em **Standalone Components**.
+    * **Angular Material** para componentes de UI (botões, inputs, tabelas, dialogs).
+    * **RxJS** para programação reativa.
+* **Backend & Infraestrutura:** [Firebase](https://firebase.google.com/)
+    * **Authentication:** Gestão de usuários.
+    * **Firestore:** Banco de dados NoSQL em tempo real.
+    * **Storage:** Armazenamento de arquivos (PDFs e anexos).
+    * **Cloud Functions:** (Opcional) Lógica de servidor serverless.
+* **Estilização:** SCSS e CSS customizados com tema do Angular Material.
 
-```bash
-ng serve
-```
+## 📋 Pré-requisitos
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+Antes de começar, certifique-se de ter instalado em sua máquina:
 
-## Code scaffolding
+* [Node.js](https://nodejs.org/) (Versão LTS recomendada, v18 ou superior)
+* [Angular CLI](https://angular.io/cli): Instale globalmente com `npm install -g @angular/cli`
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+## 🔧 Instalação e Configuração
 
-```bash
-ng generate component component-name
-```
+1.  **Clone o repositório:**
+    ```bash
+    git clone [https://github.com/seu-usuario/process-ai.git](https://github.com/seu-usuario/process-ai.git)
+    cd process-ai
+    ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+2.  **Instale as dependências:**
+    ```bash
+    npm install
+    ```
 
-```bash
-ng generate --help
-```
+3.  **Configuração do Firebase:**
+    O projeto depende das credenciais do Firebase.
+    * Crie um projeto no console do Firebase.
+    * Copie as configurações do seu app web (apiKey, authDomain, etc.).
+    * Atualize o arquivo `src/environments/environment.ts` (e `environment.prod.ts`):
 
-## Building
+    ```typescript
+    export const environment = {
+      production: false,
+      firebaseConfig: {
+        apiKey: "SUA_API_KEY",
+        authDomain: "SEU_PROJETO.firebaseapp.com",
+        projectId: "SEU_PROJECT_ID",
+        storageBucket: "SEU_PROJETO.firebasestorage.app",
+        messagingSenderId: "SEU_SENDER_ID",
+        appId: "SEU_APP_ID"
+      }
+    };
+    ```
 
-To build the project run:
+4.  **Execute o servidor de desenvolvimento:**
+    ```bash
+    ng serve
+    ```
+    Acesse a aplicação em `http://localhost:4200/`.
 
-```bash
-ng build
-```
+## 📂 Estrutura do Projeto
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+A estrutura segue as boas práticas do Angular moderno:
 
-## Running unit tests
-
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
-<<<<<<< HEAD
-=======
->>>>>>> origin/main
->>>>>>> 3b6eac17852f95ef01a73db1f985205afab1fce7
+```text
+src/
+├── app/
+│   ├── layout/          # Estrutura base (Sidebar, Header)
+│   ├── login/           # Tela de Login
+│   ├── models/          # Interfaces e Tipos (TypeScript)
+│   ├── pages/           # Páginas principais (Lista, Detalhes, Laudos)
+│   ├── services/        # Serviços de API e Regras de Negócio (Firebase)
+│   ├── app.routes.ts    # Configuração de rotas
+│   └── app.config.ts    # Configuração global (Providers)
+├── assets/              # Imagens e recursos estáticos
+└── environments/        # Configurações de ambiente (Firebase Keys)
