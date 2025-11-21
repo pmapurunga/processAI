@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { ActivatedRoute } from '@angular/router';
 import { map, switchMap, tap } from 'rxjs';
 import { FirestoreService } from '../../firestore.service';
-import { CommonModule } from '@angular/common';
+import { CommonModule, Location } from '@angular/common';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { MarkdownModule } from 'ngx-markdown';
 import { MatCardModule } from '@angular/material/card';
@@ -33,6 +33,7 @@ export class LaudoPericialComponent {
   private firestoreService = inject(FirestoreService);
   private clipboard = inject(Clipboard);
   private snackBar = inject(MatSnackBar);
+  private location = inject(Location);
 
   laudoData: any = null;
 
@@ -49,6 +50,10 @@ export class LaudoPericialComponent {
 
   objectKeys(obj: any): string[] {
     return Object.keys(obj || {});
+  }
+
+  goBack(): void {
+    this.location.back();
   }
 
   private showCopyMessage(message: string) {

@@ -8,6 +8,10 @@
           <mat-card-subtitle>NOME: {{ laudo.identificacaoProcesso?.NOME_PERICIANDO }}</mat-card-subtitle>
         </mat-card-header>
         <mat-card-actions>
+          <button mat-button (click)="goBack()">
+            <mat-icon>arrow_back</mat-icon>
+            Voltar
+          </button>
           <button mat-raised-button color="primary" (click)="copyJsonToClipboard()">
             <mat-icon>content_copy</mat-icon>
             Copiar JSON
@@ -61,8 +65,8 @@
             <mat-expansion-panel>
               <mat-expansion-panel-header>
                 <mat-panel-title>5. Obsevações</mat-panel-title>
-              </mat-expansion-panel-header>            
-              <markdown [data]="laudo.OBSERVACOES"></markdown>              
+              </mat-expansion-panel-header>
+              <markdown [data]="laudo.OBSERVACOES"></markdown>
             </mat-expansion-panel>
             <mat-expansion-panel>
               <mat-expansion-panel-header>

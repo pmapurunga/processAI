@@ -8,7 +8,6 @@ import { LoginComponent } from './login/login';
 import { authGuard } from './auth.guard';
 import { ProcessSelectorComponent } from './pages/process-selector/process-selector';
 import { AvaliacaoPericialComponent } from './pages/avaliacao-pericial/avaliacao-pericial';
-import { DocumentosConsolidadosComponent } from './pages/documentos-consolidados/documentos-consolidados';
 import { LaudoPericialComponent } from './pages/laudo-pericial/laudo-pericial';
 
 export const routes: Routes = [
@@ -25,7 +24,6 @@ export const routes: Routes = [
       { path: 'process/:id', component: ProcessSelectorComponent },
       { path: 'process/:id/documentos-analisados', component: ProcessDetailComponent },
       { path: 'process/:processoId/avaliacao-pericial', component: AvaliacaoPericialComponent },
-      { path: 'process/:processId/documentos-consolidados', component: DocumentosConsolidadosComponent },
       { path: 'process/:numero_processo/laudo-pericial', component: LaudoPericialComponent },
     ]
   }

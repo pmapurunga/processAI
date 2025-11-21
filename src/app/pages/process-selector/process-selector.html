@@ -1,65 +1,150 @@
+<!-- FIX: Added conditional rendering to prevent race condition errors -->
 <div class="page-container">
-  <header class="page-header">
-    @if (processId()) {
-      <h1>Detalhes do Processo: {{ processId() }}</h1>
-      <p>Selecione uma das opções abaixo para visualizar os detalhes da análise.</p>
-    } @else {
-      <h1>Detalhes do Processo</h1>
-      <p>Selecione uma opção para visualizar.</p>
+  @if (analysis(); as data) {
+  <mat-toolbar color="primary">
+    @if (data.metadadosConsolidacao) {
+      <span>Processo: {{ data.metadadosConsolidacao.numeroProcesso }}</span>
     }
-  </header>
+  </mat-toolbar>
 
-  <main class="card-grid">
-    <a [routerLink]="['/process', processId(), 'avaliacao-pericial']" class="card-link">
-      <div class="card">
-        <div class="card-icon">📊</div>
-        <div class="card-body">
-          <h3>Avaliação Pericial</h3>
-          <p>Análise detalhada e avaliação técnica da perícia.</p>
-        </div>
-        <div class="card-footer">
-          <span>Acessar</span> →
-        </div>
-      </div>
-    </a>
+  <main class="content">
+    <div class="navigation-cards">
+      <a mat-raised-button [routerLink]="['/process', processId(), 'avaliacao-pericial']">
+        <mat-icon>assessment</mat-icon>
+        Avaliação Pericial
+      </a>
+      <a mat-raised-button [routerLink]="['/process', processId(), 'laudo-pericial']">
+        <mat-icon>gavel</mat-icon>
+        Laudo Pericial
+      </a>
+      <a mat-raised-button [routerLink]="['/process', processId(), 'documentos-analisados']">
+        <mat-icon>folder_open</mat-icon>
+        Documentos Analisados
+      </a>
+    </div>
 
-    <a [routerLink]="['/process', processId(), 'documentos-consolidados']" class="card-link">
-      <div class="card">
-        <div class="card-icon">📚</div>
-        <div class="card-body">
-          <h3>Documentos Consolidados</h3>
-          <p>Visualize os documentos unificados e seus resumos.</p>
-        </div>
-        <div class="card-footer">
-          <span>Acessar</span> →
-        </div>
-      </div>
-    </a>
+    @if (data.metadadosConsolidacao) {
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>Metadados da Consolidação</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <mat-list>
+            <mat-list-item>Data da Última Movimentação: {{ data.metadadosConsolidacao.dataUltimaMovimentacao }}</mat-list-item>
+            <mat-list-item>Data do Exame Pericial: {{ data.metadadosConsolidacao.dataExamePericial }}</mat-list-item>
+            <mat-list-item>Arquivos Analisados: {{ data.metadadosConsolidacao.quantidadeArquivosAnalisados }}</mat-list-item>
+            @if (data.metadadosConsolidacao.periodoCoberto) {
+              <mat-list-item>Período Coberto: {{ data.metadadosConsolidacao.periodoCoberto.inicio }} a {{ data.metadadosConsolidacao.periodoCoberto.fim }}</mat-list-item>
+            }
+          </mat-list>
+        </mat-card-content>
+      </mat-card>
+    }
 
-    <a [routerLink]="['/process', processId(), 'laudo-pericial']" class="card-link">
-      <div class="card">
-        <div class="card-icon">📝</div>
-        <div class="card-body">
-          <h3>Laudo Pericial</h3>
-          <p>Confira o laudo pericial gerado a partir da análise.</p>
-        </div>
-        <div class="card-footer">
-          <span>Acessar</span> →
-        </div>
-      </div>
-    </a>
+    @if (data.dadosCadastrais) {
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>Dados Cadastrais</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          @if (data.dadosCadastrais.autor) {
+            <h2>Autor</h2>
+            <p>{{ data.dadosCadastrais.autor.nomeCompleto }}</p>
+            <mat-list>
+                <mat-list-item>CPF: {{ data.dadosCadastrais.autor.cpf }}</mat-list-item>
+                <mat-list-item>Nascimento: {{ data.dadosCadastrais.autor.nascimento }}</mat-list-item>
+                <mat-list-item>Sexo: {{ data.dadosCadastrais.autor.sexo }}</mat-list-item>
+                <mat-list-item>Estado Civil: {{ data.dadosCadastrais.autor.estadoCivil }}</mat-list-item>
+                <mat-list-item>Escolaridade: {{ data.dadosCadastrais.autor.escolaridade }}</mat-list-item>
+                <mat-list-item>Endereço: {{ data.dadosCadastrais.autor.endereco }}</mat-list-item>
+            </mat-list>
+          }
+          <mat-divider></mat-divider>
+          @if (data.dadosCadastrais.reu) {
+            <h2>Réu</h2>
+            <p>{{ data.dadosCadastrais.reu.nome }}</p>
+            @if(data.dadosCadastrais.reu.cnpj) {
+              <p>CNPJ: {{ data.dadosCadastrais.reu.cnpj }}</p>
+            }
+            @if(data.dadosCadastrais.reu.atividadePrincipal) {
+              <p>Atividade Principal: {{ data.dadosCadastrais.reu.atividadePrincipal }}</p>
+            }
+          }
+          <mat-divider></mat-divider>
+          @if (data.dadosCadastrais.orgaoJulgador) {
+            <h2>Órgão Julgador</h2>
+            <p>{{ data.dadosCadastrais.orgaoJulgador.vara }} - {{ data.dadosCadastrais.orgaoJulgador.tribunal }}</p>
+          }
+        </mat-card-content>
+      </mat-card>
+    }
 
-    <a [routerLink]="['/process', processId(), 'documentos-analisados']" class="card-link">
-      <div class="card">
-        <div class="card-icon">📂</div>
-        <div class="card-body">
-          <h3>Documentos Analisados</h3>
-          <p>Veja a lista completa de todos os documentos processados.</p>
-        </div>
-        <div class="card-footer">
-          <span>Acessar</span> →
-        </div>
-      </div>
-    </a>
+    @if (data.resumoProcessual) {
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>Resumo Processual</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <p><strong>Objeto da Ação:</strong> {{ data.resumoProcessual.objetoDaAcao }}</p>
+          <p><strong>Status Atual:</strong> <mat-chip>{{ data.resumoProcessual.statusAtual }}</mat-chip></p>
+          <h3>Tese Inicial</h3>
+          <p>{{ data.resumoProcessual.teseInicial }}</p>
+          <h3>Tese da Defesa</h3>
+          <p>{{ data.resumoProcessual.teseDefesa }}</p>
+          <h3>Linha do Tempo</h3>
+          <mat-list>
+            @for(item of data.resumoProcessual.linhaDoTempoEventos; track item) {
+              <mat-list-item>{{ item.data }}: {{ item.evento }}</mat-list-item>
+            }
+          </mat-list>
+        </mat-card-content>
+      </mat-card>
+    }
+
+    @if (data.saudeConsolidada) {
+      <mat-card>
+          <mat-card-header>
+              <mat-card-title>Saúde Consolidada</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+              <p>{{ data.saudeConsolidada.historicoClinicoNarrativo }}</p>
+          </mat-card-content>
+      </mat-card>
+    }
+
+    @if (data.ocupacionalConsolidado) {
+      <mat-card>
+          <mat-card-header>
+              <mat-card-title>Ocupacional Consolidado</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+              <p>{{ data.ocupacionalConsolidado.historicoNarrativo }}</p>
+              <h3>Cargos Identificados</h3>
+              <mat-list>
+                  @for(cargo of data.ocupacionalConsolidado.cargosIdentificados; track cargo) {
+                      <mat-list-item>{{ cargo.cargo }} ({{ cargo.periodo }}) - {{ cargo.empresa }}</mat-list-item>
+                  }
+              </mat-list>
+          </mat-card-content>
+      </mat-card>
+    }
+
+    @if (data.pontosDeAtencao) {
+      <mat-card color="warn">
+          <mat-card-header>
+              <mat-card-title>Pontos de Atenção</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+              <p>{{ data.pontosDeAtencao }}</p>
+          </mat-card-content>
+      </mat-card>
+    }
+
   </main>
+  } @else {
+  <div class="spinner-container">
+    <mat-spinner></mat-spinner>
+    <p>Carregando dados do processo...</p>
+  </div>
+  }
 </div>

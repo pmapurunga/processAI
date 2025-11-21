@@ -33,9 +33,7 @@
 
           <mat-form-field appearance="outline">
             <mat-label>Data do Exame</mat-label>
-            <input matInput [matDatepicker]="dataExamePicker" formControlName="DATA_EXAME">
-            <mat-datepicker-toggle matSuffix [for]="dataExamePicker"></mat-datepicker-toggle>
-            <mat-datepicker #dataExamePicker></mat-datepicker>
+            <input matInput formControlName="DATA_EXAME" placeholder="Ex: 05/11/2025">
           </mat-form-field>
         </div>
       </mat-card-content>
@@ -53,9 +51,7 @@
         <div class="form-grid">
           <mat-form-field appearance="outline">
             <mat-label>Data de Nascimento</mat-label>
-            <input matInput [matDatepicker]="dataNascimentoPicker" formControlName="DATA_NASCIMENTO">
-            <mat-datepicker-toggle matSuffix [for]="dataNascimentoPicker"></mat-datepicker-toggle>
-            <mat-datepicker #dataNascimentoPicker></mat-datepicker>
+            <input matInput formControlName="DATA_NASCIMENTO" placeholder="Ex: 12/03/1978 (47 anos)">
           </mat-form-field>
 
           <mat-form-field appearance="outline">
@@ -69,26 +65,12 @@
 
           <mat-form-field appearance="outline">
             <mat-label>Estado Civil</mat-label>
-            <mat-select formControlName="ESTADO_CIVIL">
-              <mat-option value="Solteiro(a)">Solteiro(a)</mat-option>
-              <mat-option value="Casado(a)">Casado(a)</mat-option>
-              <mat-option value="Divorciado(a)">Divorciado(a)</mat-option>
-              <mat-option value="Viúvo(a)">Viúvo(a)</mat-option>
-              <mat-option value="União Estável">União Estável</mat-option>
-            </mat-select>
+            <input matInput formControlName="ESTADO_CIVIL" placeholder="Ex: Solteiro(a)">
           </mat-form-field>
 
           <mat-form-field appearance="outline">
             <mat-label>Escolaridade</mat-label>
-            <mat-select formControlName="ESCOLARIDADE">
-              <mat-option value="Ensino Fundamental Incompleto">Ensino Fundamental Incompleto</mat-option>
-              <mat-option value="Ensino Fundamental Completo">Ensino Fundamental Completo</mat-option>
-              <mat-option value="Ensino Médio Incompleto">Ensino Médio Incompleto</mat-option>
-              <mat-option value="Ensino Médio Completo">Ensino Médio Completo</mat-option>
-              <mat-option value="Ensino Superior Incompleto">Ensino Superior Incompleto</mat-option>
-              <mat-option value="Ensino Superior Completo">Ensino Superior Completo</mat-option>
-              <mat-option value="Pós-graduação">Pós-graduação</mat-option>
-            </mat-select>
+            <input matInput formControlName="ESCOLARIDADE" placeholder="Ex: Ensino Médio Completo">
           </mat-form-field>
         </div>
       </mat-card-content>
@@ -142,15 +124,13 @@
 
           <mat-form-field appearance="outline">
             <mat-label>Data de Afastamento Declarada</mat-label>
-            <input matInput [matDatepicker]="dataAfastamentoPicker" formControlName="DATA_AFASTAMENTO_DECLARADA">
-            <mat-datepicker-toggle matSuffix [for]="dataAfastamentoPicker"></mat-datepicker-toggle>
-            <mat-datepicker #dataAfastamentoPicker></mat-datepicker>
+            <input matInput formControlName="DATA_AFASTAMENTO_DECLARADA" placeholder="Ex: 10/10/2024">
           </mat-form-field>
         </div>
 
         <mat-form-field appearance="outline" class="w-full">
           <mat-label>Histórico Ocupacional Completo</mat-label>
-          <textarea matInput formControlName="HISTORICO_OCUPACIONAL_COMPLETO" 
+          <textarea matInput formControlName="HISTORICO_OCUPACIONAL_COMPLETO"
                     rows="4" placeholder="Descreva o histórico ocupacional completo"></textarea>
         </mat-form-field>
 
@@ -159,7 +139,7 @@
             <mat-icon>history</mat-icon>
             Experiências Laborais Anteriores
           </h3>
-          
+
           @for (exp of experienciasControls; track $index) {
             <div [formGroupName]="$index" class="experience-array-item mat-elevation-z1">
               <h4>
@@ -197,7 +177,7 @@
               </div>
             </div>
           }
-          
+
           <div class="form-actions-secondary">
             <button mat-stroked-button color="primary" type="button" (click)="adicionarExperiencia()">
               <mat-icon>add</mat-icon>
@@ -219,7 +199,7 @@
 
             <mat-form-field appearance="outline" class="w-full">
               <mat-label>Tarefas Executadas</mat-label>
-              <textarea matInput formControlName="tarefas_executadas" rows="4" 
+              <textarea matInput formControlName="tarefas_executadas" rows="4"
                         placeholder="Descreva as tarefas executadas"></textarea>
             </mat-form-field>
 
@@ -274,19 +254,19 @@
       <mat-card-content>
         <mat-form-field appearance="outline" class="w-full">
           <mat-label>História Clínica</mat-label>
-          <textarea matInput formControlName="HISTORIA_CLINICA" 
+          <textarea matInput formControlName="HISTORIA_CLINICA"
                     rows="4" placeholder="Descreva a história clínica do periciando"></textarea>
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="w-full">
           <mat-label>Exames</mat-label>
-          <textarea matInput formControlName="EXAMES" 
+          <textarea matInput formControlName="EXAMES"
                     rows="4" placeholder="Liste os exames realizados"></textarea>
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="w-full">
           <mat-label>Exame Clínico</mat-label>
-          <textarea matInput formControlName="EXAME_CLINICO" 
+          <textarea matInput formControlName="EXAME_CLINICO"
                     rows="4" placeholder="Descreva os resultados do exame clínico"></textarea>
         </mat-form-field>
       </mat-card-content>
