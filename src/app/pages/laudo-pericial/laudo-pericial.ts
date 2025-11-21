@@ -1,9 +1,16 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { map, switchMap, tap } from 'rxjs';
 import { FirestoreService } from '../../firestore.service';
 import { CommonModule, Location } from '@angular/common';
 import { Clipboard } from '@angular/cdk/clipboard';
+import { FormsModule } from '@angular/forms';
+import { toSignal } from '@angular/core/rxjs-interop';
+
+// Serviços
+import { DiretrizesService, Diretriz } from '../../services/diretrizes.service';
+
+// Material Imports
 import { MarkdownModule } from 'ngx-markdown';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -11,18 +18,23 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatTabsModule } from '@angular/material/tabs'; // <--- NOVO
-import { MatChipsModule } from '@angular/material/chips'; // <--- NOVO (Opcional, para status)
-import { MatDividerModule } from '@angular/material/divider'; // <--- NOVO
+import { MatTabsModule } from '@angular/material/tabs';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatDividerModule } from '@angular/material/divider';
+import { MatListModule } from '@angular/material/list';
+import { MatSelectModule } from '@angular/material/select';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 @Component({
   selector: 'app-laudo-pericial',
   templateUrl: './laudo-pericial.html',
   styleUrls: ['./laudo-pericial.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  standalone: true, // Garante que é standalone
+  standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     MarkdownModule,
     MatCardModule,
     MatButtonModule,
@@ -30,20 +42,26 @@ import { MatDividerModule } from '@angular/material/divider'; // <--- NOVO
     MatExpansionModule,
     MatIconModule,
     MatSnackBarModule,
-    MatTabsModule, // <--- Adicionar
-    MatChipsModule, // <--- Adicionar
-    MatDividerModule // <--- Adicionar
+    MatTabsModule,
+    MatChipsModule,
+    MatDividerModule,
+    MatListModule,
+    MatSelectModule,
+    MatFormFieldModule,
+    MatProgressSpinnerModule
   ],
 })
 export class LaudoPericialComponent {
   private route = inject(ActivatedRoute);
   private firestoreService = inject(FirestoreService);
+  private diretrizesService = inject(DiretrizesService);
   private clipboard = inject(Clipboard);
   private snackBar = inject(MatSnackBar);
   private location = inject(Location);
 
   laudoData: any = null;
 
+  // Carrega o Laudo do Firestore
   laudo$ = this.route.paramMap.pipe(
     map(params => params.get('numero_processo')),
     switchMap(numero_processo => {
@@ -54,6 +72,28 @@ export class LaudoPericialComponent {
     }),
     tap(laudo => this.laudoData = laudo)
   );
+
+  // --- Lógica das Diretrizes e IA ---
+
+  // 1. Carrega todas as diretrizes do banco
+  todasDiretrizes = toSignal(this.diretrizesService.getDiretrizes(), { initialValue: [] });
+
+  // 2. Sinal para o filtro de Justiça (Padrão: Justiça Federal)
+  filtroJustica = signal<'Justiça Federal' | 'Justiça do Trabalho' | 'Justiça Comum'>('Justiça Federal');
+
+  // 3. Diretrizes filtradas (Computed: atualiza automaticamente)
+  diretrizesFiltradas = computed(() => {
+    const lista = this.todasDiretrizes();
+    const filtro = this.filtroJustica();
+    return lista.filter(d => d.justica === filtro);
+  });
+
+  // 4. Armazena as diretrizes selecionadas pelo usuário
+  diretrizesSelecionadas = signal<Diretriz[]>([]);
+
+  // 5. Estado da Análise IA
+  resultadoAnaliseIA = signal<string | null>(null);
+  isAnalisando = signal(false);
 
   objectKeys(obj: any): string[] {
     return Object.keys(obj || {});
@@ -69,11 +109,44 @@ export class LaudoPericialComponent {
     });
   }
 
-  // ... Mantenha as funções copyJsonToClipboard e copyPromptToClipboard exatamente como estão ...
+  // Função simulada para analisar com IA
+  async analisarComIA() {
+    if (this.diretrizesSelecionadas().length === 0) {
+      this.showCopyMessage('Selecione pelo menos uma diretriz.');
+      return;
+    }
+
+    this.isAnalisando.set(true);
+    this.resultadoAnaliseIA.set(null);
+
+    // Simulação de chamada à IA (Substituir por chamada real depois)
+    setTimeout(() => {
+      this.resultadoAnaliseIA.set(`
+### Análise Preliminar Baseada nas Diretrizes
+
+**Diretrizes Aplicadas:**
+${this.diretrizesSelecionadas().map(d => `* ${d.nome}`).join('\n')}
+
+**Parecer Sugerido:**
+Com base na documentação médica apresentada e nas diretrizes selecionadas, observa-se compatibilidade técnica com os critérios estabelecidos. A patologia descrita no laudo encontra correspondência nos requisitos da norma selecionada, sugerindo nexo técnico.
+
+*(Esta é uma resposta simulada. A integração real será criada posteriormente.)*
+      `);
+      this.isAnalisando.set(false);
+    }, 2000);
+  }
+
+  // Função auxiliar para atualizar as diretrizes (necessária pois o HTML não aceita arrow functions)
+  atualizarDiretrizes(opcoes: any[]) {
+    // Mapeia as opções para pegar apenas o valor (a diretriz em si)
+    const valores = opcoes.map(opcao => opcao.value);
+    this.diretrizesSelecionadas.set(valores);
+  }
+
+  // Copiar JSON
   copyJsonToClipboard() {
     if (this.laudoData) {
-       // ... (código existente mantido)
-       const filteredLaudo = {
+      const filteredLaudo = {
         identificacaoProcesso: {
           PROCESSO_NUM: this.laudoData.identificacaoProcesso?.PROCESSO_NUM ?? null,
           JUIZO: this.laudoData.identificacaoProcesso?.JUIZO ?? null,
@@ -128,9 +201,9 @@ export class LaudoPericialComponent {
     }
   }
 
+  // Copiar Prompt
   copyPromptToClipboard() {
-      // ... (código existente mantido)
-       if (this.laudoData) {
+    if (this.laudoData) {
       const prompt = `**Comando Principal:**
 
 Você é "Perícias Médica Federal", um Médico do Trabalho e Perito Médico Federal. Sua atuação deve ser pautada estritamente pelas diretrizes de elaboração de laudo, pelo Decreto Nº 3.048/1999, pela Portaria Interministerial MTP/MS Nº 22/2022 e pela Lei Nº 13.146/2015 (Estatuto da Pessoa com Deficiência).
@@ -211,7 +284,6 @@ Execute a tarefa e gere o Laudo Médico Pericial fazendo a transcrição literal
       };
 
       const jsonString = JSON.stringify(filteredLaudo, null, 2);
-
       const finalContentToCopy = prompt.replace('#JSON_de_Entrada#', jsonString);
 
       this.clipboard.copy(finalContentToCopy);

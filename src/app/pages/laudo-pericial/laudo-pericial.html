@@ -7,8 +7,12 @@
           <span class="processo-badge">{{ laudo.identificacaoProcesso?.PROCESSO_NUM }}</span>
         </div>
         <div class="actions">
-          <button mat-button (click)="goBack()">Voltar</button>
-          <button mat-stroked-button (click)="copyJsonToClipboard()">JSON</button>
+          <button mat-button (click)="goBack()">
+            <mat-icon>arrow_back</mat-icon> Voltar
+          </button>
+          <button mat-stroked-button (click)="copyJsonToClipboard()">
+            <mat-icon>content_copy</mat-icon> JSON
+          </button>
           <button mat-flat-button color="primary" (click)="copyPromptToClipboard()">
             <mat-icon>smart_toy</mat-icon> Prompt AI
           </button>
@@ -158,6 +162,70 @@
               </div>
             </div>
           }
+        </div>
+      </mat-expansion-panel>
+
+      <mat-expansion-panel class="mb-4">
+        <mat-expansion-panel-header>
+          <mat-panel-title class="section-title">
+            <mat-icon>gavel</mat-icon> Análise com Diretrizes
+          </mat-panel-title>
+          <mat-panel-description>
+            Selecione normas para fundamentar a análise
+          </mat-panel-description>
+        </mat-expansion-panel-header>
+
+        <div class="diretrizes-container">
+          
+          <div class="filter-section">
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>Esfera Judicial</mat-label>
+              <mat-select [ngModel]="filtroJustica()" (ngModelChange)="filtroJustica.set($event)">
+                <mat-option value="Justiça Federal">Justiça Federal</mat-option>
+                <mat-option value="Justiça do Trabalho">Justiça do Trabalho</mat-option>
+                <mat-option value="Justiça Comum">Justiça Comum</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          <div class="list-section">
+            <p class="list-label">Selecione as diretrizes aplicáveis:</p>
+            <mat-selection-list #diretrizesList (selectionChange)="atualizarDiretrizes(diretrizesList.selectedOptions.selected)">
+              @for (diretriz of diretrizesFiltradas(); track diretriz.id) {
+                <mat-list-option [value]="diretriz" color="primary">
+                  <span matListItemTitle>{{ diretriz.nome }}</span>
+                  <span matListItemLine class="text-small">Link: {{ diretriz.link | slice:0:30 }}...</span>
+                </mat-list-option>
+              } @empty {
+                <div class="empty-list">
+                  <p>Nenhuma diretriz encontrada para esta esfera.</p>
+                </div>
+              }
+            </mat-selection-list>
+          </div>
+
+          <div class="action-section">
+            <button mat-flat-button color="accent" 
+                    (click)="analisarComIA()" 
+                    [disabled]="isAnalisando() || diretrizesSelecionadas().length === 0">
+              @if(isAnalisando()) {
+                <mat-icon><mat-spinner diameter="18"></mat-spinner></mat-icon>
+                Analisando...
+              } @else {
+                <mat-icon>psychology</mat-icon>
+                Analisar com IA
+              }
+            </button>
+          </div>
+
+          @if (resultadoAnaliseIA()) {
+            <mat-divider class="my-4"></mat-divider>
+            <div class="ai-result-box">
+              <h3><mat-icon class="ai-icon">auto_awesome</mat-icon> Sugestão da IA</h3>
+              <markdown [data]="resultadoAnaliseIA()"></markdown>
+            </div>
+          }
+
         </div>
       </mat-expansion-panel>
 
