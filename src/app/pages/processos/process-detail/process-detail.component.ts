@@ -1,13 +1,13 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { ProcessService } from '../services/process.service';
-import { Processo } from '../models/process.model';
+import { ProcessService } from '../../../core/services/process.service';
+import { Processo } from '../../../core/models/process.model';
 import { switchMap } from 'rxjs/operators';
 import { CommonModule, Location } from '@angular/common';
-import { DocumentCardComponent } from '../document-card/document-card';
+import { DocumentCardComponent } from '../../../shared/components/document-card/document-card';
 import { Clipboard } from '@angular/cdk/clipboard';
-import { MedicalDocumentsComponent } from '../components/medical-documents/medical-documents';
-import { MedicalDocument } from '../components/medical-documents/medical-document.model';
+import { MedicalDocumentsComponent } from '../../../shared/components/medical-documents/medical-documents';
+import { MedicalDocument } from '../../../shared/components/medical-documents/medical-document.model';
 
 @Component({
   selector: 'app-process-detail',

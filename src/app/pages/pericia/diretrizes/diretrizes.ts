@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { Diretriz, DiretrizesService } from '../../services/diretrizes.service';
+import { Diretriz, DiretrizesService } from '../../../core/services/diretrizes.service';
 
 // Material Imports
 import { MatCardModule } from '@angular/material/card';

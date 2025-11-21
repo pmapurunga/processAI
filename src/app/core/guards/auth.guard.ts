@@ -1,7 +1,7 @@
 import { inject, isDevMode } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { map, take } from 'rxjs/operators';
-import { AuthService } from './auth.service';
+import { AuthService } from '../services/auth.service';
 
 export const authGuard: CanActivateFn = (route, state) => {
   // If in development mode, always allow access

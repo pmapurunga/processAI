@@ -2,7 +2,7 @@ import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/cor
 import { toSignal } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { PromptService, Prompt } from '../../services/prompt.service';
+import { PromptService, Prompt } from '../../../core/services/prompt.service';
 
 // Material Imports
 import { MatCardModule } from '@angular/material/card';

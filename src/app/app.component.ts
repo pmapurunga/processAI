@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { AuthService } from './auth.service';
+import { AuthService } from './core/services/auth.service';
 import { CommonModule } from '@angular/common';
 
 @Component({

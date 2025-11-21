@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
-import { Documento } from '../models/process.model';
+import { Documento } from '../../../core/models/process.model';
 import { CommonModule } from '@angular/common';
 
 @Component({

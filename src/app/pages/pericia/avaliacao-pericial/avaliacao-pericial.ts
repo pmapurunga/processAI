@@ -93,7 +93,7 @@ export class AvaliacaoPericialComponent {
   private fb: FormBuilder = inject(FormBuilder);
   private location: Location = inject(Location);
 
-  processoId = this.route.snapshot.paramMap.get('processoId');
+  processoId = this.route.snapshot.paramMap.get('id');
   avaliacao$: Observable<AvaliacaoPericial | undefined>;
 
   form = this.fb.group({

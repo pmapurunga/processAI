@@ -1,9 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FirestoreService } from '../../firestore.service';
+import { FirestoreService } from '../../../core/services/firestore.service';
 import { Router } from '@angular/router';
 import { Subject, switchMap, tap } from 'rxjs';
-import { ProcessService } from '../../services/process.service';
+import { ProcessService } from '../../../core/services/process.service';
 import { MatListModule } from '@angular/material/list';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';

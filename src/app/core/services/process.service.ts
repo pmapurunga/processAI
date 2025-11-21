@@ -2,7 +2,7 @@
 import { inject, Injectable } from '@angular/core';
 import { forkJoin, map, Observable, from } from 'rxjs';
 import { Processo } from '../models/process.model';
-import { FirestoreService } from '../firestore.service';
+import { FirestoreService } from './firestore.service';
 import { Storage, ref, deleteObject, listAll, StorageError } from '@angular/fire/storage';
 
 @Injectable({

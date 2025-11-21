@@ -1,15 +1,13 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { map, switchMap, tap } from 'rxjs';
-import { FirestoreService } from '../../firestore.service';
+import { FirestoreService } from '../../../core/services/firestore.service';
 import { CommonModule, Location } from '@angular/common';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { FormsModule } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
-
 // Serviços
-import { DiretrizesService, Diretriz } from '../../services/diretrizes.service';
-
+import { DiretrizesService, Diretriz } from '../../../core/services/diretrizes.service';
 // Material Imports
 import { MarkdownModule } from 'ngx-markdown';
 import { MatCardModule } from '@angular/material/card';
@@ -63,12 +61,13 @@ export class LaudoPericialComponent {
 
   // Carrega o Laudo do Firestore
   laudo$ = this.route.paramMap.pipe(
-    map(params => params.get('numero_processo')),
-    switchMap(numero_processo => {
-      if (!numero_processo) {
+        map(params => params.get('id')),
+
+    switchMap(id => { 
+      if (!id) {
         return [];
       }
-      return this.firestoreService.getLaudoPericial(numero_processo);
+            return this.firestoreService.getLaudoPericial(id);
     }),
     tap(laudo => this.laudoData = laudo)
   );
