@@ -21,9 +21,21 @@
         <form #promptForm="ngForm" (ngSubmit)="savePrompt(prompt)">
           
           <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Nome do Prompt (Identificador)</mat-label>
-            <input matInput [(ngModel)]="prompt.nome" name="nome" required placeholder="Ex: pericia_federal">
-            <mat-hint>Use um nome único para identificar este prompt no sistema.</mat-hint>
+            <mat-label>ID do Prompt (Chave do Sistema)</mat-label>
+            <input matInput 
+                   [(ngModel)]="prompt.id" 
+                   name="id" 
+                   required 
+                   [disabled]="isEditMode()" 
+                   placeholder="Ex: analise_pericial_v1">
+            <mat-hint *ngIf="!isEditMode()">Defina um ID único (sem espaços, use underlscore).</mat-hint>
+            <mat-hint *ngIf="isEditMode()">O ID é a chave primária e não pode ser alterado.</mat-hint>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width mt-3">
+            <mat-label>Nome do Prompt (Identificador Legível)</mat-label>
+            <input matInput [(ngModel)]="prompt.nome" name="nome" required placeholder="Ex: Perícia Federal Padrão">
+            <mat-hint>Nome amigável para identificar este prompt na lista.</mat-hint>
           </mat-form-field>
 
           <mat-form-field appearance="outline" class="full-width mt-3">

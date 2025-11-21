@@ -209,11 +209,15 @@
                     (click)="analisarComIA()" 
                     [disabled]="isAnalisando() || diretrizesSelecionadas().length === 0">
               @if(isAnalisando()) {
-                <mat-icon><mat-spinner diameter="18"></mat-spinner></mat-icon>
-                Analisando...
+                <ng-container>
+                  <mat-icon><mat-spinner diameter="18"></mat-spinner></mat-icon>
+                  <span>Analisando...</span>
+                </ng-container>
               } @else {
-                <mat-icon>psychology</mat-icon>
-                Analisar com IA
+                <ng-container>
+                  <mat-icon>psychology</mat-icon>
+                  <span>Analisar com IA</span>
+                </ng-container>
               }
             </button>
           </div>

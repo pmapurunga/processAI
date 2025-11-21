@@ -1,13 +1,11 @@
 import { Injectable, inject } from '@angular/core';
-import { Firestore, collection, collectionData, doc, setDoc, deleteDoc } from '@angular/fire/firestore';
+import { Firestore, collection, collectionData, doc, setDoc, deleteDoc, docData } from '@angular/fire/firestore'; // Adicionado docData
 import { Observable } from 'rxjs';
 
-// Ajustamos a interface para refletir os campos REAIS do seu banco de dados
 export interface Prompt {
   id: string;
   nome: string;
-  prompt_text: string; // Antes era 'texto', agora corrigido
-  // Removi 'descricao' pois você disse que o banco só tem id, nome e prompt_text
+  prompt_text: string;
 }
 
 @Injectable({
@@ -15,9 +13,6 @@ export interface Prompt {
 })
 export class PromptService {
   private firestore: Firestore = inject(Firestore);
-  
-  // Apontando para a coleção correta
-  // Assumindo que 'configuracoes_prompts' é a coleção e 'pericia_federal' será um dos documentos nela
   private promptsCollection = collection(this.firestore, 'configuracoes_prompts');
 
   constructor() { }
@@ -26,12 +21,16 @@ export class PromptService {
     return collectionData(this.promptsCollection, { idField: 'id' }) as Observable<Prompt[]>;
   }
 
+  // NOVO MÉTODO: Busca um prompt específico pelo ID
+  getPromptById(id: string): Observable<Prompt | undefined> {
+    const docRef = doc(this.promptsCollection, id);
+    return docData(docRef, { idField: 'id' }) as Observable<Prompt | undefined>;
+  }
+
   savePrompt(prompt: Prompt): Observable<void> {
-    // Se tiver ID usa ele, se não, gera um novo ID automático
     const docId = prompt.id || doc(collection(this.firestore, '_')).id;
     const docRef = doc(this.promptsCollection, docId);
     
-    // Criamos o objeto payload garantindo que os campos batem com o Firestore
     const payload = {
       nome: prompt.nome,
       prompt_text: prompt.prompt_text

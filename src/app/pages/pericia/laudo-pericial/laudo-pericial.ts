@@ -1,13 +1,17 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { map, switchMap, tap } from 'rxjs';
+import { map, switchMap, tap, firstValueFrom } from 'rxjs';
 import { FirestoreService } from '../../../core/services/firestore.service';
 import { CommonModule, Location } from '@angular/common';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { FormsModule } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
+
 // Serviços
 import { DiretrizesService, Diretriz } from '../../../core/services/diretrizes.service';
+import { PromptService } from '../../../core/services/prompt.service';
+import { AnalysisService } from '../../../core/services/analysis.service';
+
 // Material Imports
 import { MarkdownModule } from 'ngx-markdown';
 import { MatCardModule } from '@angular/material/card';
@@ -53,23 +57,32 @@ export class LaudoPericialComponent {
   private route = inject(ActivatedRoute);
   private firestoreService = inject(FirestoreService);
   private diretrizesService = inject(DiretrizesService);
+  private promptService = inject(PromptService);
+  private analysisService = inject(AnalysisService);
   private clipboard = inject(Clipboard);
   private snackBar = inject(MatSnackBar);
   private location = inject(Location);
 
   laudoData: any = null;
+  processoId: string | null = null;
 
   // Carrega o Laudo do Firestore
   laudo$ = this.route.paramMap.pipe(
-        map(params => params.get('id')),
-
+    map(params => params.get('id')),
+    tap(id => this.processoId = id), // Armazena o ID do processo para uso posterior
     switchMap(id => { 
       if (!id) {
         return [];
       }
-            return this.firestoreService.getLaudoPericial(id);
+      return this.firestoreService.getLaudoPericial(id);
     }),
-    tap(laudo => this.laudoData = laudo)
+    tap(laudo => {
+      this.laudoData = laudo;
+      // Se o laudo já tiver uma análise salva, carrega no signal para exibir
+      if (laudo && laudo.analiseIA) {
+        this.resultadoAnaliseIA.set(laudo.analiseIA);
+      }
+    })
   );
 
   // --- Lógica das Diretrizes e IA ---
@@ -104,189 +117,133 @@ export class LaudoPericialComponent {
 
   private showCopyMessage(message: string) {
     this.snackBar.open(message, 'Fechar', {
-      duration: 2000,
+      duration: 3000,
     });
   }
 
-  // Função simulada para analisar com IA
+  // --- INTEGRAÇÃO COM IA (GEMINI) ---
   async analisarComIA() {
+    // Validações Iniciais
     if (this.diretrizesSelecionadas().length === 0) {
-      this.showCopyMessage('Selecione pelo menos uma diretriz.');
+      this.showCopyMessage('Selecione pelo menos uma diretriz para fundamentar a análise.');
+      return;
+    }
+
+    if (!this.processoId) {
+      this.showCopyMessage('Erro interno: ID do processo não identificado.');
       return;
     }
 
     this.isAnalisando.set(true);
-    this.resultadoAnaliseIA.set(null);
+    
+    // Opcional: Limpar resultado anterior para dar feedback de "nova geração"
+    // this.resultadoAnaliseIA.set(null); 
 
-    // Simulação de chamada à IA (Substituir por chamada real depois)
-    setTimeout(() => {
-      this.resultadoAnaliseIA.set(`
-### Análise Preliminar Baseada nas Diretrizes
+    try {
+      // 1. Busca o Prompt de Sistema (analise_federal)
+      const promptConfig = await firstValueFrom(this.promptService.getPromptById('analise_federal'));
 
-**Diretrizes Aplicadas:**
-${this.diretrizesSelecionadas().map(d => `* ${d.nome}`).join('\n')}
+      if (!promptConfig || !promptConfig.prompt_text) {
+        throw new Error('Configuração de prompt "analise_federal" não encontrada no sistema.');
+      }
 
-**Parecer Sugerido:**
-Com base na documentação médica apresentada e nas diretrizes selecionadas, observa-se compatibilidade técnica com os critérios estabelecidos. A patologia descrita no laudo encontra correspondência nos requisitos da norma selecionada, sugerindo nexo técnico.
+      // 2. Prepara o Conteúdo do Usuário (Dados do Laudo + Diretrizes Selecionadas)
+      const jsonLaudo = this.getCleanLaudoJson(); // Pega apenas os dados relevantes
+      
+      const textoDiretrizes = this.diretrizesSelecionadas()
+        .map(d => `--- DIRETRIZ SELECIONADA ---\nNome: ${d.nome}\nLink: ${d.link}\nResumo/Conteúdo: ${d.conteudo || 'Consultar link oficial'}`)
+        .join('\n\n');
 
-*(Esta é uma resposta simulada. A integração real será criada posteriormente.)*
-      `);
+      const userContent = `
+DADOS DO LAUDO PERICIAL (JSON ESTRUTURADO):
+${JSON.stringify(jsonLaudo, null, 2)}
+
+DIRETRIZES E NORMAS APLICÁVEIS SELECIONADAS PELO PERITO:
+${textoDiretrizes}
+      `;
+
+      // 3. Chama o Serviço de IA (Cloud Function)
+      const response = await firstValueFrom(this.analysisService.generateLaudoAnalysis({
+        model: 'gemini-2.5-pro', 
+        systemInstruction: promptConfig.prompt_text,
+        userContent: userContent,
+        temperature: 0.2 // Temperatura baixa para análise técnica/médica mais precisa
+      }));
+
+      const textoGerado = response.responseText;
+
+      // 4. Salva o resultado no Firestore (campo 'analiseIA')
+      await this.firestoreService.updateLaudoPericial(this.processoId, {
+        analiseIA: textoGerado
+      });
+
+      // 5. Atualiza a tela
+      this.resultadoAnaliseIA.set(textoGerado);
+      this.showCopyMessage('Análise realizada e salva com sucesso!');
+
+    } catch (error: any) {
+      console.error('Erro durante a análise com IA:', error);
+      this.showCopyMessage('Falha ao analisar: ' + (error.message || 'Erro desconhecido.'));
+      
+      // Se falhar e já existia algo salvo no banco, garante que a tela mostre o valor antigo
+      if (this.laudoData?.analiseIA) {
+        this.resultadoAnaliseIA.set(this.laudoData.analiseIA);
+      }
+    } finally {
       this.isAnalisando.set(false);
-    }, 2000);
+    }
   }
 
-  // Função auxiliar para atualizar as diretrizes (necessária pois o HTML não aceita arrow functions)
+  // Função auxiliar para atualizar as diretrizes no signal
   atualizarDiretrizes(opcoes: any[]) {
-    // Mapeia as opções para pegar apenas o valor (a diretriz em si)
     const valores = opcoes.map(opcao => opcao.value);
     this.diretrizesSelecionadas.set(valores);
   }
 
-  // Copiar JSON
+  // Helper para extrair apenas dados úteis do laudo (reduz tokens e ruído)
+  private getCleanLaudoJson(): any {
+    if (!this.laudoData) return {};
+    return {
+      identificacaoProcesso: this.laudoData.identificacaoProcesso,
+      dadosPericiando: this.laudoData.dadosPericiando,
+      historicoLaboral: this.laudoData.historicoLaboral,
+      dadosMedicos: this.laudoData.dadosMedicos,
+      OBSERVACOES: this.laudoData.OBSERVACOES,
+      respostasQuesitos: this.laudoData.respostasQuesitos
+      // Removemos metadados irrelevantes para a IA
+    };
+  }
+
+  // Copiar JSON para Clipboard
   copyJsonToClipboard() {
     if (this.laudoData) {
-      const filteredLaudo = {
-        identificacaoProcesso: {
-          PROCESSO_NUM: this.laudoData.identificacaoProcesso?.PROCESSO_NUM ?? null,
-          JUIZO: this.laudoData.identificacaoProcesso?.JUIZO ?? null,
-          NOME_PERICIANDO: this.laudoData.identificacaoProcesso?.NOME_PERICIANDO ?? null,
-          DATA_EXAME: this.laudoData.identificacaoProcesso?.DATA_EXAME ?? null
-        },
-        dadosPericiando: {
-          DATA_NASCIMENTO: this.laudoData.dadosPericiando?.DATA_NASCIMENTO ?? null,
-          SEXO: this.laudoData.dadosPericiando?.SEXO ?? null,
-          ESTADO_CIVIL: this.laudoData.dadosPericiando?.ESTADO_CIVIL ?? null,
-          ESCOLARIDADE: this.laudoData.dadosPericiando?.ESCOLARIDADE ?? null
-        },
-        historicoLaboral: {
-          FUNCAO_HABITUAL_ATUAL: {
-            descricao: this.laudoData.historicoLaboral?.FUNCAO_HABITUAL_ATUAL?.descricao ?? null,
-            vinculo: this.laudoData.historicoLaboral?.FUNCAO_HABITUAL_ATUAL?.vinculo ?? null,
-            periodo: this.laudoData.historicoLaboral?.FUNCAO_HABITUAL_ATUAL?.periodo ?? null
-          },
-          TEMPO_TOTAL_ATIVIDADE: this.laudoData.historicoLaboral?.TEMPO_TOTAL_ATIVIDADE ?? null,
-          DATA_AFASTAMENTO_DECLARADA: this.laudoData.historicoLaboral?.DATA_AFASTAMENTO_DECLARADA ?? null,
-          HISTORICO_OCUPACIONAL_COMPLETO: this.laudoData.historicoLaboral?.HISTORICO_OCUPACIONAL_COMPLETO ?? null,
-          EXPERIENCIAS_LABORAIS_ANTERIORES: this.laudoData.historicoLaboral?.EXPERIENCIAS_LABORAIS_ANTERIORES ?? [],
-          PROFISSIOGRAFIA: {
-            atividade_analisada: this.laudoData.historicoLaboral?.PROFISSIOGRAFIA?.atividade_analisada ?? null,
-            tarefas_executadas: this.laudoData.historicoLaboral?.PROFISSIOGRAFIA?.tarefas_executadas ?? null,
-            postura_corporal: this.laudoData.historicoLaboral?.PROFISSIOGRAFIA?.postura_corporal ?? null,
-            movimentos_repetitivos: this.laudoData.historicoLaboral?.PROFISSIOGRAFIA?.movimentos_repetitivos ?? null,
-            carga_fisica: this.laudoData.historicoLaboral?.PROFISSIOGRAFIA?.carga_fisica ?? null,
-            ambiente_trabalho: this.laudoData.historicoLaboral?.PROFISSIOGRAFIA?.ambiente_trabalho ?? null,
-            exigencias_fisicas: this.laudoData.historicoLaboral?.PROFISSIOGRAFIA?.exigencias_fisicas ?? null,
-            equipamentos_utilizados: this.laudoData.historicoLaboral?.PROFISSIOGRAFIA?.equipamentos_utilizados ?? null,
-            SUMARIO_PROFISSIOGRAFICO: this.laudoData.historicoLaboral?.PROFISSIOGRAFIA?.SUMARIO_PROFISSIOGRAFICO ?? null
-          }
-        },
-        dadosMedicos: {
-          HISTORIA_CLINICA: this.laudoData.dadosMedicos?.HISTORIA_CLINICA ?? null,
-          EXAMES: this.laudoData.dadosMedicos?.EXAMES ?? null,
-          EXAME_CLINICO: this.laudoData.dadosMedicos?.EXAME_CLINICO ?? null
-        },
-        OBSERVACOES: this.laudoData.OBSERVACOES ?? null,
-        respostasQuesitos: this.laudoData.respostasQuesitos ?? {},
-        dadosLaudo: {
-          DIA_LAUDO: this.laudoData.dadosLaudo?.DIA_LAUDO ?? null,
-          MES_LAUDO: this.laudoData.dadosLaudo?.MES_LAUDO ?? null,
-          ANO_LAUDO: this.laudoData.dadosLaudo?.ANO_LAUDO ?? null
-        }
-      };
-
+      const filteredLaudo = this.getCleanLaudoJson();
       const jsonString = JSON.stringify(filteredLaudo, null, 2);
       this.clipboard.copy(jsonString);
       this.showCopyMessage('JSON copiado para a área de transferência!');
     }
   }
 
-  // Copiar Prompt
+  // Copiar Prompt Completo (Manual) para Clipboard
   copyPromptToClipboard() {
     if (this.laudoData) {
-      const prompt = `**Comando Principal:**
+      const promptHeader = `**Comando Principal:**
 
-Você é "Perícias Médica Federal", um Médico do Trabalho e Perito Médico Federal. Sua atuação deve ser pautada estritamente pelas diretrizes de elaboração de laudo, pelo Decreto Nº 3.048/1999, pela Portaria Interministerial MTP/MS Nº 22/2022 e pela Lei Nº 13.146/2015 (Estatuto da Pessoa com Deficiência).
+Você é "Perícias Médica Federal", um Médico do Trabalho e Perito Médico Federal. Atue conforme o Decreto Nº 3.048/1999 e normas selecionadas.
 
-Sua tarefa é elaborar um Laudo Médico Pericial completo e fundamentado, utilizando exclusivamente as informações fornecidas no seguinte JSON. Você deve seguir rigorosamente a estrutura de laudo solicitada, preenchendo cada seção de forma objetiva, clara e assertiva.
-
-**Diretrizes de Estilo e Conteúdo:**
-
-1.  **Objetividade e Assertividade:** Apresente a conclusão seguida da explicação, evitando redundância.
-2.  **Análise Biopsicossocial:** Avalie o caso de forma holística, considerando não apenas o diagnóstico, mas também o contexto social do periciando (idade, escolaridade, histórico laboral) e as exigências de sua profissão (profissiografia).
-3.  **Fundamentação:** Baseie todas as afirmações e conclusões nos documentos e informações fornecidos no JSON. Não realize pesquisas externas nem presuma informações não declaradas.
-4.  **Respostas aos Quesitos:** Responda aos quesitos judiciais quando você for indagado, justificando cada resposta com base na análise do caso. Defina as datas técnicas (DID, DII) e justifique a conclusão sobre a existência, grau e temporalidade da incapacidade. No momento não faça nenhuma resposta aos quesitos pois eu irei colocar posteriormente os quesitos para serem preenchidos.
-5.  **Análise Crítica:** Seja ponderado ao avaliar a relação entre os diagnósticos e a incapacidade laboral, identificando tanto as limitações reais quanto possíveis inconsistências, sem supervalorizar ou desvalorizar os achados. Utilize o valor presente no campo "OBSERVACOES" para fazer suas análises.
-
-**Estrutura do Laudo a ser Gerado:**
-
-1.  IDENTIFICAÇÃO DO PROCESSO
-2.  DADOS DO(A) PERICIANDO(A)
-3.  HISTÓRICO LABORAL (incluindo Profissiografia detalhada)
-4.  DADOS MÉDICOS (História Clínica, resumo dos Exames e Exame Clínico)
-5.  RESPOSTAS AOS QUESITOS (Responder ao que for pedido)
+**Tarefa:**
+Elabore um Laudo Médico Pericial fundamentado, utilizando exclusivamente os dados do JSON abaixo e seguindo a estrutura padrão (Identificação, Histórico, Exame Físico, Conclusão).
 
 **Dados de Entrada (JSON):**
 
-#JSON_de_Entrada#
+#JSON_de_Entrada#`;
 
-**Ação:**
-
-Execute a tarefa e gere o Laudo Médico Pericial fazendo a transcrição literal de todos os dados presentes dentro do JSON de Entrada. Me mostre como ficou cada campo. Ao final, me mostre como está o campo "OBSERVACOES"`;
-
-      const filteredLaudo = {
-        identificacaoProcesso: {
-          PROCESSO_NUM: this.laudoData.identificacaoProcesso?.PROCESSO_NUM ?? null,
-          JUIZO: this.laudoData.identificacaoProcesso?.JUIZO ?? null,
-          NOME_PERICIANDO: this.laudoData.identificacaoProcesso?.NOME_PERICIANDO ?? null,
-          DATA_EXAME: this.laudoData.identificacaoProcesso?.DATA_EXAME ?? null
-        },
-        dadosPericiando: {
-          DATA_NASCIMENTO: this.laudoData.dadosPericiando?.DATA_NASCIMENTO ?? null,
-          SEXO: this.laudoData.dadosPericiando?.SEXO ?? null,
-          ESTADO_CIVIL: this.laudoData.dadosPericiando?.ESTADO_CIVIL ?? null,
-          ESCOLARIDADE: this.laudoData.dadosPericiando?.ESCOLARIDADE ?? null
-        },
-        historicoLaboral: {
-          FUNCAO_HABITUAL_ATUAL: {
-            descricao: this.laudoData.historicoLaboral?.FUNCAO_HABITUAL_ATUAL?.descricao ?? null,
-            vinculo: this.laudoData.historicoLaboral?.FUNCAO_HABITUAL_ATUAL?.vinculo ?? null,
-            periodo: this.laudoData.historicoLaboral?.FUNCAO_HABITUAL_ATUAL?.periodo ?? null
-          },
-          TEMPO_TOTAL_ATIVIDADE: this.laudoData.historicoLaboral?.TEMPO_TOTAL_ATIVIDADE ?? null,
-          DATA_AFASTAMENTO_DECLARADA: this.laudoData.historicoLaboral?.DATA_AFASTAMENTO_DECLARADA ?? null,
-          HISTORICO_OCUPACIONAL_COMPLETO: this.laudoData.historicoLaboral?.HISTORICO_OCUPACIONAL_COMPLETO ?? null,
-          EXPERIENCIAS_LABORAIS_ANTERIORES: this.laudoData.historicoLaboral?.EXPERIENCIAS_LABORAIS_ANTERIORES ?? [],
-          PROFISSIOGRAFIA: {
-            atividade_analisada: this.laudoData.historicoLaboral?.PROFISSIOGRAFIA?.atividade_analisada ?? null,
-            tarefas_executadas: this.laudoData.historicoLaboral?.PROFISSIOGRAFIA?.tarefas_executadas ?? null,
-            postura_corporal: this.laudoData.historicoLaboral?.PROFISSIOGRAFIA?.postura_corporal ?? null,
-            movimentos_repetitivos: this.laudoData.historicoLaboral?.PROFISSIOGRAFIA?.movimentos_repetitivos ?? null,
-            carga_fisica: this.laudoData.historicoLaboral?.PROFISSIOGRAFIA?.carga_fisica ?? null,
-            ambiente_trabalho: this.laudoData.historicoLaboral?.PROFISSIOGRAFIA?.ambiente_trabalho ?? null,
-            exigencias_fisicas: this.laudoData.historicoLaboral?.PROFISSIOGRAFIA?.exigencias_fisicas ?? null,
-            equipamentos_utilizados: this.laudoData.historicoLaboral?.PROFISSIOGRAFIA?.equipamentos_utilizados ?? null,
-            SUMARIO_PROFISSIOGRAFICO: this.laudoData.historicoLaboral?.PROFISSIOGRAFIA?.SUMARIO_PROFISSIOGRAFICO ?? null
-          }
-        },
-        dadosMedicos: {
-          HISTORIA_CLINICA: this.laudoData.dadosMedicos?.HISTORIA_CLINICA ?? null,
-          EXAMES: this.laudoData.dadosMedicos?.EXAMES ?? null,
-          EXAME_CLINICO: this.laudoData.dadosMedicos?.EXAME_CLINICO ?? null
-        },
-        OBSERVACOES: this.laudoData.OBSERVACOES ?? null,
-        respostasQuesitos: this.laudoData.respostasQuesitos ?? {},
-        dadosLaudo: {
-          DIA_LAUDO: this.laudoData.dadosLaudo?.DIA_LAUDO ?? null,
-          MES_LAUDO: this.laudoData.dadosLaudo?.MES_LAUDO ?? null,
-          ANO_LAUDO: this.laudoData.dadosLaudo?.ANO_LAUDO ?? null
-        }
-      };
-
+      const filteredLaudo = this.getCleanLaudoJson();
       const jsonString = JSON.stringify(filteredLaudo, null, 2);
-      const finalContentToCopy = prompt.replace('#JSON_de_Entrada#', jsonString);
+      const finalContentToCopy = promptHeader.replace('#JSON_de_Entrada#', jsonString);
 
       this.clipboard.copy(finalContentToCopy);
-      this.showCopyMessage('Laudo Pericial copiado para a área de transferência!');
+      this.showCopyMessage('Prompt manual copiado para a área de transferência!');
     }
   }
 }

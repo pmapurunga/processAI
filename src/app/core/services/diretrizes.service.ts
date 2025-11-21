@@ -7,6 +7,7 @@ export interface Diretriz {
   nome: string;
   justica: 'Justiça Comum' | 'Justiça do Trabalho' | 'Justiça Federal';
   link: string;
+  conteudo?: string; // <--- ADICIONADO: Corrige o erro Property 'conteudo' does not exist
 }
 
 @Injectable({
@@ -14,7 +15,7 @@ export interface Diretriz {
 })
 export class DiretrizesService {
   private firestore: Firestore = inject(Firestore);
-  private collectionPath = 'diretrizes'; // Coleção na raiz do banco
+  private collectionPath = 'diretrizes'; 
   private diretrizesCollection = collection(this.firestore, this.collectionPath);
 
   constructor() { }

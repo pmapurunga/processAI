@@ -12,6 +12,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatTooltipModule } from '@angular/material/tooltip'; // Adicionado para suportar o matTooltip
 
 @Component({
   selector: 'app-prompt-manager',
@@ -27,7 +28,8 @@ import { MatDividerModule } from '@angular/material/divider';
     MatFormFieldModule,
     MatIconModule,
     MatListModule,
-    MatDividerModule
+    MatDividerModule,
+    MatTooltipModule // Certifica-te de incluir este se usares tooltips
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -36,8 +38,14 @@ export class PromptManagerComponent {
 
   prompts = toSignal(this.promptService.getPrompts(), { initialValue: [] });
   selectedPrompt = signal<Prompt | null>(null);
+  
+  // Novo sinal para controlar se é modo de edição
+  isEditMode = signal(false);
 
   editPrompt(prompt: Prompt | null) {
+    // Define se estamos em modo de edição (se prompt existe) ou criação (se null)
+    this.isEditMode.set(!!prompt);
+
     if (prompt) {
       // Clona o objeto para edição
       this.selectedPrompt.set({ ...prompt });
@@ -48,14 +56,19 @@ export class PromptManagerComponent {
   }
 
   savePrompt(prompt: Prompt) {
+    // Validação simples agora inclui verificar se há um ID (caso o utilizador queira definir manualmente)
     if (!prompt.nome || !prompt.prompt_text) {
-      // Em Material Design, idealmente usaríamos MatSnackBar, mas alert serve por enquanto
       alert('O nome e o texto do prompt são obrigatórios.');
       return;
     }
+    
+    // Se for um novo prompt e o utilizador não inseriu ID, o serviço gera um.
+    // Mas se quiseres obrigar o utilizador a inserir o ID, podes adicionar:
+    // if (!prompt.id) { alert('O ID é obrigatório'); return; }
+
     this.promptService.savePrompt(prompt).subscribe({
       next: () => {
-        this.selectedPrompt.set(null); // Fecha o formulário/card de edição
+        this.selectedPrompt.set(null); // Fecha o formulário
       },
       error: (err) => {
         console.error('Erro ao salvar o prompt:', err);
@@ -65,7 +78,7 @@ export class PromptManagerComponent {
   }
 
   deletePrompt(id: string, event: Event) {
-    event.stopPropagation(); // Evita abrir a edição ao clicar no excluir
+    event.stopPropagation();
     const promptName = this.prompts().find(p => p.id === id)?.nome || 'o prompt';
     
     if (confirm(`Tem certeza que deseja excluir "${promptName}"?`)) {
