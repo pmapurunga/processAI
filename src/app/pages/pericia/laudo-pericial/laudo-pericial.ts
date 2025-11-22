@@ -84,13 +84,13 @@ export class LaudoPericialComponent implements OnInit, OnDestroy {
   laudo$ = this.route.paramMap.pipe(
     map(params => params.get('id')),
     tap(id => this.processoId = id),
-    switchMap(id => { 
+    switchMap(id => {
       if (!id) return [];
       return this.firestoreService.getLaudoPericial(id);
     }),
     tap(laudo => {
-      this.laudoData = laudo; 
-      
+      this.laudoData = laudo;
+
       if (laudo && laudo.analiseIA) {
         this.resultadoAnaliseIA.set(laudo.analiseIA);
       }
@@ -116,7 +116,7 @@ export class LaudoPericialComponent implements OnInit, OnDestroy {
   // --- NOVA LÓGICA DE AUTOMAÇÃO DE QUESITOS ---
   // Carrega os modelos diretamente do Firestore (já esperando que tenham o promptIA)
   listaModelosQuesitos = toSignal(this.quesitosService.getModelos(), { initialValue: [] });
-  
+
   modeloSelecionado = signal<ModeloQuesito | null>(null);
   isRespondendoQuesitos = signal(false);
 
@@ -175,13 +175,13 @@ export class LaudoPericialComponent implements OnInit, OnDestroy {
       if (this.resultadoAnaliseIA()) {
         this.laudoData.analiseIA = this.resultadoAnaliseIA();
       }
-      
+
       await this.firestoreService.updateLaudoPericial(this.processoId, this.laudoData);
-      
+
       this.showCopyMessage('Alterações salvas com sucesso!');
       this.isEditing.set(false);
       this.laudoBackup = null;
-      this.cdr.markForCheck(); 
+      this.cdr.markForCheck();
     } catch (error) {
       console.error('Erro ao salvar:', error);
       this.showCopyMessage('Erro ao salvar alterações.');
@@ -197,7 +197,7 @@ export class LaudoPericialComponent implements OnInit, OnDestroy {
     if (!this.processoId) return;
 
     this.isAnalisando.set(true);
-    
+
     try {
       const promptConfig = await firstValueFrom(this.promptService.getPromptById('analise_federal'));
 
@@ -206,7 +206,7 @@ export class LaudoPericialComponent implements OnInit, OnDestroy {
       }
 
       const jsonLaudo = this.getCleanLaudoJson();
-      
+
       const textoDiretrizes = this.diretrizesSelecionadas()
         .map(d => `--- DIRETRIZ (${d.nome}) ---\n${d.conteudo || 'SEM CONTEÚDO'}`)
         .join('\n\n');
@@ -257,7 +257,10 @@ Use as diretrizes acima para fundamentar a análise.
   // Passo 1: Aplica as perguntas do modelo na tela
   aplicarModeloQuesitos(modelo: ModeloQuesito) {
     this.modeloSelecionado.set(modelo);
-    
+
+    // IMPORTANTE: Salva o ID do modelo para recuperar o texto das perguntas depois
+    this.laudoData.modeloQuesitoId = modelo.id;
+
     if (!this.laudoData.respostasQuesitos) {
       this.laudoData.respostasQuesitos = {};
     }
@@ -267,14 +270,45 @@ Use as diretrizes acima para fundamentar a análise.
     const quesitosOrdenados = [...modelo.quesitos].sort((a, b) => a.ordem - b.ordem);
 
     quesitosOrdenados.forEach(q => {
-      // Cria o campo no objeto de respostas usando o TEXTO da pergunta como chave (padrão atual)
-      if (!this.laudoData.respostasQuesitos[q.texto]) {
-        this.laudoData.respostasQuesitos[q.texto] = q.respostaPadrao || '';
+      // Formata a chave para o padrão técnico: RESPOSTA_QUESITO_4
+      // Remove letras do ID (ex: "q4" vira "4") e monta a string
+      const numero = q.id.replace(/\D/g, '');
+      const chaveTecnica = `RESPOSTA_QUESITO_${numero}`;
+
+      // Cria o campo no objeto se ainda não existir
+      if (!this.laudoData.respostasQuesitos[chaveTecnica]) {
+        this.laudoData.respostasQuesitos[chaveTecnica] = q.respostaPadrao || '';
         novosCampos++;
       }
     });
-    
+
     this.showCopyMessage(`Modelo "${modelo.titulo}" aplicado!`);
+  }
+
+  // No arquivo laudo-pericial.ts
+
+  getTextoPergunta(chave: string): string {
+    // 1. Identifica qual modelo devemos consultar
+    let modeloParaConsultar = this.modeloSelecionado();
+
+    // Se não tiver nenhum selecionado na tela (ex: acabou de carregar a página),
+    // buscamos na lista geral usando o ID salvo no laudo.
+    if (!modeloParaConsultar && this.laudoData?.modeloQuesitoId) {
+      const lista = this.listaModelosQuesitos(); // Pega a lista que veio do Firestore
+      modeloParaConsultar = lista.find(m => m.id === this.laudoData.modeloQuesitoId) || null;
+    }
+
+    // Se mesmo assim não achou (ex: laudo antigo sem ID salvo), retorna vazio ou aviso
+    if (!modeloParaConsultar) return '';
+
+    // 2. Transforma a chave técnica ("RESPOSTA_QUESITO_4") no ID do quesito ("q4")
+    const numero = chave.replace(/\D/g, ''); // Remove tudo que não é número
+    const idBusca = 'q' + numero;
+
+    // 3. Busca o texto dentro do modelo encontrado
+    const quesitoEncontrado = modeloParaConsultar.quesitos.find(q => q.id === idBusca);
+
+    return quesitoEncontrado ? quesitoEncontrado.texto : '';
   }
 
   // Passo 2: Envia para IA responder
@@ -323,7 +357,7 @@ Use as diretrizes acima para fundamentar a análise.
 
       // Chama a IA (usando Flash ou Pro conforme sua preferência no Service)
       const response = await firstValueFrom(this.analysisService.generateLaudoAnalysis({
-        model: 'gemini-2.5-flash', 
+        model: 'gemini-2.5-pro',
         systemInstruction: "Você é um assistente pericial especializado em responder quesitos. Responda estritamente em JSON.",
         userContent: userContent,
         temperature: 0.1
@@ -336,7 +370,7 @@ Use as diretrizes acima para fundamentar a análise.
           .replace(/```json/g, '')
           .replace(/```/g, '')
           .trim();
-        
+
         respostasIA = JSON.parse(cleanText);
       } catch (e) {
         console.error('Resposta IA inválida:', response.responseText);
@@ -345,13 +379,16 @@ Use as diretrizes acima para fundamentar a análise.
 
       // Processa o retorno e atualiza a tela
       let atualizados = 0;
-      
+
       modelo.quesitos.forEach(q => {
-        const respostaGerada = respostasIA[q.id]; // Busca pela chave "q1", "q4"...
-        
+        const respostaGerada = respostasIA[q.id]; // A IA continua devolvendo "q4", "q5"...
+
         if (respostaGerada) {
-          // Atualiza o campo visual usando o Texto da Pergunta como chave
-          this.laudoData.respostasQuesitos[q.texto] = respostaGerada;
+          // MODIFICAÇÃO AQUI: Transforma o ID na chave longa
+          const chaveFormatada = this.formatarChaveQuesito(q.id);
+
+          // Atualiza o campo no laudoData usando a chave RESPOSTA_QUESITO_X
+          this.laudoData.respostasQuesitos[chaveFormatada] = respostaGerada;
           atualizados++;
         }
       });
@@ -379,6 +416,12 @@ Use as diretrizes acima para fundamentar a análise.
       OBSERVACOES: rest.OBSERVACOES,
       // Opcional: incluir respostasQuesitos antigos se necessário para contexto
     };
+  }
+
+  private formatarChaveQuesito(id: string): string {
+    // Remove tudo que não é número do ID (ex: "q4" vira "4")
+    const numero = id.replace(/\D/g, '');
+    return `RESPOSTA_QUESITO_${numero}`;
   }
 
   copyJsonToClipboard() {
