@@ -311,7 +311,7 @@ Use as diretrizes acima para fundamentar a análise.
     return quesitoEncontrado ? quesitoEncontrado.texto : '';
   }
 
-  // Passo 2: Envia para IA responder
+  // Passo 2: Envia para IA responder e SALVA no Firestore
   async responderQuesitosComIA() {
     const modelo = this.modeloSelecionado();
 
@@ -320,9 +320,8 @@ Use as diretrizes acima para fundamentar a análise.
       return;
     }
 
-    // Verifica se o prompt veio do Firestore
     if (!modelo.promptIA) {
-      this.showCopyMessage('ERRO: Este modelo não possui Prompt de IA cadastrado no banco de dados.');
+      this.showCopyMessage('ERRO: Este modelo não possui Prompt de IA cadastrado.');
       return;
     }
 
@@ -355,10 +354,10 @@ Use as diretrizes acima para fundamentar a análise.
       }
       `;
 
-      // Chama a IA (usando Flash ou Pro conforme sua preferência no Service)
+      // Chama a IA
       const response = await firstValueFrom(this.analysisService.generateLaudoAnalysis({
-        model: 'gemini-2.5-pro',
-        systemInstruction: "Você é um assistente pericial especializado em responder quesitos. Responda estritamente em JSON.",
+        model: 'gemini-2.5-pro', 
+        systemInstruction: "Você é um assistente pericial. Responda estritamente em JSON.",
         userContent: userContent,
         temperature: 0.1
       }));
@@ -370,7 +369,7 @@ Use as diretrizes acima para fundamentar a análise.
           .replace(/```json/g, '')
           .replace(/```/g, '')
           .trim();
-
+        
         respostasIA = JSON.parse(cleanText);
       } catch (e) {
         console.error('Resposta IA inválida:', response.responseText);
@@ -379,21 +378,31 @@ Use as diretrizes acima para fundamentar a análise.
 
       // Processa o retorno e atualiza a tela
       let atualizados = 0;
-
+      
       modelo.quesitos.forEach(q => {
-        const respostaGerada = respostasIA[q.id]; // A IA continua devolvendo "q4", "q5"...
-
+        const respostaGerada = respostasIA[q.id]; 
+        
         if (respostaGerada) {
-          // MODIFICAÇÃO AQUI: Transforma o ID na chave longa
-          const chaveFormatada = this.formatarChaveQuesito(q.id);
+          // 1. Gera a chave técnica (Ex: RESPOSTA_QUESITO_4)
+          // Isso mantém a lógica que criamos no passo anterior
+          const numero = q.id.replace(/\D/g, ''); 
+          const chaveTecnica = `RESPOSTA_QUESITO_${numero}`;
 
-          // Atualiza o campo no laudoData usando a chave RESPOSTA_QUESITO_X
-          this.laudoData.respostasQuesitos[chaveFormatada] = respostaGerada;
+          // 2. Atualiza a variável local
+          this.laudoData.respostasQuesitos[chaveTecnica] = respostaGerada;
           atualizados++;
         }
       });
 
-      this.showCopyMessage(`${atualizados} quesitos respondidos pela IA!`);
+      // --- NOVIDADE: SALVAR NO FIRESTORE AGORA ---
+      // Salvamos as respostas e também o ID do modelo (para recuperar os textos depois)
+      await this.firestoreService.updateLaudoPericial(this.processoId, {
+        respostasQuesitos: this.laudoData.respostasQuesitos,
+        modeloQuesitoId: this.laudoData.modeloQuesitoId
+      });
+      // -------------------------------------------
+
+      this.showCopyMessage(`${atualizados} quesitos respondidos e salvos!`);
       this.cdr.markForCheck();
 
     } catch (error: any) {
@@ -414,6 +423,7 @@ Use as diretrizes acima para fundamentar a análise.
       historicoLaboral: rest.historicoLaboral,
       dadosMedicos: rest.dadosMedicos,
       OBSERVACOES: rest.OBSERVACOES,
+      respostasQuesitos: rest.respostasQuesitos,
       // Opcional: incluir respostasQuesitos antigos se necessário para contexto
     };
   }
