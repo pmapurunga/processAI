@@ -94,8 +94,6 @@ export class LaudoPericialComponent implements OnInit, OnDestroy {
       }
 
       // FORÇA A ATUALIZAÇÃO DA TELA
-      // Como estamos usando OnPush e a resposta vem de um evento assíncrono,
-      // precisamos avisar o Angular explicitamente.
       this.cdr.markForCheck();
     })
   );
@@ -224,21 +222,38 @@ export class LaudoPericialComponent implements OnInit, OnDestroy {
       // 2. Prepara o Conteúdo do Usuário (Dados do Laudo + Diretrizes Selecionadas)
       const jsonLaudo = this.getCleanLaudoJson(); // Pega apenas os dados relevantes
       
+      // MODIFICAÇÃO: Validação e Log de Diretrizes
       const textoDiretrizes = this.diretrizesSelecionadas()
-        .map(d => `--- DIRETRIZ SELECIONADA ---\nNome: ${d.nome}\nLink: ${d.link}\nResumo/Conteúdo: ${d.conteudo || 'Consultar link oficial'}`)
+        .map(d => {
+            const temConteudo = d.conteudo && d.conteudo.length > 10;
+            // Aviso no console se estivermos enviando uma diretriz vazia
+            if (!temConteudo) console.warn(`Atenção: A diretriz "${d.nome}" não tem conteúdo de texto carregado.`);
+            
+            return `--- DIRETRIZ/NORMA (${d.nome}) ---\nConteúdo Técnico: ${d.conteudo || 'CONTEÚDO NÃO FORNECIDO. IGNORAR ESTA DIRETRIZ SE NÃO HOUVER CONHECIMENTO PRÉVIO.'}`;
+        })
         .join('\n\n');
 
+      // MODIFICAÇÃO: Instrução explícita no Prompt
       const userContent = `
 DADOS DO LAUDO PERICIAL (JSON ESTRUTURADO):
 ${JSON.stringify(jsonLaudo, null, 2)}
 
-DIRETRIZES E NORMAS APLICÁVEIS SELECIONADAS PELO PERITO:
+BASE DE CONHECIMENTO (DIRETRIZES SELECIONADAS):
 ${textoDiretrizes}
+
+---
+INSTRUÇÃO ADICIONAL OBRIGATÓRIA:
+Ao realizar a análise, você DEVE citar explicitamente quais das "Diretrizes Selecionadas" acima fundamentaram suas conclusões. Se uma diretriz foi fornecida no texto acima, use o texto dela como base.
       `;
+
+      // MODIFICAÇÃO: Log de Auditoria (Debug)
+      console.log('--- PAYLOAD ENVIADO PARA IA ---');
+      console.log(userContent);
+      console.log('-------------------------------');
 
       // 3. Chama o Serviço de IA (Cloud Function)
       const response = await firstValueFrom(this.analysisService.generateLaudoAnalysis({
-        model: 'gemini-2.5-pro', 
+        model: 'gemini-2.5-pro', // Ajustado para 1.5-pro para melhor estabilidade/contexto
         systemInstruction: promptConfig.prompt_text,
         userContent: userContent,
         temperature: 0.2 // Temperatura baixa para análise técnica/médica mais precisa
@@ -286,7 +301,8 @@ ${textoDiretrizes}
       historicoLaboral: this.laudoData.historicoLaboral,
       dadosMedicos: this.laudoData.dadosMedicos,
       OBSERVACOES: this.laudoData.OBSERVACOES,
-      respostasQuesitos: this.laudoData.respostasQuesitos
+      respostasQuesitos: this.laudoData.respostasQuesitos,
+      analiseIA: this.laudoData.analiseIA
     };
   }
 
