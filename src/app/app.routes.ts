@@ -11,6 +11,7 @@ import { LoginComponent } from './pages/auth/login/login';
 import { ProcessListPageComponent } from './pages/processos/process-list/process-list-page';
 import { ProcessSelectorComponent } from './pages/processos/process-selector/process-selector';
 import { ProcessDetailComponent } from './pages/processos/process-detail/process-detail.component';
+import { AiUsageReportComponent } from './pages/processos/ai-usage-report/ai-usage-report';
 
 // 4. Imports de Pages (Feature: Perícia)
 import { AvaliacaoPericialComponent } from './pages/pericia/avaliacao-pericial/avaliacao-pericial';
@@ -48,6 +49,11 @@ export const routes: Routes = [
       { 
         path: 'process/:id', 
         component: ProcessSelectorComponent 
+      },
+      {
+        path: 'process/:id/ai-report', 
+        component: AiUsageReportComponent,
+        title: 'Relatório de IA' // Opcional: Título da aba do navegador
       },
       { 
         path: 'process/:id/documentos-analisados', 

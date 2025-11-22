@@ -1,0 +1,107 @@
+<div class="report-container">
+  
+    <header class="report-header">
+      <button mat-icon-button (click)="goBack()">
+        <mat-icon>arrow_back</mat-icon>
+      </button>
+      <div>
+        <h1>Relatório de Consumo de IA</h1>
+        <p class="subtitle">Monitorização detalhada de tokens e custos para este processo</p>
+      </div>
+    </header>
+  
+    <section class="stats-grid">
+      
+      <mat-card class="stat-card total">
+        <mat-card-content>
+          <div class="stat-value">{{ stats().totalGeral | number }}</div>
+          <div class="stat-label">Total de Tokens</div>
+          <mat-icon class="stat-icon">functions</mat-icon>
+        </mat-card-content>
+      </mat-card>
+  
+      <mat-card class="stat-card input">
+        <mat-card-content>
+          <div class="stat-value">{{ stats().totalInput | number }}</div>
+          <div class="stat-label">Tokens de Entrada (Prompt)</div>
+          <mat-icon class="stat-icon">input</mat-icon>
+        </mat-card-content>
+      </mat-card>
+  
+      <mat-card class="stat-card output">
+        <mat-card-content>
+          <div class="stat-value">{{ stats().totalOutput | number }}</div>
+          <div class="stat-label">Tokens de Saída (Geração)</div>
+          <mat-icon class="stat-icon">output</mat-icon>
+        </mat-card-content>
+      </mat-card>
+  
+      <mat-card class="stat-card cost">
+        <mat-card-content>
+          <div class="stat-value">{{ stats().custoEstimado }}</div>
+          <div class="stat-label">Custo Estimado</div>
+          <mat-icon class="stat-icon">attach_money</mat-icon>
+        </mat-card-content>
+      </mat-card>
+  
+    </section>
+  
+    <mat-card class="table-card">
+      <mat-card-header>
+        <mat-card-title>Histórico de Requisições</mat-card-title>
+      </mat-card-header>
+      
+      <table mat-table [dataSource]="logs()">
+  
+        <ng-container matColumnDef="data">
+          <th mat-header-cell *matHeaderCellDef> Data/Hora </th>
+          <td mat-cell *matCellDef="let log"> 
+            {{ log.timestamp?.toDate() | date:'dd/MM/yy HH:mm' }} 
+          </td>
+        </ng-container>
+  
+        <ng-container matColumnDef="acao">
+          <th mat-header-cell *matHeaderCellDef> Contexto </th>
+          <td mat-cell *matCellDef="let log">
+            <mat-chip-set>
+              <mat-chip>{{ formatContext(log.actionContext) }}</mat-chip>
+            </mat-chip-set>
+          </td>
+        </ng-container>
+  
+        <ng-container matColumnDef="modelo">
+          <th mat-header-cell *matHeaderCellDef> Modelo </th>
+          <td mat-cell *matCellDef="let log"> 
+            <span class="model-badge">{{ log.model }}</span> 
+          </td>
+        </ng-container>
+  
+        <ng-container matColumnDef="input">
+          <th mat-header-cell *matHeaderCellDef> Entrada </th>
+          <td mat-cell *matCellDef="let log"> {{ log.inputTokens }} </td>
+        </ng-container>
+  
+        <ng-container matColumnDef="output">
+          <th mat-header-cell *matHeaderCellDef> Saída </th>
+          <td mat-cell *matCellDef="let log"> {{ log.outputTokens }} </td>
+        </ng-container>
+  
+        <ng-container matColumnDef="total">
+          <th mat-header-cell *matHeaderCellDef> Total </th>
+          <td mat-cell *matCellDef="let log"> <strong>{{ log.totalTokens }}</strong> </td>
+        </ng-container>
+  
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        
+        <tr class="mat-row" *matNoDataRow>
+          <td class="mat-cell" colspan="6" style="text-align: center; padding: 48px; color: #6b7280;">
+            <mat-icon style="font-size: 48px; width: 48px; height: 48px; margin-bottom: 16px;">history</mat-icon>
+            <p>Nenhum registo de uso de IA encontrado para este processo.</p>
+          </td>
+        </tr>
+  
+      </table>
+    </mat-card>
+  
+  </div>

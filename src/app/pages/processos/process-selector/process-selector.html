@@ -34,6 +34,48 @@
     
     <aside class="sidebar-content">
       
+      @if (data.usoIA) {
+        <mat-card class="ai-metrics-card">
+          <mat-card-header>
+            <div mat-card-avatar class="ai-avatar">
+              <mat-icon>psychology</mat-icon>
+            </div>
+            <mat-card-title>Consumo Inteligência (IA)</mat-card-title>
+            <mat-card-subtitle>Monitoramento de Tokens</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            
+            <div class="metric-row">
+              <span class="label">Entrada (Prompt):</span>
+              <span class="value">{{ data.usoIA.totalInput }}</span>
+            </div>
+
+            <div class="metric-row">
+              <span class="label">Saída (Geração):</span>
+              <span class="value">{{ data.usoIA.totalOutput }}</span>
+            </div>
+
+            <mat-divider style="margin: 12px 0;"></mat-divider>
+
+            <div class="metric-row total-row">
+              <span class="label">Total Tokens:</span>
+              <span class="value">{{ data.usoIA.custoTotal }}</span>
+            </div>
+
+            @if (data.usoIA.ultimaAtualizacao) {
+              <div class="last-update">
+                Atualizado: {{ data.usoIA.ultimaAtualizacao.toDate() | date:'dd/MM/yyyy HH:mm' }}
+              </div>
+            }
+
+          </mat-card-content>
+          <div style="margin-top: 16px; text-align: right;">
+            <a mat-button color="primary" [routerLink]="['/process', processId(), 'ai-report']">
+              Ver Relatório Detalhado
+            </a>
+          </div>
+        </mat-card>
+      }
       @if (data.dadosCadastrais) {
         <mat-card>
           <mat-card-header>

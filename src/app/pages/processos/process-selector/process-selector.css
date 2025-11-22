@@ -133,3 +133,47 @@ mat-card-title {
   gap: 16px;
   color: #6b7280;
 }
+
+/* --- AI Metrics Card (NOVO) --- */
+.ai-metrics-card {
+  border-left: 4px solid #7b1fa2; /* Roxo Material Design */
+  background: linear-gradient(to right, #ffffff, #fdfbff);
+}
+
+.ai-avatar {
+  background-color: #f3e5f5; /* Fundo roxo bem claro */
+  color: #7b1fa2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 0.95rem;
+  color: #374151;
+}
+
+.metric-row .value {
+  font-weight: 500;
+  font-family: 'Roboto Mono', monospace; /* Fonte monoespaçada para números fica ótimo */
+}
+
+.total-row {
+  color: #7b1fa2;
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-top: 4px;
+}
+
+.last-update {
+  margin-top: 16px;
+  text-align: right;
+  font-size: 0.75rem;
+  color: #9ca3af;
+  font-style: italic;
+}

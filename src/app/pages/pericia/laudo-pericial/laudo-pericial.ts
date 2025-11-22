@@ -278,7 +278,10 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
         model: 'gemini-2.5-pro',
         systemInstruction: systemInstruction,
         userContent: userContent,
-        temperature: 0.3 // Levemente criativo para argumentação
+        temperature: 0.3,
+        // --- NOVOS CAMPOS ADICIONADOS ---
+        processId: this.processoId!, // Garante que sabemos de qual processo é o gasto
+        actionContext: 'analise_geral_diretrizes' // Nome para identificar nos gráficos depois
       }));
 
       const textoGerado = response.responseText;
@@ -398,8 +401,11 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
         model: 'gemini-2.5-pro', 
         systemInstruction: systemInstruction,
         userContent: userContent,
-        temperature: 0.2, // Baixa temperatura para precisão
-        responseMimeType: 'application/json' // <--- JSON NATIVO
+        temperature: 0.2, 
+        responseMimeType: 'application/json',
+        // --- NOVOS CAMPOS ADICIONADOS ---
+        processId: this.processoId!,
+        actionContext: `resposta_quesitos_modelo_${modelo.id}` // Ex: resposta_quesitos_modelo_m1
       }));
 
       // Parsing direto (sem regex gambiarra)

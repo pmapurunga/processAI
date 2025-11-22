@@ -1,0 +1,135 @@
+/* --- Layout Geral --- */
+:host {
+    display: block;
+    background-color: #f5f7fa;
+    min-height: 100vh;
+    padding: 24px;
+  }
+  
+  .report-container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  /* --- Header --- */
+  .report-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  
+  .report-header h1 {
+    font-size: 1.75rem;
+    font-weight: 500;
+    color: #111827;
+    margin: 0;
+  }
+  
+  .subtitle {
+    color: #6b7280;
+    margin: 4px 0 0 0;
+    font-size: 0.95rem;
+  }
+  
+  /* --- Stats Grid (Os 4 Cartões) --- */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 24px;
+    margin-bottom: 32px;
+  }
+  
+  .stat-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.1);
+  }
+  
+  .stat-card mat-card-content {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  
+  /* Cores e Ícones Específicos por Tipo */
+  .stat-card.total { border-left: 4px solid #7b1fa2; }
+  .stat-card.total .stat-icon { color: rgba(123, 31, 162, 0.1); }
+  .stat-card.total .stat-value { color: #7b1fa2; }
+  
+  .stat-card.input { border-left: 4px solid #2563eb; } /* Azul */
+  .stat-card.input .stat-icon { color: rgba(37, 99, 235, 0.1); }
+  .stat-card.input .stat-value { color: #2563eb; }
+  
+  .stat-card.output { border-left: 4px solid #f59e0b; } /* Laranja */
+  .stat-card.output .stat-icon { color: rgba(245, 158, 11, 0.1); }
+  .stat-card.output .stat-value { color: #f59e0b; }
+  
+  .stat-card.cost { border-left: 4px solid #10b981; } /* Verde */
+  .stat-card.cost .stat-icon { color: rgba(16, 185, 129, 0.1); }
+  .stat-card.cost .stat-value { color: #059669; }
+  
+  /* Tipografia dos Cards */
+  .stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    font-family: 'Roboto Mono', monospace;
+    line-height: 1.2;
+    margin-bottom: 4px;
+  }
+  
+  .stat-label {
+    color: #6b7280;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  
+  .stat-icon {
+    position: absolute;
+    right: -10px;
+    bottom: -10px;
+    font-size: 100px;
+    width: 100px;
+    height: 100px;
+    opacity: 0.5;
+    transform: rotate(-15deg);
+    pointer-events: none; /* Não interfere no clique */
+  }
+  
+  /* --- Tabela --- */
+  .table-card {
+    border-radius: 12px;
+    overflow: hidden; /* Para os cantos da tabela */
+  }
+  
+  table {
+    width: 100%;
+  }
+  
+  th.mat-header-cell {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: #6b7280;
+    font-weight: 600;
+    background-color: #f9fafb;
+  }
+  
+  td.mat-cell {
+    color: #374151;
+    font-size: 0.9rem;
+  }
+  
+  /* Badge do Modelo */
+  .model-badge {
+    background-color: #e0e7ff;
+    color: #3730a3;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-family: monospace;
+  }

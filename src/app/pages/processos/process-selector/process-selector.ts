@@ -25,7 +25,16 @@ interface ProcessAnalysis {
       fim: string;
     };
   };
-  // Adicionámos o '?' aqui
+
+  // --- NOVO CAMPO: Monitoramento de IA ---
+  usoIA?: {
+    totalInput: number;
+    totalOutput: number;
+    custoTotal: number;
+    ultimaAtualizacao: any; // Timestamp do Firestore
+  };
+  // --------------------------------------
+
   dadosCadastrais?: {
     autor: {
       nomeCompleto: string;
@@ -46,7 +55,6 @@ interface ProcessAnalysis {
       tribunal: string;
     };
   };
-  // Adicionámos o '?' aqui, que é o que estava a causar o aviso específico
   resumoProcessual?: {
     objetoDaAcao: string;
     teseInicial: string;
@@ -57,7 +65,6 @@ interface ProcessAnalysis {
       evento: string;
     }[];
   };
-  // É boa prática colocar '?' nos outros também se não forem garantidos
   saudeConsolidada?: {
     historicoClinicoNarrativo: string;
   };
