@@ -18,6 +18,9 @@ import { PersonasService } from '../../../core/services/personas.service'; // <-
 import { ModeloQuesito } from '../../../core/models/quesito.model';
 import { Persona } from '../../../core/models/persona.model'; // <--- NOVO MODEL
 
+// Components
+import { AiFieldEditorComponent } from '../../../shared/components/ai-field-editor/ai-field-editor';
+
 // Material Imports
 import { MarkdownModule } from 'ngx-markdown';
 import { MatCardModule } from '@angular/material/card';
@@ -34,6 +37,8 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatInputModule } from '@angular/material/input';
+import { MatDialog } from '@angular/material/dialog';
+import { MatTooltipModule } from '@angular/material/tooltip'; // Opcional, mas bom para UX
 
 @Component({
   selector: 'app-laudo-pericial',
@@ -58,7 +63,8 @@ import { MatInputModule } from '@angular/material/input';
     MatListModule,
     MatSelectModule,
     MatFormFieldModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    MatTooltipModule,
   ],
 })
 export class LaudoPericialComponent implements OnInit, OnDestroy {
@@ -73,6 +79,7 @@ export class LaudoPericialComponent implements OnInit, OnDestroy {
   private snackBar = inject(MatSnackBar);
   private location = inject(Location);
   private cdr = inject(ChangeDetectorRef);
+  private dialog = inject(MatDialog);
 
   laudoData: any = null;
   laudoBackup: any = null;
@@ -456,6 +463,35 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
       this.showCopyMessage('JSON completo copiado!');
     }
   }
+
+  // Método genérico para abrir a IA para qualquer campo
+abrirMelhoriaIA(tituloCampo: string, objetoAlvo: any, nomePropriedade: string) {
+  // Verifica se o objeto existe para evitar erros
+  if (!objetoAlvo) return;
+
+  const valorAtual = objetoAlvo[nomePropriedade] || '';
+
+  const dialogRef = this.dialog.open(AiFieldEditorComponent, {
+    width: '900px', // Largura confortável
+    disableClose: true, // Evita fechar clicando fora sem querer
+    data: {
+      fieldName: tituloCampo,
+      currentValue: valorAtual,
+      fullContext: this.getCleanLaudoJson() // Usa seu método existente para dar contexto
+    }
+  });
+
+  dialogRef.afterClosed().subscribe(novoTexto => {
+    if (novoTexto !== undefined) {
+      // Atualiza o campo diretamente no objeto passado por referência
+      objetoAlvo[nomePropriedade] = novoTexto;
+
+      // Avisa o Angular para atualizar a tela
+      this.cdr.markForCheck();
+      this.showCopyMessage('Campo atualizado com IA!');
+    }
+  });
+}
 
   copyPromptToClipboard() {
     const jsonString = JSON.stringify(this.getCleanLaudoJson(), null, 2);

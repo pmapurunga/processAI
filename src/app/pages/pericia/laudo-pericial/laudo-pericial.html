@@ -11,6 +11,10 @@
             <mat-form-field density="compact" subscriptSizing="dynamic">
               <mat-label>Nº Processo</mat-label>
               <input matInput [(ngModel)]="laudoData.identificacaoProcesso.PROCESSO_NUM">
+              <button mat-icon-button matSuffix color="primary" matTooltip="Melhorar com IA"
+                      (click)="abrirMelhoriaIA('Número do Processo', laudoData.identificacaoProcesso, 'PROCESSO_NUM')">
+                <mat-icon>auto_fix_high</mat-icon>
+              </button>
             </mat-form-field>
           }
         </div>
@@ -57,6 +61,10 @@
                 } @else {
                   <mat-form-field appearance="outline" class="w-full">
                     <input matInput [(ngModel)]="laudoData.identificacaoProcesso.NOME_PERICIANDO">
+                    <button mat-icon-button matSuffix color="primary" matTooltip="Corrigir Nome"
+                            (click)="abrirMelhoriaIA('Nome Periciando', laudoData.identificacaoProcesso, 'NOME_PERICIANDO')">
+                      <mat-icon>auto_fix_high</mat-icon>
+                    </button>
                   </mat-form-field>
                 }
               </div>
@@ -111,6 +119,10 @@
                 } @else {
                   <mat-form-field appearance="outline" class="w-full">
                     <textarea matInput [(ngModel)]="laudoData.identificacaoProcesso.JUIZO" rows="2"></textarea>
+                    <button mat-icon-button matSuffix color="primary" matTooltip="Melhorar Texto"
+                            (click)="abrirMelhoriaIA('Juízo', laudoData.identificacaoProcesso, 'JUIZO')">
+                      <mat-icon>auto_fix_high</mat-icon>
+                    </button>
                   </mat-form-field>
                 }
              </div>
@@ -143,8 +155,14 @@
                 @if(!isEditing()) {
                   <markdown [data]="laudoData.dadosMedicos?.HISTORIA_CLINICA"></markdown>
                 } @else {
+                  <div class="flex justify-between items-center mb-1">
+                    <mat-label class="text-muted small">História Clínica (Markdown suportado)</mat-label>
+                    <button mat-button color="primary" class="small-ai-btn"
+                            (click)="abrirMelhoriaIA('História Clínica', laudoData.dadosMedicos, 'HISTORIA_CLINICA')">
+                       <mat-icon>auto_fix_high</mat-icon> Melhorar com IA
+                    </button>
+                  </div>
                   <mat-form-field appearance="outline" class="w-full">
-                    <mat-label>História Clínica (Markdown suportado)</mat-label>
                     <textarea matInput [(ngModel)]="laudoData.dadosMedicos.HISTORIA_CLINICA" rows="15"></textarea>
                   </mat-form-field>
                 }
@@ -163,8 +181,14 @@
                     <p class="text-muted">Nenhum exame registrado.</p>
                   }
                 } @else {
+                   <div class="flex justify-between items-center mb-1">
+                      <mat-label class="text-muted small">Exames Complementares</mat-label>
+                      <button mat-button color="primary" class="small-ai-btn"
+                              (click)="abrirMelhoriaIA('Exames Complementares', laudoData.dadosMedicos, 'EXAMES')">
+                        <mat-icon>auto_fix_high</mat-icon> Melhorar com IA
+                      </button>
+                   </div>
                    <mat-form-field appearance="outline" class="w-full">
-                    <mat-label>Exames Complementares</mat-label>
                     <textarea matInput [(ngModel)]="laudoData.dadosMedicos.EXAMES" rows="15"></textarea>
                   </mat-form-field>
                 }
@@ -183,8 +207,14 @@
                     <p class="text-muted">Exame físico não detalhado.</p>
                   }
                 } @else {
+                  <div class="flex justify-between items-center mb-1">
+                    <mat-label class="text-muted small">Exame Clínico</mat-label>
+                    <button mat-button color="primary" class="small-ai-btn"
+                            (click)="abrirMelhoriaIA('Exame Clínico', laudoData.dadosMedicos, 'EXAME_CLINICO')">
+                      <mat-icon>auto_fix_high</mat-icon> Melhorar com IA
+                    </button>
+                  </div>
                   <mat-form-field appearance="outline" class="w-full">
-                    <mat-label>Exame Clínico</mat-label>
                     <textarea matInput [(ngModel)]="laudoData.dadosMedicos.EXAME_CLINICO" rows="15"></textarea>
                   </mat-form-field>
                 }
@@ -212,6 +242,10 @@
                   @if(laudoData.historicoLaboral?.FUNCAO_HABITUAL_ATUAL) {
                       <mat-form-field appearance="outline">
                         <input matInput [(ngModel)]="laudoData.historicoLaboral.FUNCAO_HABITUAL_ATUAL.descricao">
+                        <button mat-icon-button matSuffix color="primary"
+                                (click)="abrirMelhoriaIA('Função', laudoData.historicoLaboral.FUNCAO_HABITUAL_ATUAL, 'descricao')">
+                          <mat-icon>auto_fix_high</mat-icon>
+                        </button>
                       </mat-form-field>
                    }
                 }
@@ -244,6 +278,13 @@
           @if(!isEditing()) {
             <markdown [data]="laudoData.historicoLaboral?.HISTORICO_OCUPACIONAL_COMPLETO"></markdown>
           } @else {
+             <div class="flex justify-between items-center mb-1">
+                <mat-label class="text-muted small">Histórico Completo</mat-label>
+                <button mat-button color="primary" class="small-ai-btn"
+                        (click)="abrirMelhoriaIA('Narrativa Ocupacional', laudoData.historicoLaboral, 'HISTORICO_OCUPACIONAL_COMPLETO')">
+                  <mat-icon>auto_fix_high</mat-icon> Melhorar com IA
+                </button>
+             </div>
              <mat-form-field appearance="outline" class="w-full">
                 <textarea matInput [(ngModel)]="laudoData.historicoLaboral.HISTORICO_OCUPACIONAL_COMPLETO" rows="8"></textarea>
              </mat-form-field>
@@ -277,15 +318,45 @@
                 <div>
                    <div class="mb-2">
                       <strong>Postura:</strong> 
-                      @if(!isEditing()) { {{ prof.postura_corporal }} } @else { <input class="simple-input" [(ngModel)]="prof.postura_corporal"> }
+                      @if(!isEditing()) { 
+                        {{ prof.postura_corporal }} 
+                      } @else { 
+                         <div style="display:flex; gap:4px;">
+                           <input class="simple-input" [(ngModel)]="prof.postura_corporal" style="flex:1"> 
+                           <button mat-icon-button color="primary" style="transform: scale(0.7);"
+                                   (click)="abrirMelhoriaIA('Postura', prof, 'postura_corporal')">
+                             <mat-icon>auto_fix_high</mat-icon>
+                           </button>
+                         </div>
+                      }
                    </div>
                    <div class="mb-2">
                       <strong>Carga:</strong> 
-                      @if(!isEditing()) { {{ prof.carga_fisica }} } @else { <input class="simple-input" [(ngModel)]="prof.carga_fisica"> }
+                      @if(!isEditing()) { 
+                        {{ prof.carga_fisica }} 
+                      } @else { 
+                         <div style="display:flex; gap:4px;">
+                           <input class="simple-input" [(ngModel)]="prof.carga_fisica" style="flex:1">
+                           <button mat-icon-button color="primary" style="transform: scale(0.7);"
+                                   (click)="abrirMelhoriaIA('Carga Física', prof, 'carga_fisica')">
+                             <mat-icon>auto_fix_high</mat-icon>
+                           </button>
+                         </div>
+                      }
                    </div>
                    <div>
                       <strong>Exigências:</strong> 
-                      @if(!isEditing()) { {{ prof.exigencias_fisicas }} } @else { <input class="simple-input" [(ngModel)]="prof.exigencias_fisicas"> }
+                      @if(!isEditing()) { 
+                        {{ prof.exigencias_fisicas }} 
+                      } @else { 
+                         <div style="display:flex; gap:4px;">
+                            <input class="simple-input" [(ngModel)]="prof.exigencias_fisicas" style="flex:1"> 
+                            <button mat-icon-button color="primary" style="transform: scale(0.7);"
+                                   (click)="abrirMelhoriaIA('Exigências', prof, 'exigencias_fisicas')">
+                             <mat-icon>auto_fix_high</mat-icon>
+                           </button>
+                         </div>
+                      }
                    </div>
                 </div>
               </div>
@@ -393,6 +464,13 @@
           @if(!isEditing()) {
             <markdown [data]="laudoData.OBSERVACOES"></markdown>
           } @else {
+             <div class="flex justify-between items-center mb-1">
+                <mat-label class="text-muted small">Conclusão / Observações</mat-label>
+                <button mat-button color="primary" class="small-ai-btn"
+                        (click)="abrirMelhoriaIA('Observações e Conclusão', laudoData, 'OBSERVACOES')">
+                  <mat-icon>auto_fix_high</mat-icon> Melhorar com IA
+                </button>
+             </div>
              <mat-form-field appearance="outline" class="w-full">
                 <textarea matInput [(ngModel)]="laudoData.OBSERVACOES" rows="6"></textarea>
              </mat-form-field>
@@ -492,8 +570,14 @@
                       <p style="white-space: pre-wrap; margin: 0;">{{ laudoData.respostasQuesitos[chave] }}</p>
                    </div>
                 } @else {
-                   <mat-form-field appearance="outline" class="w-full mt-1">
-                      <mat-label>Resposta para {{ chave }}</mat-label>
+                   <div class="flex justify-between items-center mb-1 mt-2">
+                      <mat-label class="text-muted small">Resposta para {{ chave }}</mat-label>
+                      <button mat-button color="primary" class="small-ai-btn"
+                              (click)="abrirMelhoriaIA('Quesito ' + chave, laudoData.respostasQuesitos, chave)">
+                        <mat-icon>auto_fix_high</mat-icon> Melhorar com IA
+                      </button>
+                   </div>
+                   <mat-form-field appearance="outline" class="w-full">
                       <textarea matInput [(ngModel)]="laudoData.respostasQuesitos[chave]" rows="4"></textarea>
                    </mat-form-field>
                 }

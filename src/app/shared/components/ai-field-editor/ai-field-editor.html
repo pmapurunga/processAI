@@ -1,0 +1,76 @@
+<h2 mat-dialog-title style="display: flex; align-items: center; gap: 10px;">
+    <mat-icon color="primary">auto_fix_high</mat-icon> 
+    Melhorar com IA: {{ data.fieldName }}
+  </h2>
+  
+  <mat-dialog-content>
+    <div class="dialog-container">
+      
+      <div class="instruction-section">
+        <mat-form-field appearance="outline" class="w-full">
+          <mat-label>O que você quer que a IA faça com este texto?</mat-label>
+          <input matInput [(ngModel)]="userInstruction" 
+                 placeholder="Ex: Corrigir erros ortográficos, tornar mais formal, resumir..." 
+                 (keyup.enter)="performAnalysis()"
+                 [disabled]="isLoading()">
+          
+          <button mat-icon-button matSuffix (click)="performAnalysis()" 
+                  [disabled]="isLoading() || !userInstruction()" 
+                  matTooltip="Enviar para IA">
+            <mat-icon color="primary">send</mat-icon>
+          </button>
+        </mat-form-field>
+      </div>
+  
+      <div class="comparison-container">
+        
+        <div class="editor-box original">
+          <div class="box-header">
+            <mat-icon style="font-size: 18px; height: 18px; width: 18px;">history</mat-icon> 
+            Texto Original
+          </div>
+          <div class="box-content text-muted">
+            {{ data.currentValue || '(Campo vazio)' }}
+          </div>
+        </div>
+  
+        <div class="arrow-divider">
+          <mat-icon>arrow_forward</mat-icon>
+        </div>
+  
+        <div class="editor-box ai-result">
+          <div class="box-header" style="color: #1976d2;">
+            <mat-icon style="font-size: 18px; height: 18px; width: 18px;">smart_toy</mat-icon> 
+            Sugestão da IA
+            @if(isLoading()) {
+              <mat-spinner diameter="18" style="margin-left: auto"></mat-spinner>
+            }
+          </div>
+          <div class="box-content">
+            @if(aiResult()) {
+              <textarea class="editable-textarea" [(ngModel)]="aiResult"></textarea>
+            } @else if(isLoading()) {
+              <div style="text-align: center; margin-top: 3rem; color: #999;">
+                <p>Analisando contexto do laudo...</p>
+                <p>Gerando melhoria...</p>
+              </div>
+            } @else {
+              <p style="text-align: center; margin-top: 3rem; color: #bbb; font-style: italic;">
+                Digite uma instrução acima e tecle Enter.
+              </p>
+            }
+          </div>
+        </div>
+  
+      </div>
+    </div>
+  </mat-dialog-content>
+  
+  <mat-dialog-actions align="end">
+    <button mat-button (click)="cancel()">Cancelar</button>
+    <button mat-raised-button color="primary" 
+            [disabled]="!aiResult() || isLoading()" 
+            (click)="apply()">
+      <mat-icon>check</mat-icon> Aplicar Alteração
+    </button>
+  </mat-dialog-actions>
