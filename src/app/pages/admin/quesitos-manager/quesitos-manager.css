@@ -1,233 +1,174 @@
-/* --- Layout Principal (Sidenav) --- */
-.sidenav-container {
-  /* Ajuste os 60px conforme a altura do cabeçalho da sua aplicação (Toolbar) */
-  height: calc(100vh - 60px);
-  background-color: #fafafa;
-}
-
-.sidenav {
-  width: 320px; /* Largura fixa da barra lateral */
-  border-right: 1px solid #e0e0e0;
-  background: white;
-}
-
-.content-area {
-  padding: 24px; /* Espaçamento interno do conteúdo principal */
+:host {
+  display: block;
+  padding: 24px;
   background-color: #f5f5f5;
-  overflow-y: auto; /* Garante rolagem no conteúdo se necessário */
+  min-height: 100vh;
 }
 
-/* --- Barra Lateral (Sidebar) --- */
-.sidenav-header {
-  padding: 16px 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid #eee;
-  background-color: #fff;
-  position: sticky; /* Mantém o título fixo ao rolar a lista */
-  top: 0;
-  z-index: 2;
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
-.sidenav-header h2 {
+/* ============================================================
+   HEADER
+   ============================================================ */
+.page-header {
+  margin-bottom: 24px;
+}
+
+.page-header h1 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1.8rem;
+  color: #1976d2;
+  font-weight: 400;
+}
+
+.subtitle {
+  color: #666;
+  margin-top: 4px;
+  font-size: 1rem;
+}
+
+/* ============================================================
+   GRID DE LAYOUT (LISTA vs EDITOR)
+   ============================================================ */
+.content-grid {
+  display: grid;
+  grid-template-columns: 350px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+/* Responsividade: Colapsa para uma coluna em telas menores */
+@media (max-width: 960px) {
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================
+   CARDS
+   ============================================================ */
+.list-card, .editor-card {
+  height: 100%;
+  min-height: 500px;
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-card mat-card-content {
+  flex: 1;
+  padding-top: 16px;
+}
+
+/* ============================================================
+   LISTA LATERAL
+   ============================================================ */
+mat-selection-list {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.badge {
+  background-color: #e0e0e0;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
   font-weight: 500;
   color: #333;
 }
 
-/* Destaque para o item selecionado na lista */
-.mat-mdc-list-item-activated {
-  background-color: #e3f2fd !important; /* Azul claro suave */
-  border-left: 4px solid #2196f3;
+/* ============================================================
+   FORMULÁRIO DE EDIÇÃO
+   ============================================================ */
+.form-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
 }
 
-/* --- Estado Vazio (Empty State) --- */
+.item-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 8px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+/* ============================================================
+   ABAS E ÁREAS DE TEXTO (JSON/PROMPT)
+   ============================================================ */
+.tab-body {
+  padding-top: 20px;
+  animation: fadeIn 0.3s ease;
+}
+
+.hint-text {
+  color: #666;
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+  margin-top: 0;
+}
+
+.prompt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+/* Estilo específico para áreas de código/prompt */
+.code-field textarea {
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  background-color: #fafafa; /* Fundo leve para destacar */
+  color: #2c3e50;
+}
+
+.prompt-area textarea {
+  /* O prompt pode ser muito longo, então garantimos boa leitura */
+  white-space: pre-wrap; 
+}
+
+/* ============================================================
+   ESTADO VAZIO (EMPTY STATE)
+   ============================================================ */
 .empty-state {
+  padding: 48px;
+  text-align: center;
+  color: #aaa;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 80%;
-  color: #9e9e9e;
-  text-align: center;
+  height: 100%;
 }
 
-.large-icon {
+.empty-state mat-icon {
   font-size: 64px;
-  width: 64px;
   height: 64px;
+  width: 64px;
   margin-bottom: 16px;
-  opacity: 0.5;
+  opacity: 0.3;
 }
 
-/* --- Modo Edição (Card JSON) --- */
-.editor-container {
-  max-width: 900px;
-  margin: 0 auto;
-}
-
-.editor-card {
-  padding: 16px;
-}
-
-.full-width-input {
-  width: 100%;
-  margin-top: 16px;
-}
-
-/* Fonte monospace para o editor JSON ficar legível (estilo código) */
-textarea.mat-mdc-input-element {
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 14px;
-  line-height: 1.5;
-  color: #2c3e50;
-  background-color: #fafafa; 
-}
-
-/* --- Modo Detalhes (Visualização) --- */
-.details-container {
-  max-width: 1000px;
-  margin: 0 auto;
-  padding-bottom: 40px;
-}
-
-/* Cabeçalho do Modelo (Título, Status e Botão Copiar) */
-.modelo-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 24px;
-}
-
-.title-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.title-group h1 {
+.empty-state h3 {
+  font-weight: 400;
   margin: 0;
-  font-size: 1.8rem;
-  color: #1a237e; /* Azul índigo */
-  line-height: 1.2;
 }
 
-/* Grid de Metadados (Jurisdição, Tipo, Data) */
-.meta-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 24px;
-  margin-bottom: 24px;
-}
-
-.meta-item {
-  display: flex;
-  flex-direction: column;
-  background: white;
-  padding: 12px 16px;
-  border-radius: 8px;
-  border: 1px solid #e0e0e0;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-}
-
-.meta-item .label {
-  font-size: 0.75rem;
-  color: #757575;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 4px;
-}
-
-.meta-item strong {
-  font-size: 1rem;
-  color: #333;
-}
-
-.spacer {
-  margin: 24px 0;
-}
-
-/* --- Lista de Quesitos (Estilo Customizado dos Painéis) --- */
-
-/* 1. Override CRÍTICO para permitir altura variável no cabeçalho */
-::ng-deep .mat-expansion-panel-header {
-  height: auto !important;         /* Remove altura fixa */
-  padding-top: 16px !important;    /* Adiciona respiro superior */
-  padding-bottom: 16px !important; /* Adiciona respiro inferior */
-  align-items: flex-start;         /* Alinha conteúdo ao topo */
-}
-
-/* 2. Permite que o conteúdo interno do título seja visível completamente */
-::ng-deep .mat-content {
-  overflow: visible; 
-}
-
-/* 3. Configura o texto do título para quebrar linha normalmente */
-::ng-deep .mat-expansion-panel-header-title {
-  margin-right: 0;
-  white-space: normal;    /* O SEGREDO: Permite quebra de linha */
-  line-height: 1.5;       /* Melhora leitura de textos longos */
-  display: flex;
-  align-items: flex-start;
-}
-
-/* Estilo do número (#1, #2...) */
-.order-badge {
-  background-color: #e3f2fd;
-  color: #1976d2;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-weight: bold;
-  font-size: 0.9rem;
-  margin-right: 16px;
-  min-width: 24px;
-  text-align: center;
-  margin-top: 2px; /* Alinhamento fino com a primeira linha do texto */
-  flex-shrink: 0;  /* Impede que o badge amasse */
-}
-
-/* Texto da Pergunta (Quesito) */
-.question-text {
-  font-weight: 500;
-  color: #424242;
-  font-size: 1rem;
-}
-
-/* Área da Resposta Padrão */
-.resposta-content {
-  padding: 8px 0 8px 0;
-  border-top: 1px dashed #e0e0e0;
-  margin-top: 8px;
-}
-
-.resposta-content h4 {
-  margin: 0 0 8px 0;
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  color: #1976d2;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-}
-
-.resposta-text {
-  margin: 0;
-  color: #616161;
-  line-height: 1.6;
-  font-style: italic;
-  background-color: #fafafa;
-  padding: 10px;
-  border-radius: 4px;
-  border-left: 3px solid #ddd;
-}
-
-/* --- Animações --- */
-.fade-in {
-  animation: fadeIn 0.3s ease-in-out;
-}
+/* ============================================================
+   UTILITÁRIOS
+   ============================================================ */
+.mt-2 { margin-top: 8px; }
+.my-3 { margin-top: 16px; margin-bottom: 16px; }
+.mr-2 { margin-right: 8px; }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(5px); }
   to { opacity: 1; transform: translateY(0); }
 }

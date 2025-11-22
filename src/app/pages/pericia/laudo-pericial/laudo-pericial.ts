@@ -11,6 +11,10 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { DiretrizesService, Diretriz } from '../../../core/services/diretrizes.service';
 import { PromptService } from '../../../core/services/prompt.service';
 import { AnalysisService } from '../../../core/services/analysis.service';
+import { QuesitosService } from '../../../core/services/quesitos.service'; // <--- Serviço de Quesitos
+
+// Models
+import { ModeloQuesito } from '../../../core/models/quesito.model'; // <--- Interface Atualizada
 
 // Material Imports
 import { MarkdownModule } from 'ngx-markdown';
@@ -61,22 +65,22 @@ export class LaudoPericialComponent implements OnInit, OnDestroy {
   private diretrizesService = inject(DiretrizesService);
   private promptService = inject(PromptService);
   private analysisService = inject(AnalysisService);
+  private quesitosService = inject(QuesitosService); // Injeção do serviço
   private clipboard = inject(Clipboard);
   private snackBar = inject(MatSnackBar);
   private location = inject(Location);
-  private cdr = inject(ChangeDetectorRef); // Injeção para atualização manual da tela
+  private cdr = inject(ChangeDetectorRef);
 
   laudoData: any = null;
-  laudoBackup: any = null; // Para restaurar se cancelar
+  laudoBackup: any = null;
   processoId: string | null = null;
 
-  // Variável para gerenciar a inscrição e evitar vazamento de memória
   private laudoSubscription: Subscription | null = null;
 
   // Controle do Modo de Edição
   isEditing = signal(false);
 
-  // Ajuste no laudo$ para garantir que laudoData esteja sempre sincronizado e a tela atualize
+  // Ajuste no laudo$ para garantir atualização
   laudo$ = this.route.paramMap.pipe(
     map(params => params.get('id')),
     tap(id => this.processoId = id),
@@ -85,45 +89,40 @@ export class LaudoPericialComponent implements OnInit, OnDestroy {
       return this.firestoreService.getLaudoPericial(id);
     }),
     tap(laudo => {
-      console.log('Laudo recebido no tap:', laudo); // Debug
       this.laudoData = laudo; 
       
-      // Se o laudo já tiver uma análise salva, carrega no signal
       if (laudo && laudo.analiseIA) {
         this.resultadoAnaliseIA.set(laudo.analiseIA);
       }
 
-      // FORÇA A ATUALIZAÇÃO DA TELA
       this.cdr.markForCheck();
     })
   );
 
-  // --- Lógica das Diretrizes e IA ---
-
-  // 1. Carrega todas as diretrizes do banco
+  // --- Lógica das Diretrizes (Legado/Analise Geral) ---
   todasDiretrizes = toSignal(this.diretrizesService.getDiretrizes(), { initialValue: [] });
-
-  // 2. Sinal para o filtro de Justiça (Padrão: Justiça Federal)
   filtroJustica = signal<'Justiça Federal' | 'Justiça do Trabalho' | 'Justiça Comum'>('Justiça Federal');
 
-  // 3. Diretrizes filtradas (Computed: atualiza automaticamente)
   diretrizesFiltradas = computed(() => {
     const lista = this.todasDiretrizes();
     const filtro = this.filtroJustica();
     return lista.filter(d => d.justica === filtro);
   });
 
-  // 4. Armazena as diretrizes selecionadas pelo usuário
   diretrizesSelecionadas = signal<Diretriz[]>([]);
-
-  // 5. Estado da Análise IA
   resultadoAnaliseIA = signal<string | null>(null);
   isAnalisando = signal(false);
 
-  // --- CICLO DE VIDA (OnInit e OnDestroy) ---
+  // --- NOVA LÓGICA DE AUTOMAÇÃO DE QUESITOS ---
+  // Carrega os modelos diretamente do Firestore (já esperando que tenham o promptIA)
+  listaModelosQuesitos = toSignal(this.quesitosService.getModelos(), { initialValue: [] });
+  
+  modeloSelecionado = signal<ModeloQuesito | null>(null);
+  isRespondendoQuesitos = signal(false);
+
+  // --- CICLO DE VIDA ---
 
   ngOnInit(): void {
-    // Realiza a inscrição (subscribe) para disparar a busca dos dados
     this.laudoSubscription = this.laudo$.subscribe({
       error: (err) => {
         console.error('Erro ao carregar laudo:', err);
@@ -133,7 +132,6 @@ export class LaudoPericialComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    // Cancela a inscrição ao sair da tela para evitar vazamento de memória
     if (this.laudoSubscription) {
       this.laudoSubscription.unsubscribe();
     }
@@ -157,17 +155,14 @@ export class LaudoPericialComponent implements OnInit, OnDestroy {
 
   toggleEdit() {
     if (this.isEditing()) {
-      // Se estava editando e clicou de novo (sem salvar), cancela
       this.cancelarEdicao();
     } else {
-      // Entrar no modo de edição: faz backup dos dados
       this.laudoBackup = JSON.parse(JSON.stringify(this.laudoData));
       this.isEditing.set(true);
     }
   }
 
   cancelarEdicao() {
-    // Restaura os dados originais
     this.laudoData = JSON.parse(JSON.stringify(this.laudoBackup));
     this.isEditing.set(false);
     this.laudoBackup = null;
@@ -177,13 +172,10 @@ export class LaudoPericialComponent implements OnInit, OnDestroy {
     if (!this.processoId || !this.laudoData) return;
 
     try {
-      
       if (this.resultadoAnaliseIA()) {
         this.laudoData.analiseIA = this.resultadoAnaliseIA();
       }
-      // ---------------------
-
-      // Chama o serviço do Firestore para atualizar
+      
       await this.firestoreService.updateLaudoPericial(this.processoId, this.laudoData);
       
       this.showCopyMessage('Alterações salvas com sucesso!');
@@ -196,146 +188,209 @@ export class LaudoPericialComponent implements OnInit, OnDestroy {
     }
   }
 
-  // --- INTEGRAÇÃO COM IA (GEMINI) ---
+  // --- INTEGRAÇÃO IA 1: ANÁLISE GERAL COM DIRETRIZES ---
   async analisarComIA() {
-    // Validações Iniciais
     if (this.diretrizesSelecionadas().length === 0) {
-      this.showCopyMessage('Selecione pelo menos uma diretriz para fundamentar a análise.');
+      this.showCopyMessage('Selecione pelo menos uma diretriz.');
       return;
     }
-
-    if (!this.processoId) {
-      this.showCopyMessage('Erro interno: ID do processo não identificado.');
-      return;
-    }
+    if (!this.processoId) return;
 
     this.isAnalisando.set(true);
     
     try {
-      // 1. Busca o Prompt de Sistema (analise_federal)
       const promptConfig = await firstValueFrom(this.promptService.getPromptById('analise_federal'));
 
       if (!promptConfig || !promptConfig.prompt_text) {
-        throw new Error('Configuração de prompt "analise_federal" não encontrada no sistema.');
+        throw new Error('Prompt "analise_federal" não encontrado.');
       }
 
-      // 2. Prepara o Conteúdo do Usuário (Dados do Laudo + Diretrizes Selecionadas)
-      const jsonLaudo = this.getCleanLaudoJson(); // Pega apenas os dados relevantes
+      const jsonLaudo = this.getCleanLaudoJson();
       
-      // MODIFICAÇÃO: Validação e Log de Diretrizes
       const textoDiretrizes = this.diretrizesSelecionadas()
-        .map(d => {
-            const temConteudo = d.conteudo && d.conteudo.length > 10;
-            // Aviso no console se estivermos enviando uma diretriz vazia
-            if (!temConteudo) console.warn(`Atenção: A diretriz "${d.nome}" não tem conteúdo de texto carregado.`);
-            
-            return `--- DIRETRIZ/NORMA (${d.nome}) ---\nConteúdo Técnico: ${d.conteudo || 'CONTEÚDO NÃO FORNECIDO. IGNORAR ESTA DIRETRIZ SE NÃO HOUVER CONHECIMENTO PRÉVIO.'}`;
-        })
+        .map(d => `--- DIRETRIZ (${d.nome}) ---\n${d.conteudo || 'SEM CONTEÚDO'}`)
         .join('\n\n');
 
-      // MODIFICAÇÃO: Instrução explícita no Prompt
       const userContent = `
-DADOS DO LAUDO PERICIAL (JSON ESTRUTURADO):
+DADOS DO LAUDO:
 ${JSON.stringify(jsonLaudo, null, 2)}
 
-BASE DE CONHECIMENTO (DIRETRIZES SELECIONADAS):
+DIRETRIZES SELECIONADAS:
 ${textoDiretrizes}
 
----
-INSTRUÇÃO ADICIONAL OBRIGATÓRIA:
-Ao realizar a análise, você DEVE citar explicitamente quais das "Diretrizes Selecionadas" acima fundamentaram suas conclusões. Se uma diretriz foi fornecida no texto acima, use o texto dela como base.
+INSTRUÇÃO:
+Use as diretrizes acima para fundamentar a análise.
       `;
 
-      // MODIFICAÇÃO: Log de Auditoria (Debug)
-      console.log('--- PAYLOAD ENVIADO PARA IA ---');
-      console.log(userContent);
-      console.log('-------------------------------');
-
-      // 3. Chama o Serviço de IA (Cloud Function)
       const response = await firstValueFrom(this.analysisService.generateLaudoAnalysis({
-        model: 'gemini-2.5-pro', // Ajustado para 1.5-pro para melhor estabilidade/contexto
+        model: 'gemini-2.5-pro',
         systemInstruction: promptConfig.prompt_text,
         userContent: userContent,
-        temperature: 0.2 // Temperatura baixa para análise técnica/médica mais precisa
+        temperature: 0.2
       }));
 
       const textoGerado = response.responseText;
 
-      // 4. Salva o resultado no Firestore (campo 'analiseIA')
       await this.firestoreService.updateLaudoPericial(this.processoId, {
         analiseIA: textoGerado
       });
 
-      // 5. Atualiza a tela
       this.resultadoAnaliseIA.set(textoGerado);
-      this.showCopyMessage('Análise realizada e salva com sucesso!');
-      this.cdr.markForCheck(); // Atualiza tela após retorno da IA
+      this.showCopyMessage('Análise realizada com sucesso!');
 
     } catch (error: any) {
-      console.error('Erro durante a análise com IA:', error);
-      this.showCopyMessage('Falha ao analisar: ' + (error.message || 'Erro desconhecido.'));
-      
-      // Se falhar e já existia algo salvo no banco, garante que a tela mostre o valor antigo
-      if (this.laudoData?.analiseIA) {
-        this.resultadoAnaliseIA.set(this.laudoData.analiseIA);
-      }
-      this.cdr.markForCheck();
+      console.error('Erro IA:', error);
+      this.showCopyMessage('Falha ao analisar.');
     } finally {
       this.isAnalisando.set(false);
       this.cdr.markForCheck();
     }
   }
 
-  // Função auxiliar para atualizar as diretrizes no signal
   atualizarDiretrizes(opcoes: any[]) {
     const valores = opcoes.map(opcao => opcao.value);
     this.diretrizesSelecionadas.set(valores);
   }
 
-  // Helper para extrair apenas dados úteis do laudo (reduz tokens e ruído)
+  // --- INTEGRAÇÃO IA 2: AUTOMAÇÃO DE QUESITOS ---
+
+  // Passo 1: Aplica as perguntas do modelo na tela
+  aplicarModeloQuesitos(modelo: ModeloQuesito) {
+    this.modeloSelecionado.set(modelo);
+    
+    if (!this.laudoData.respostasQuesitos) {
+      this.laudoData.respostasQuesitos = {};
+    }
+
+    let novosCampos = 0;
+    // Ordena os quesitos para exibição correta
+    const quesitosOrdenados = [...modelo.quesitos].sort((a, b) => a.ordem - b.ordem);
+
+    quesitosOrdenados.forEach(q => {
+      // Cria o campo no objeto de respostas usando o TEXTO da pergunta como chave (padrão atual)
+      if (!this.laudoData.respostasQuesitos[q.texto]) {
+        this.laudoData.respostasQuesitos[q.texto] = q.respostaPadrao || '';
+        novosCampos++;
+      }
+    });
+    
+    this.showCopyMessage(`Modelo "${modelo.titulo}" aplicado!`);
+  }
+
+  // Passo 2: Envia para IA responder
+  async responderQuesitosComIA() {
+    const modelo = this.modeloSelecionado();
+
+    if (!modelo) {
+      this.showCopyMessage('Selecione um modelo primeiro.');
+      return;
+    }
+
+    // Verifica se o prompt veio do Firestore
+    if (!modelo.promptIA) {
+      this.showCopyMessage('ERRO: Este modelo não possui Prompt de IA cadastrado no banco de dados.');
+      return;
+    }
+
+    if (!this.processoId) return;
+
+    this.isRespondendoQuesitos.set(true);
+
+    try {
+      const jsonLaudo = this.getCleanLaudoJson();
+
+      // Monta o payload para o Gemini
+      const userContent = `
+      DADOS DO LAUDO PERICIAL:
+      ${JSON.stringify(jsonLaudo, null, 2)}
+
+      ---
+      INSTRUÇÕES ESPECÍFICAS E FORMATAÇÃO (PROMPT DO MODELO):
+      ${modelo.promptIA}
+
+      ---
+      FORMATO DE SAÍDA OBRIGATÓRIO (JSON):
+      Retorne APENAS um JSON válido.
+      As chaves devem ser os IDs dos quesitos (ex: "q1", "q4") e os valores as respostas geradas.
+      Não use markdown (\`\`\`json). Apenas o objeto JSON.
+      
+      Exemplo de Saída:
+      {
+        "q4": "(X) Sim, e: Hipertensão...",
+        "q5": "(X) Não."
+      }
+      `;
+
+      // Chama a IA (usando Flash ou Pro conforme sua preferência no Service)
+      const response = await firstValueFrom(this.analysisService.generateLaudoAnalysis({
+        model: 'gemini-2.5-flash', 
+        systemInstruction: "Você é um assistente pericial especializado em responder quesitos. Responda estritamente em JSON.",
+        userContent: userContent,
+        temperature: 0.1
+      }));
+
+      // Tenta decodificar o JSON
+      let respostasIA: any = {};
+      try {
+        let cleanText = response.responseText
+          .replace(/```json/g, '')
+          .replace(/```/g, '')
+          .trim();
+        
+        respostasIA = JSON.parse(cleanText);
+      } catch (e) {
+        console.error('Resposta IA inválida:', response.responseText);
+        throw new Error('A IA não retornou um JSON válido.');
+      }
+
+      // Processa o retorno e atualiza a tela
+      let atualizados = 0;
+      
+      modelo.quesitos.forEach(q => {
+        const respostaGerada = respostasIA[q.id]; // Busca pela chave "q1", "q4"...
+        
+        if (respostaGerada) {
+          // Atualiza o campo visual usando o Texto da Pergunta como chave
+          this.laudoData.respostasQuesitos[q.texto] = respostaGerada;
+          atualizados++;
+        }
+      });
+
+      this.showCopyMessage(`${atualizados} quesitos respondidos pela IA!`);
+      this.cdr.markForCheck();
+
+    } catch (error: any) {
+      console.error('Erro Quesitos IA:', error);
+      this.showCopyMessage('Erro ao gerar respostas: ' + error.message);
+    } finally {
+      this.isRespondendoQuesitos.set(false);
+    }
+  }
+
+  // --- HELPERS ---
   private getCleanLaudoJson(): any {
     if (!this.laudoData) return {};
+    const { respostasQuesitos, ...rest } = this.laudoData;
     return {
-      identificacaoProcesso: this.laudoData.identificacaoProcesso,
-      dadosPericiando: this.laudoData.dadosPericiando,
-      historicoLaboral: this.laudoData.historicoLaboral,
-      dadosMedicos: this.laudoData.dadosMedicos,
-      OBSERVACOES: this.laudoData.OBSERVACOES,
-      respostasQuesitos: this.laudoData.respostasQuesitos,
-      analiseIA: this.laudoData.analiseIA
+      identificacaoProcesso: rest.identificacaoProcesso,
+      dadosPericiando: rest.dadosPericiando,
+      historicoLaboral: rest.historicoLaboral,
+      dadosMedicos: rest.dadosMedicos,
+      OBSERVACOES: rest.OBSERVACOES,
+      // Opcional: incluir respostasQuesitos antigos se necessário para contexto
     };
   }
 
-  // Copiar JSON para Clipboard
   copyJsonToClipboard() {
     if (this.laudoData) {
-      const filteredLaudo = this.getCleanLaudoJson();
-      const jsonString = JSON.stringify(filteredLaudo, null, 2);
-      this.clipboard.copy(jsonString);
-      this.showCopyMessage('JSON copiado para a área de transferência!');
+      this.clipboard.copy(JSON.stringify(this.getCleanLaudoJson(), null, 2));
+      this.showCopyMessage('JSON copiado!');
     }
   }
 
-  // Copiar Prompt Completo (Manual) para Clipboard
   copyPromptToClipboard() {
-    if (this.laudoData) {
-      const promptHeader = `**Comando Principal:**
-
-Você é "Perícias Médica Federal", um Médico do Trabalho e Perito Médico Federal. Atue conforme o Decreto Nº 3.048/1999 e normas selecionadas.
-
-**Tarefa:**
-Elabore um Laudo Médico Pericial fundamentado, utilizando exclusivamente os dados do JSON abaixo e seguindo a estrutura padrão (Identificação, Histórico, Exame Físico, Conclusão).
-
-**Dados de Entrada (JSON):**
-
-#JSON_de_Entrada#`;
-
-      const filteredLaudo = this.getCleanLaudoJson();
-      const jsonString = JSON.stringify(filteredLaudo, null, 2);
-      const finalContentToCopy = promptHeader.replace('#JSON_de_Entrada#', jsonString);
-
-      this.clipboard.copy(finalContentToCopy);
-      this.showCopyMessage('Prompt manual copiado para a área de transferência!');
-    }
+    const jsonString = JSON.stringify(this.getCleanLaudoJson(), null, 2);
+    this.clipboard.copy("Use este JSON: " + jsonString);
+    this.showCopyMessage('Dados copiados!');
   }
 }

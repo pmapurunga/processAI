@@ -1,24 +1,26 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Observable } from 'rxjs';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { firstValueFrom } from 'rxjs';
 
-// --- Módulos do Angular Material ---
-import { MatSidenavModule } from '@angular/material/sidenav';
-import { MatListModule } from '@angular/material/list';
-import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
+// Material
 import { MatCardModule } from '@angular/material/card';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatListModule } from '@angular/material/list';
+import { MatDividerModule } from '@angular/material/divider';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatExpansionModule } from '@angular/material/expansion';
+import { MatSelectModule } from '@angular/material/select';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatChipsModule } from '@angular/material/chips';
+import { MatTabsModule } from '@angular/material/tabs';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-// --- Serviços e Modelos ---
+// Core
 import { QuesitosService } from '../../../core/services/quesitos.service';
-import { ModeloQuesito } from '../../../core/models/quesito.model';
+import { ModeloQuesito, QuesitoItem } from '../../../core/models/quesito.model';
 
 @Component({
   selector: 'app-quesitos-manager',
@@ -26,136 +28,154 @@ import { ModeloQuesito } from '../../../core/models/quesito.model';
   imports: [
     CommonModule,
     FormsModule,
-    // Módulos Material
-    MatSidenavModule,
-    MatListModule,
-    MatIconModule,
-    MatButtonModule,
     MatCardModule,
+    MatButtonModule,
+    MatIconModule,
+    MatListModule,
+    MatDividerModule,
     MatFormFieldModule,
     MatInputModule,
-    MatExpansionModule,
+    MatSelectModule,
+    MatCheckboxModule,
     MatSnackBarModule,
-    MatChipsModule,
+    MatTabsModule,
     MatTooltipModule
   ],
-  // Ajustei os nomes dos arquivos para o padrão que você está usando (sem .component)
   templateUrl: './quesitos-manager.html',
   styleUrls: ['./quesitos-manager.css']
 })
 export class QuesitosManagerComponent {
   private quesitosService = inject(QuesitosService);
-  private snackBar = inject(MatSnackBar); // Serviço para notificações elegantes
+  private snackBar = inject(MatSnackBar);
 
-  // Dados do Firestore
-  modelos$: Observable<ModeloQuesito[]> = this.quesitosService.getModelos();
+  // Lista de modelos carregada do banco
+  listaModelos = toSignal(this.quesitosService.getModelos(), { initialValue: [] });
 
-  // Estado da Tela
-  selectedModelo: ModeloQuesito | null = null;
-  isCreating: boolean = false;
+  // Estado do formulário
+  modeloEmEdicao = signal<ModeloQuesito | null>(null);
   
-  // Editor JSON
-  jsonInput: string = '';
+  // String do JSON para edição no textarea
+  jsonQuesitosString = signal('');
 
-  constructor() {
-    // Template inicial para facilitar a criação
-    this.jsonInput = `{
-  "jurisdicao": "Salvador",
-  "tipoAcao": "IL",
-  "titulo": "Novo Modelo",
-  "ativo": true,
-  "quesitos": []
-}`;
+  // -------------------------------------------------------
+  // AÇÕES DE SELEÇÃO E CRIAÇÃO
+  // -------------------------------------------------------
+
+  iniciarNovo() {
+    this.modeloEmEdicao.set({
+      titulo: 'Novo Modelo de Quesitos',
+      jurisdicao: 'Feira de Santana', // Valor padrão
+      tipoAcao: 'IL',                 // Valor padrão
+      ativo: true,
+      quesitos: [],
+      promptIA: ''                    // Novo campo vazio
+    });
+
+    // JSON inicial vazio
+    this.jsonQuesitosString.set('{\n  "quesitos": []\n}');
   }
 
-  // Selecionar um modelo na barra lateral
-  selectModelo(modelo: ModeloQuesito) {
-    this.selectedModelo = modelo;
-    this.isCreating = false;
+  selecionarModelo(modelo: ModeloQuesito) {
+    // Cria uma cópia para não alterar a lista diretamente enquanto edita
+    const copiaModelo = JSON.parse(JSON.stringify(modelo));
+    this.modeloEmEdicao.set(copiaModelo);
+
+    // Prepara o JSON para exibição no textarea
+    // Envolvemos num objeto { quesitos: [...] } para facilitar a leitura/colagem
+    const wrapper = { quesitos: copiaModelo.quesitos };
+    this.jsonQuesitosString.set(JSON.stringify(wrapper, null, 2));
   }
 
-  // Botão "+ Novo"
-  startCreation() {
-    this.selectedModelo = null;
-    this.isCreating = true;
+  cancelar() {
+    this.modeloEmEdicao.set(null);
+    this.jsonQuesitosString.set('');
   }
 
-  // Ação "Salvar Modelo"
-  saveFromJson() {
+  // -------------------------------------------------------
+  // LÓGICA DE EDIAÇÃO DO JSON
+  // -------------------------------------------------------
+
+  atualizarJsonQuesitos(texto: string) {
+    this.jsonQuesitosString.set(texto);
+  }
+
+  // -------------------------------------------------------
+  // SALVAMENTO
+  // -------------------------------------------------------
+
+  async salvar() {
+    const modelo = this.modeloEmEdicao();
+    const jsonTexto = this.jsonQuesitosString();
+
+    if (!modelo) return;
+
+    // 1. Tenta fazer o parse do JSON dos Quesitos
     try {
-      const modeloObj: ModeloQuesito = JSON.parse(this.jsonInput);
-
-      // Validação simples
-      if (!modeloObj.titulo || !Array.isArray(modeloObj.quesitos)) {
-        throw new Error('O JSON deve ter pelo menos um "titulo" e um array de "quesitos".');
+      const parsed = JSON.parse(jsonTexto);
+      
+      if (Array.isArray(parsed.quesitos)) {
+        modelo.quesitos = parsed.quesitos;
+      } else if (Array.isArray(parsed)) {
+        // Caso o usuário cole direto o array [...]
+        modelo.quesitos = parsed;
+      } else {
+        throw new Error('O JSON deve conter uma propriedade "quesitos": [] ou ser um array.');
       }
-
-      this.quesitosService.addModelo(modeloObj).subscribe({
-        next: () => {
-          this.showNotification('Modelo criado com sucesso!', 'sucesso');
-          this.isCreating = false;
-          // Opcional: limpar o jsonInput aqui se desejar
-        },
-        error: (err) => {
-          console.error(err);
-          this.showNotification('Erro ao salvar no Firestore.', 'erro');
-        }
-      });
-
     } catch (e) {
-      this.showNotification('Erro: JSON inválido. Verifique a sintaxe.', 'erro');
+      this.showSnack('Erro no JSON de Quesitos: Verifique a sintaxe.');
+      return;
+    }
+
+    // 2. Validação do Prompt
+    if (!modelo.promptIA || modelo.promptIA.trim().length < 10) {
+      const confirmar = confirm('O campo "Prompt IA" está vazio ou muito curto. Deseja salvar mesmo assim? (A automação não funcionará sem ele).');
+      if (!confirmar) return;
+    }
+
+    // 3. Envia para o Firestore
+    try {
+      if (modelo.id) {
+        // Atualização
+        await firstValueFrom(this.quesitosService.updateModelo(modelo.id, modelo));
+        this.showSnack('Modelo atualizado com sucesso!');
+      } else {
+        // Criação
+        await firstValueFrom(this.quesitosService.addModelo(modelo));
+        this.showSnack('Novo modelo criado com sucesso!');
+      }
+      
+      // Reseta o form
+      this.cancelar();
+
+    } catch (error) {
+      console.error(error);
+      this.showSnack('Erro ao salvar modelo.');
     }
   }
 
-  // Ação "Copiar JSON"
-  copyToClipboard() {
-    if (!this.selectedModelo) return;
+  // -------------------------------------------------------
+  // UTILITÁRIOS
+  // -------------------------------------------------------
 
-    // Removemos dados técnicos (ID, datas) para criar uma cópia limpa
-    const { id, createdAt, updatedAt, ...modeloLimpo } = this.selectedModelo;
-    const jsonStr = JSON.stringify(modeloLimpo, null, 2);
+  colarExemploPrompt() {
+    const exemplo = `Você é um Médico do Trabalho e um Perito Médico Federal.
+Atue conforme o Decreto 3.048/99.
+Responda aos quesitos abaixo com base no JSON fornecido.
 
-    navigator.clipboard.writeText(jsonStr).then(() => {
-      this.showNotification('JSON copiado para a área de transferência!', 'info');
-    }).catch(err => {
-      console.error(err);
-      this.showNotification('Não foi possível copiar.', 'erro');
-    });
-  }
+REGRA DE FORMATAÇÃO:
+Para quesitos de ( ) Sim / ( ) Não, marque com (X) a opção correta.
 
-  deleteCurrentModelo() {
-    if (!this.selectedModelo || !this.selectedModelo.id) return;
-
-    // Confirmação simples do navegador (rápido e eficaz)
-    const confirmacao = confirm(`Tem certeza que deseja excluir o modelo "${this.selectedModelo.titulo}"? Esta ação não pode ser desfeita.`);
-
-    if (confirmacao) {
-      this.quesitosService.deleteModelo(this.selectedModelo.id).subscribe({
-        next: () => {
-          this.showNotification('Modelo excluído com sucesso.', 'sucesso');
-          this.selectedModelo = null; // Limpa a seleção da tela
-        },
-        error: (err) => {
-          console.error(err);
-          this.showNotification('Erro ao excluir o modelo.', 'erro');
-        }
-      });
+LISTA DE QUESTÕES PARA RESPONDER:
+...`;
+    
+    if (this.modeloEmEdicao()) {
+      const modelo = this.modeloEmEdicao()!;
+      modelo.promptIA = exemplo;
+      this.modeloEmEdicao.set({ ...modelo }); // Trigger update
     }
   }
-  
-  formatDate(timestamp: any): string {
-    if (!timestamp) return '';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleDateString('pt-BR');
-  }
 
-  // Helper para padronizar as notificações (SnackBars)
-  private showNotification(message: string, tipo: 'sucesso' | 'erro' | 'info') {
-    this.snackBar.open(message, 'Fechar', {
-      duration: 3000,
-      horizontalPosition: 'center',
-      verticalPosition: 'bottom',
-      panelClass: tipo === 'erro' ? ['mat-toolbar', 'mat-warn'] : undefined
-    });
+  private showSnack(msg: string) {
+    this.snackBar.open(msg, 'Fechar', { duration: 3000 });
   }
 }

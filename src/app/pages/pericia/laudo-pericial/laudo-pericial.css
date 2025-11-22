@@ -331,3 +331,40 @@
     padding: 4px;
     border-radius: 4px;
   }
+
+  /* ============================================================
+     NOVO: AUTOMAÇÃO DE QUESITOS COM IA
+     ============================================================ */
+  .ai-quesitos-card {
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  }
+  
+  .ai-quesitos-card:hover {
+    box-shadow: 0 4px 12px rgba(103, 58, 183, 0.15);
+  }
+
+  .ai-actions-row {
+    margin-bottom: 8px;
+  }
+
+  .badge-jurisdicao {
+    background-color: #e0e0e0;
+    color: #333;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    margin-right: 8px;
+    font-weight: 500;
+    text-transform: uppercase;
+  }
+
+  /* Estilo do Texto de Feedback */
+  .modelo-info {
+    border-top: 1px dashed #e0e0e0;
+    padding-top: 12px;
+  }
+
+  .spacer {
+    color: #ddd;
+  }

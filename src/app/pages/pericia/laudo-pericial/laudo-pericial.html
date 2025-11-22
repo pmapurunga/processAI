@@ -367,7 +367,6 @@
           }
 
         </div>
-
       </mat-expansion-panel>
 
       <mat-expansion-panel>
@@ -387,9 +386,61 @@
           }
         </div>
       </mat-expansion-panel>
-      
+
+      <mat-card class="mb-4 mt-4 ai-quesitos-card" style="border-left: 5px solid #673ab7; background-color: #fdfbff;">
+        <mat-card-header>
+          <mat-icon mat-card-avatar style="color: #673ab7;">psychology</mat-icon>
+          <mat-card-title>Automação de Quesitos (IA)</mat-card-title>
+          <mat-card-subtitle>Selecione um modelo para preencher automaticamente</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content class="pt-3">
+          <div class="ai-actions-row" style="display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap;">
+            
+            <mat-form-field appearance="outline" style="flex: 1; min-width: 300px;">
+              <mat-label>Modelo de Quesitos</mat-label>
+              <mat-select (selectionChange)="aplicarModeloQuesitos($event.value)">
+                @for (modelo of listaModelosQuesitos(); track modelo.id) {
+                  <mat-option [value]="modelo">
+                    <span class="badge-jurisdicao">{{ modelo.jurisdicao }}</span> {{ modelo.titulo }}
+                  </mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            <button mat-raised-button color="accent" 
+                    style="height: 56px;"
+                    (click)="responderQuesitosComIA()"
+                    [disabled]="!modeloSelecionado() || isRespondendoQuesitos()">
+              @if(isRespondendoQuesitos()) {
+                <mat-spinner diameter="24" color="warn"></mat-spinner>
+                <span class="ml-2">Processando IA...</span>
+              } @else {
+                <mat-icon>auto_fix_high</mat-icon>
+                <span>Responder com IA</span>
+              }
+            </button>
+          </div>
+          
+          @if(modeloSelecionado()) {
+            <div class="modelo-info mt-2" style="font-size: 0.9rem; color: #666;">
+              <strong>Modelo Ativo:</strong> {{ modeloSelecionado()?.titulo }} 
+              <span class="spacer mx-2">|</span>
+              @if(modeloSelecionado()?.promptIA) {
+                <span style="color: green; display: inline-flex; align-items: center; gap: 4px;">
+                  <mat-icon style="font-size: 16px; height: 16px; width: 16px;">check_circle</mat-icon> Prompt IA Configurado
+                </span>
+              } @else {
+                <span style="color: red; display: inline-flex; align-items: center; gap: 4px;">
+                  <mat-icon style="font-size: 16px; height: 16px; width: 16px;">error</mat-icon> Sem Prompt IA (Verifique o Banco)
+                </span>
+              }
+            </div>
+          }
+        </mat-card-content>
+      </mat-card>
+
       @if(objectKeys(laudoData.respostasQuesitos).length > 0) {
-        <mat-expansion-panel class="mt-3">
+        <mat-expansion-panel class="mt-3" expanded="true">
           <mat-expansion-panel-header>
             <mat-panel-title class="section-title">
               <mat-icon>question_answer</mat-icon> Quesitos
@@ -400,10 +451,10 @@
               <div class="quesito-item">
                 <strong class="q-label">{{ quesito }}</strong>
                 @if(!isEditing()) {
-                   <p class="q-answer">{{ laudoData.respostasQuesitos[quesito] }}</p>
+                   <p class="q-answer" style="white-space: pre-wrap;">{{ laudoData.respostasQuesitos[quesito] }}</p>
                 } @else {
                    <mat-form-field appearance="outline" class="w-full">
-                      <textarea matInput [(ngModel)]="laudoData.respostasQuesitos[quesito]" rows="3"></textarea>
+                      <textarea matInput [(ngModel)]="laudoData.respostasQuesitos[quesito]" rows="4"></textarea>
                    </mat-form-field>
                 }
               </div>
