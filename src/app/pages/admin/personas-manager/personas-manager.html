@@ -1,0 +1,167 @@
+<div class="container">
+    <div class="page-header">
+      <div>
+        <h1>Gerenciador de Personas</h1>
+        <p class="subtitle">Crie perfis especializados e bases de conhecimento para a IA</p>
+      </div>
+      <button mat-flat-button color="primary" (click)="iniciarCriacao()" *ngIf="!isEditing()">
+        <mat-icon>add</mat-icon> Nova Persona
+      </button>
+    </div>
+  
+    <div *ngIf="isLoading()" class="loading-container">
+      <mat-spinner diameter="40"></mat-spinner>
+    </div>
+  
+    <div *ngIf="!isEditing()" class="content-area">
+      
+      <div class="mat-elevation-z2 table-container">
+        <table mat-table [dataSource]="listaPersonas()">
+  
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef> Ativo </th>
+            <td mat-cell *matCellDef="let element">
+              <mat-slide-toggle
+                [checked]="element.ativo"
+                (change)="toggleStatus(element)"
+                color="primary">
+              </mat-slide-toggle>
+            </td>
+          </ng-container>
+  
+          <ng-container matColumnDef="nome">
+            <th mat-header-cell *matHeaderCellDef> Nome da Persona </th>
+            <td mat-cell *matCellDef="let element"> <strong>{{element.nome}}</strong> </td>
+          </ng-container>
+  
+          <ng-container matColumnDef="instrucoes">
+            <th mat-header-cell *matHeaderCellDef> Instruções (Resumo) </th>
+            <td mat-cell *matCellDef="let element" class="text-muted"> 
+              {{element.instrucoes | slice:0:80}}{{element.instrucoes.length > 80 ? '...' : ''}} 
+            </td>
+          </ng-container>
+  
+          <ng-container matColumnDef="acoes">
+            <th mat-header-cell *matHeaderCellDef> Ações </th>
+            <td mat-cell *matCellDef="let element">
+              <button mat-icon-button color="accent" (click)="iniciarEdicao(element)" matTooltip="Editar">
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button mat-icon-button color="warn" (click)="deletarPersona(element.id)" matTooltip="Excluir">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </td>
+          </ng-container>
+  
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
+  
+        <div *ngIf="listaPersonas().length === 0 && !isLoading()" class="empty-state">
+          <mat-icon>face</mat-icon>
+          <p>Nenhuma persona cadastrada. Crie a primeira para começar.</p>
+        </div>
+      </div>
+    </div>
+  
+    <div *ngIf="isEditing()" class="edit-area">
+      <mat-card>
+        <mat-card-header>
+          <mat-icon mat-card-avatar>psychology</mat-icon>
+          <mat-card-title>{{ currentPersona.id ? 'Editar Persona' : 'Nova Persona' }}</mat-card-title>
+          <mat-card-subtitle>Defina a identidade e o conhecimento da IA</mat-card-subtitle>
+        </mat-card-header>
+        
+        <mat-card-content class="pt-4">
+          
+          <h3 class="section-label">Identidade da IA</h3>
+          <div class="form-row">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Nome da Persona</mat-label>
+              <input matInput [(ngModel)]="currentPersona.nome" placeholder="Ex: Perito Médico Federal Sênior">
+            </mat-form-field>
+          </div>
+  
+          <div class="form-row">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Instruções de Sistema (System Instruction)</mat-label>
+              <textarea matInput [(ngModel)]="currentPersona.instrucoes" rows="6" 
+                placeholder="Descreva detalhadamente como a IA deve se comportar. Ex: 'Você é um perito oficial rigoroso. Você nunca inventa fatos. Use linguagem técnica formal...'"></textarea>
+              <mat-hint align="end">{{ currentPersona.instrucoes?.length || 0 }} caracteres</mat-hint>
+            </mat-form-field>
+          </div>
+  
+          <mat-divider class="my-4"></mat-divider>
+  
+          <div class="knowledge-section">
+            <div class="flex-header">
+              <div>
+                <h3 class="section-label mb-0"><mat-icon>menu_book</mat-icon> Base de Conhecimento</h3>
+                <p class="text-small text-muted">Adicione textos de referência (Leis, Manuais, Protocolos) que a IA lerá antes de analisar o laudo.</p>
+              </div>
+              <button mat-stroked-button color="primary" (click)="adicionarConhecimento()">
+                <mat-icon>post_add</mat-icon> Adicionar Fonte
+              </button>
+            </div>
+  
+            <div class="knowledge-list mt-3">
+              <mat-accordion multi>
+                @for (item of conhecimentosTemp(); track i; let i = $index) {
+                  <mat-expansion-panel expanded="true" class="mb-2 knowledge-panel">
+                    <mat-expansion-panel-header>
+                      <mat-panel-title>
+                        <span class="font-bold">{{ item.titulo || 'Nova Fonte de Conhecimento' }}</span>
+                      </mat-panel-title>
+                      <mat-panel-description>
+                        {{ item.conteudo ? (item.conteudo | slice:0:50) + '...' : 'Vazio' }}
+                      </mat-panel-description>
+                    </mat-expansion-panel-header>
+  
+                    <div class="panel-body mt-2">
+                      <mat-form-field appearance="outline" class="full-width dense-field">
+                        <mat-label>Título da Fonte</mat-label>
+                        <input matInput [ngModel]="item.titulo" (ngModelChange)="atualizarConhecimento(i, 'titulo', $event)" placeholder="Ex: Manual de Perícias 2024">
+                      </mat-form-field>
+  
+                      <mat-form-field appearance="outline" class="full-width">
+                        <mat-label>Conteúdo (Texto Completo)</mat-label>
+                        <textarea matInput [ngModel]="item.conteudo" (ngModelChange)="atualizarConhecimento(i, 'conteudo', $event)" rows="8" placeholder="Cole aqui o texto completo da lei, manual ou artigo..."></textarea>
+                      </mat-form-field>
+  
+                      <div class="text-right">
+                        <button mat-button color="warn" (click)="removerConhecimento(i)">
+                          <mat-icon>delete_outline</mat-icon> Remover este item
+                        </button>
+                      </div>
+                    </div>
+                  </mat-expansion-panel>
+                } @empty {
+                  <div class="empty-knowledge-box">
+                    <mat-icon>library_books</mat-icon>
+                    <p>Nenhum conhecimento adicionado. A IA usará apenas seu treinamento padrão.</p>
+                  </div>
+                }
+              </mat-accordion>
+            </div>
+          </div>
+  
+        </mat-card-content>
+  
+        <mat-divider></mat-divider>
+        
+        <mat-card-actions align="end" class="p-3">
+          <button mat-button (click)="cancelarEdicao()">Cancelar</button>
+          <button mat-raised-button color="primary" (click)="salvarPersona()" [disabled]="isLoading()">
+            @if(isLoading()) {
+              <mat-spinner diameter="20"></mat-spinner>
+            } @else {
+              <span style="display: flex; align-items: center; gap: 8px;">
+                <mat-icon>save</mat-icon> 
+                <span>Salvar Persona</span>
+              </span>
+            }
+          </button>
+        </mat-card-actions>
+      </mat-card>
+    </div>
+  </div>

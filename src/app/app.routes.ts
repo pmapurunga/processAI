@@ -8,7 +8,6 @@ import { authGuard } from './core/guards/auth.guard';
 import { LoginComponent } from './pages/auth/login/login';
 
 // 3. Imports de Pages (Feature: Processos)
-// Nota: Verifique se manteve o nome do arquivo como 'process-list-page' ou se renomeou para 'process-list'
 import { ProcessListPageComponent } from './pages/processos/process-list/process-list-page';
 import { ProcessSelectorComponent } from './pages/processos/process-selector/process-selector';
 import { ProcessDetailComponent } from './pages/processos/process-detail/process-detail.component';
@@ -20,8 +19,8 @@ import { DiretrizesComponent } from './pages/pericia/diretrizes/diretrizes';
 
 // 5. Imports de Pages (Feature: Admin)
 import { PromptManagerComponent } from './pages/admin/prompt-manager/prompt-manager';
-
 import { QuesitosManagerComponent } from './pages/admin/quesitos-manager/quesitos-manager';
+import { PersonasManagerComponent } from './pages/admin/personas-manager/personas-manager'; // <--- NOVO IMPORT
 
 export const routes: Routes = [
   // Redirecionamento inicial
@@ -34,7 +33,7 @@ export const routes: Routes = [
   {
     path: '',
     component: LayoutComponent,
-    canActivate: [authGuard], // O Guard agora está em core/guards
+    canActivate: [authGuard],
     children: [
       // Dashboard / Listagem
       { path: 'process-list', component: ProcessListPageComponent },
@@ -43,9 +42,9 @@ export const routes: Routes = [
       { path: 'prompt-manager', component: PromptManagerComponent },
       { path: 'diretrizes', component: DiretrizesComponent },
       { path: 'quesitos', component: QuesitosManagerComponent },
+      { path: 'personas', component: PersonasManagerComponent }, // <--- NOVA ROTA
 
       // Rotas de um Processo Específico
-      // Padronizei tudo para usar ':id' para facilitar a manutenção
       { 
         path: 'process/:id', 
         component: ProcessSelectorComponent 

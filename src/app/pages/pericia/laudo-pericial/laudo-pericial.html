@@ -306,6 +306,19 @@
         
         <div class="diretrizes-container">
           
+          <div class="persona-selector mb-3">
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label><mat-icon style="vertical-align: bottom; margin-right: 4px;">face</mat-icon> Persona (Agente IA)</mat-label>
+              <mat-select [ngModel]="personaSelecionada()" (selectionChange)="personaSelecionada.set($event.value)">
+                <mat-option [value]="null">-- Padrão (Sem Persona Específica) --</mat-option>
+                @for (p of listaPersonas(); track p.id) {
+                  <mat-option [value]="p">{{ p.nome }}</mat-option>
+                }
+              </mat-select>
+              <mat-hint>Escolha qual "especialista" fará a análise</mat-hint>
+            </mat-form-field>
+          </div>
+
           <div class="filter-section">
             <mat-form-field appearance="outline" class="w-full">
               <mat-label>Esfera Judicial</mat-label>
@@ -394,8 +407,19 @@
           <mat-card-subtitle>Selecione um modelo para preencher automaticamente</mat-card-subtitle>
         </mat-card-header>
         <mat-card-content class="pt-3">
+          
           <div class="ai-actions-row" style="display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap;">
             
+            <mat-form-field appearance="outline" style="flex: 1; min-width: 250px;">
+              <mat-label>Persona (Agente IA)</mat-label>
+              <mat-select [ngModel]="personaSelecionada()" (selectionChange)="personaSelecionada.set($event.value)">
+                <mat-option [value]="null">-- Padrão --</mat-option>
+                @for (p of listaPersonas(); track p.id) {
+                  <mat-option [value]="p">{{ p.nome }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
             <mat-form-field appearance="outline" style="flex: 1; min-width: 300px;">
               <mat-label>Modelo de Quesitos</mat-label>
               <mat-select (selectionChange)="aplicarModeloQuesitos($event.value)">
@@ -412,11 +436,15 @@
                     (click)="responderQuesitosComIA()"
                     [disabled]="!modeloSelecionado() || isRespondendoQuesitos()">
               @if(isRespondendoQuesitos()) {
-                <mat-spinner diameter="24" color="warn"></mat-spinner>
-                <span class="ml-2">Processando IA...</span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                   <mat-spinner diameter="24" color="warn"></mat-spinner>
+                   <span class="ml-2">Processando IA...</span>
+                </div>
               } @else {
-                <mat-icon>auto_fix_high</mat-icon>
-                <span>Responder com IA</span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <mat-icon>auto_fix_high</mat-icon>
+                  <span>Responder com IA</span>
+                </div>
               }
             </button>
           </div>

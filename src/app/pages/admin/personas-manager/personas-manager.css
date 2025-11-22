@@ -1,0 +1,164 @@
+.container {
+    padding: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding-bottom: 80px; /* Espaço para footer/scroll */
+  }
+  
+  /* --- Header --- */
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 24px;
+  }
+  
+  .page-header h1 {
+    margin-bottom: 4px;
+    color: #3f51b5; /* Primary Color */
+    font-size: 24px;
+    font-weight: 500;
+  }
+  
+  .subtitle {
+    margin: 0;
+    color: #666;
+    font-size: 14px;
+  }
+  
+  /* --- Loading --- */
+  .loading-container {
+    display: flex;
+    justify-content: center;
+    padding: 40px;
+  }
+  
+  /* --- Tabela (Listagem) --- */
+  .table-container {
+    border-radius: 8px;
+    overflow: hidden;
+    background: white;
+  }
+  
+  table {
+    width: 100%;
+  }
+  
+  .mat-column-status {
+    width: 80px;
+    text-align: center;
+  }
+  
+  .mat-column-acoes {
+    width: 120px;
+    text-align: right;
+    padding-right: 16px;
+  }
+  
+  .empty-state {
+    padding: 48px;
+    text-align: center;
+    color: #999;
+    background: #f9f9f9;
+  }
+  
+  .empty-state mat-icon {
+    font-size: 48px;
+    height: 48px;
+    width: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+  }
+  
+  /* --- Modo Edição (Formulário) --- */
+  .edit-area {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  .section-label {
+    font-size: 16px;
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .form-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+  
+  .full-width {
+    width: 100%;
+  }
+  
+  /* --- Base de Conhecimento --- */
+  .knowledge-section {
+    background-color: #fafafa;
+    padding: 24px;
+    border-radius: 8px;
+    border: 1px dashed #e0e0e0;
+  }
+  
+  .flex-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+  
+  .knowledge-list {
+    margin-top: 16px;
+  }
+  
+  .knowledge-panel {
+    background: white;
+  }
+  
+  .panel-body {
+    padding-top: 16px;
+    border-top: 1px solid #eee;
+  }
+  
+  /* Ajuste para inputs dentro do accordion */
+  .dense-field {
+    margin-bottom: -8px;
+  }
+  
+  .empty-knowledge-box {
+    text-align: center;
+    padding: 32px;
+    color: #888;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    background: white;
+  }
+  
+  .empty-knowledge-box mat-icon {
+    font-size: 32px;
+    height: 32px;
+    width: 32px;
+    margin-bottom: 8px;
+    color: #ccc;
+  }
+  
+  /* Responsividade básica */
+  @media (max-width: 600px) {
+    .page-header {
+      flex-direction: column;
+      gap: 16px;
+    }
+    
+    .flex-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 16px;
+    }
+  }
