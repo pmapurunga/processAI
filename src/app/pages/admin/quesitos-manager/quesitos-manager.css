@@ -1,0 +1,142 @@
+.quesitos-container {
+    display: flex;
+    height: calc(100vh - 60px); /* Ajuste conforme a altura do teu header */
+    background-color: #f5f5f5;
+  }
+  
+  /* --- Sidebar --- */
+  .sidebar {
+    width: 300px;
+    background: white;
+    border-right: 1px solid #ddd;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .sidebar-header {
+    padding: 20px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .sidebar-header h2 { margin: 0; font-size: 1.2rem; }
+  
+  .btn-add {
+    background-color: #2c3e50;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+  }
+  
+  .lista-modelos {
+    overflow-y: auto;
+    flex: 1;
+  }
+  
+  .modelo-item {
+    padding: 15px 20px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  
+  .modelo-item:hover { background-color: #f9f9f9; }
+  .modelo-item.active { 
+    background-color: #e3f2fd; 
+    border-left: 4px solid #2196f3;
+  }
+  
+  .modelo-titulo { font-weight: 600; color: #333; }
+  .modelo-meta { font-size: 0.8rem; color: #666; margin-top: 4px; }
+  
+  /* --- Main Content --- */
+  .content {
+    flex: 1;
+    padding: 30px;
+    overflow-y: auto;
+  }
+  
+  /* JSON Editor */
+  .json-editor-panel textarea {
+    width: 100%;
+    font-family: monospace;
+    padding: 15px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    background-color: #2b2b2b;
+    color: #a9b7c6; /* Estilo dark mode para código */
+  }
+  
+  .hint { color: #666; margin-bottom: 10px; font-size: 0.9rem; }
+  
+  .actions { margin-top: 15px; display: flex; align-items: center; gap: 15px; }
+  
+  .btn-primary {
+    background-color: #2196f3;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  
+  .feedback { font-size: 0.9rem; color: green; }
+  .feedback.error { color: red; }
+  
+  /* Visualização Detalhada */
+  .details-panel header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  
+  .badge {
+    padding: 4px 8px;
+    background: #ccc;
+    border-radius: 12px;
+    font-size: 0.8rem;
+  }
+  .badge.active { background: #4caf50; color: white; }
+  
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    background: white;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+  }
+  
+  .quesito-card {
+    background: white;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 6px;
+    border: 1px solid #eee;
+    display: flex;
+    gap: 15px;
+  }
+  
+  .ordem {
+    font-weight: bold;
+    color: #2196f3;
+    font-size: 1.1rem;
+  }
+  
+  .q-texto { margin: 0 0 5px 0; color: #333; }
+  .q-resposta { margin: 0; color: #666; font-style: italic; }
+  
+  .empty-state {
+    text-align: center;
+    color: #999;
+    margin-top: 50px;
+  }

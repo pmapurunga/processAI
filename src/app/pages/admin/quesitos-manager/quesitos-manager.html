@@ -1,0 +1,76 @@
+<div class="quesitos-container">
+  
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>Modelos</h2>
+        <button class="btn-add" (click)="startCreation()">+ Novo (JSON)</button>
+      </div>
+  
+      <div class="lista-modelos">
+        <div 
+          *ngFor="let modelo of modelos$ | async" 
+          class="modelo-item"
+          [class.active]="selectedModelo?.id === modelo.id"
+          (click)="selectModelo(modelo)">
+          
+          <div class="modelo-titulo">{{ modelo.titulo }}</div>
+          <div class="modelo-meta">{{ modelo.jurisdicao }} - {{ modelo.tipoAcao }}</div>
+        </div>
+      </div>
+    </aside>
+  
+    <main class="content">
+      
+      <div *ngIf="isCreating" class="json-editor-panel">
+        <h3>Importar Novo Modelo via JSON</h3>
+        <p class="hint">Cole o objeto JSON abaixo. Certifique-se que segue o padrão.</p>
+        
+        <textarea 
+          [(ngModel)]="jsonInput" 
+          rows="20" 
+          placeholder="Cole seu JSON aqui...">
+        </textarea>
+  
+        <div class="actions">
+          <button (click)="saveFromJson()" class="btn-primary">Salvar Modelo</button>
+          <span class="feedback" [class.error]="feedbackMessage.includes('Erro')">
+            {{ feedbackMessage }}
+          </span>
+        </div>
+      </div>
+  
+      <div *ngIf="selectedModelo && !isCreating" class="details-panel">
+        <header>
+          <h1>{{ selectedModelo.titulo }}</h1>
+          <span class="badge" [class.active]="selectedModelo.ativo">
+            {{ selectedModelo.ativo ? 'Ativo' : 'Inativo' }}
+          </span>
+        </header>
+  
+        <div class="info-grid">
+          <div><strong>Jurisdição:</strong> {{ selectedModelo.jurisdicao }}</div>
+          <div><strong>Tipo:</strong> {{ selectedModelo.tipoAcao }}</div>
+          <div><strong>Atualizado em:</strong> {{ formatDate(selectedModelo.updatedAt) }}</div>
+        </div>
+  
+        <hr>
+  
+        <h3>Quesitos ({{ selectedModelo.itens?.length || 0 }})</h3>
+        
+        <div class="quesitos-list">
+          <div *ngFor="let q of selectedModelo.itens" class="quesito-card">
+            <span class="ordem">#{{ q.ordem }}</span>
+            <div class="q-content">
+              <p class="q-texto"><strong>P:</strong> {{ q.texto }}</p>
+              <p class="q-resposta"><strong>R:</strong> {{ q.respostaPadrao }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+  
+      <div *ngIf="!selectedModelo && !isCreating" class="empty-state">
+        <p>Selecione um modelo na esquerda ou clique em "+ Novo" para adicionar.</p>
+      </div>
+  
+    </main>
+  </div>

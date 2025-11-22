@@ -21,6 +21,8 @@ import { DiretrizesComponent } from './pages/pericia/diretrizes/diretrizes';
 // 5. Imports de Pages (Feature: Admin)
 import { PromptManagerComponent } from './pages/admin/prompt-manager/prompt-manager';
 
+import { QuesitosManagerComponent } from './pages/admin/quesitos-manager/quesitos-manager';
+
 export const routes: Routes = [
   // Redirecionamento inicial
   { path: '', redirectTo: 'login', pathMatch: 'full' },
@@ -40,6 +42,7 @@ export const routes: Routes = [
       // Admin
       { path: 'prompt-manager', component: PromptManagerComponent },
       { path: 'diretrizes', component: DiretrizesComponent },
+      { path: 'quesitos', component: QuesitosManagerComponent },
 
       // Rotas de um Processo Específico
       // Padronizei tudo para usar ':id' para facilitar a manutenção
