@@ -6,6 +6,7 @@ import { CommonModule, Location } from '@angular/common';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { FormsModule } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { LaudoFormatter } from '../../../core/utils/laudo-formatter.utils';
 
 // Serviços
 import { DiretrizesService, Diretriz } from '../../../core/services/diretrizes.service';
@@ -305,6 +306,35 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
   atualizarDiretrizes(opcoes: any[]) {
     const valores = opcoes.map(opcao => opcao.value);
     this.diretrizesSelecionadas.set(valores);
+  }
+
+  copiarJsonFinal() {
+    if (!this.laudoData) {
+      this.showCopyMessage('Ainda não há dados carregados para gerar o JSON.');
+      return;
+    }
+  
+    try {
+      // 1. Gera o JSON Final usando APENAS código (Zero IA)
+      const jsonFinal = LaudoFormatter.gerarJsonFinal(this.laudoData);
+  
+      // 2. Converte para string formatada
+      const jsonString = JSON.stringify(jsonFinal, null, 2);
+  
+      // 3. Copia para o clipboard
+      const sucesso = this.clipboard.copy(jsonString);
+  
+      if (sucesso) {
+        this.showCopyMessage('JSON Final copiado com sucesso!');
+        console.log('JSON Final Gerado:', jsonFinal);
+      } else {
+        this.showCopyMessage('Erro ao copiar para a área de transferência.');
+      }
+  
+    } catch (error) {
+      console.error('Erro ao formatar JSON:', error);
+      this.showCopyMessage('Erro interno ao gerar a formatação final.');
+    }
   }
 
   // --- INTEGRAÇÃO IA 2: AUTOMAÇÃO DE QUESITOS ---

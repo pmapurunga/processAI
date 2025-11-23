@@ -32,8 +32,13 @@
             <button mat-stroked-button (click)="copyJsonToClipboard()">
               <mat-icon>content_copy</mat-icon> JSON
             </button>
+
+            <button mat-raised-button color="accent" (click)="copiarJsonFinal()">
+              <mat-icon>content_copy</mat-icon>
+              Copiar JSON Final
+            </button>
             <button mat-flat-button color="primary" (click)="copyPromptToClipboard()">
-              <mat-icon>smart_toy</mat-icon> Prompt AI
+              <mat-icon>smart_toy</mat-icon> Copiar Prompt
             </button>
           } @else {
             <button mat-button color="warn" (click)="cancelarEdicao()">
