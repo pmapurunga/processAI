@@ -13,11 +13,11 @@ import { DiretrizesService, Diretriz } from '../../../core/services/diretrizes.s
 import { PromptService } from '../../../core/services/prompt.service';
 import { AnalysisService } from '../../../core/services/analysis.service';
 import { QuesitosService } from '../../../core/services/quesitos.service';
-import { PersonasService } from '../../../core/services/personas.service'; // <--- NOVO SERVIÇO
+import { PersonasService } from '../../../core/services/personas.service'; 
 
 // Models
 import { ModeloQuesito } from '../../../core/models/quesito.model';
-import { Persona } from '../../../core/models/persona.model'; // <--- NOVO MODEL
+import { Persona } from '../../../core/models/persona.model'; 
 
 // Components
 import { AiFieldEditorComponent } from '../../../shared/components/ai-field-editor/ai-field-editor';
@@ -39,7 +39,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatInputModule } from '@angular/material/input';
 import { MatDialog } from '@angular/material/dialog';
-import { MatTooltipModule } from '@angular/material/tooltip'; // Opcional, mas bom para UX
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatListOption, MatSelectionListChange } from '@angular/material/list';
 
 @Component({
   selector: 'app-laudo-pericial',
@@ -75,7 +76,7 @@ export class LaudoPericialComponent implements OnInit, OnDestroy {
   private promptService = inject(PromptService);
   private analysisService = inject(AnalysisService);
   private quesitosService = inject(QuesitosService);
-  private personasService = inject(PersonasService); // <--- Injeção
+  private personasService = inject(PersonasService);
   private clipboard = inject(Clipboard);
   private snackBar = inject(MatSnackBar);
   private location = inject(Location);
@@ -110,19 +111,38 @@ export class LaudoPericialComponent implements OnInit, OnDestroy {
     })
   );
 
-  // --- PERSONAS (NOVA LÓGICA) ---
-  // Carrega apenas personas ativas
+  // --- PERSONAS ---
   listaPersonas = toSignal(this.personasService.getPersonas(true), { initialValue: [] });
   personaSelecionada = signal<Persona | null>(null);
 
-  // --- Diretrizes (Legado/Analise Geral) ---
+  // --- Diretrizes (Analise Geral) ---
   todasDiretrizes = toSignal(this.diretrizesService.getDiretrizes(), { initialValue: [] });
   filtroJustica = signal<'Justiça Federal' | 'Justiça do Trabalho' | 'Justiça Comum'>('Justiça Federal');
+  
+  // [NOVO] Signal para armazenar o termo digitado na busca
+  termoBuscaDiretrizes = signal('');
 
+  // [ALTERADO] Computed que filtra por Justiça E pelo texto da busca
   diretrizesFiltradas = computed(() => {
     const lista = this.todasDiretrizes();
     const filtro = this.filtroJustica();
-    return lista.filter(d => d.justica === filtro);
+    // Pega o termo digitado, coloca em minúsculas e remove espaços extras
+    const busca = this.termoBuscaDiretrizes().toLowerCase().trim();
+
+    return lista.filter(d => {
+      // 1. Verifica se pertence à Esfera Judicial selecionada (Federal, Trabalho, etc)
+      const matchJustica = d.justica === filtro;
+      
+      // 2. Verifica a busca textual
+      // Se não tiver nada digitado, considera que deu "match" no texto (retorna true)
+      // Se tiver, procura no Nome OU no Conteúdo da diretriz
+      const matchTexto = !busca || 
+                         d.nome.toLowerCase().includes(busca) || 
+                         (d.conteudo && d.conteudo.toLowerCase().includes(busca));
+
+      // Retorna apenas se passar nos DOIS filtros
+      return matchJustica && matchTexto;
+    });
   });
 
   diretrizesSelecionadas = signal<Diretriz[]>([]);
@@ -203,7 +223,6 @@ export class LaudoPericialComponent implements OnInit, OnDestroy {
   }
 
   // --- HELPER: CONTEXTO DE CONHECIMENTO ---
-  // Monta a string com os conhecimentos da persona para injetar no userContent
   private montarContextoConhecimento(persona: Persona): string {
     if (!persona.conhecimentos || persona.conhecimentos.length === 0) return '';
     
@@ -280,9 +299,8 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
         systemInstruction: systemInstruction,
         userContent: userContent,
         temperature: 0.3,
-        // --- NOVOS CAMPOS ADICIONADOS ---
-        processId: this.processoId!, // Garante que sabemos de qual processo é o gasto
-        actionContext: 'analise_geral_diretrizes' // Nome para identificar nos gráficos depois
+        processId: this.processoId!, 
+        actionContext: 'analise_geral_diretrizes'
       }));
 
       const textoGerado = response.responseText;
@@ -303,9 +321,38 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
     }
   }
 
-  atualizarDiretrizes(opcoes: any[]) {
-    const valores = opcoes.map(opcao => opcao.value);
-    this.diretrizesSelecionadas.set(valores);
+  // --- NOVOS MÉTODOS PARA CORRIGIR A SELEÇÃO ---
+
+  // Verifica se a diretriz está na lista de selecionados (baseado no ID)
+  // Isso garante que o item apareça marcado mesmo depois de filtrar e limpar a busca
+  isDiretrizSelected(diretriz: Diretriz): boolean {
+    return this.diretrizesSelecionadas().some(d => d.id === diretriz.id);
+  }
+
+  // Gerencia a seleção: Adiciona se não tiver, Remove se já tiver
+  toggleDiretrizSelection(event: MatSelectionListChange) {
+    const changedOption = event.options[0]; // Pega o item que foi clicado
+    const diretriz = changedOption.value;
+    const isSelected = changedOption.selected;
+
+    // Cria uma cópia da lista atual para não mutar o signal diretamente
+    const listaAtual = [...this.diretrizesSelecionadas()];
+
+    if (isSelected) {
+      // Se o usuário marcou e o item NÃO está na lista, adiciona
+      if (!listaAtual.some(d => d.id === diretriz.id)) {
+        listaAtual.push(diretriz);
+      }
+    } else {
+      // Se o usuário desmarcou, procura e remove da lista
+      const index = listaAtual.findIndex(d => d.id === diretriz.id);
+      if (index !== -1) {
+        listaAtual.splice(index, 1);
+      }
+    }
+
+    // Atualiza o signal com a nova lista consolidada
+    this.diretrizesSelecionadas.set(listaAtual);
   }
 
   copiarJsonFinal() {
@@ -315,13 +362,8 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
     }
   
     try {
-      // 1. Gera o JSON Final usando APENAS código (Zero IA)
       const jsonFinal = LaudoFormatter.gerarJsonFinal(this.laudoData);
-  
-      // 2. Converte para string formatada
       const jsonString = JSON.stringify(jsonFinal, null, 2);
-  
-      // 3. Copia para o clipboard
       const sucesso = this.clipboard.copy(jsonString);
   
       if (sucesso) {
@@ -347,7 +389,6 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
       this.laudoData.respostasQuesitos = {};
     }
 
-    // Ordena e cria campos vazios se não existirem
     const quesitosOrdenados = [...modelo.quesitos].sort((a, b) => a.ordem - b.ordem);
 
     quesitosOrdenados.forEach(q => {
@@ -379,7 +420,6 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
     return quesitoEncontrado ? quesitoEncontrado.texto : '';
   }
 
-  // Respondendo Quesitos (AGORA COM JSON MODE + PERSONA)
   async responderQuesitosComIA() {
     const modelo = this.modeloSelecionado();
 
@@ -401,7 +441,6 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
       const jsonLaudo = this.getCleanLaudoJson();
       const persona = this.personaSelecionada();
 
-      // Configuração da Persona e Conhecimento
       let systemInstruction = "Você é um assistente pericial. Responda estritamente em JSON.";
       let knowledgeContext = '';
 
@@ -410,7 +449,6 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
         knowledgeContext = this.montarContextoConhecimento(persona);
       }
 
-      // Monta o payload para o Gemini
       const userContent = `
       ${knowledgeContext}
 
@@ -426,19 +464,16 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
       Retorne APENAS um objeto JSON onde as chaves são os IDs dos quesitos (ex: "q1", "q4") e os valores as respostas.
       `;
 
-      // Chama a IA com JSON MODE ATIVADO
       const response = await firstValueFrom(this.analysisService.generateLaudoAnalysis({
         model: 'gemini-2.5-pro', 
         systemInstruction: systemInstruction,
         userContent: userContent,
         temperature: 0.2, 
         responseMimeType: 'application/json',
-        // --- NOVOS CAMPOS ADICIONADOS ---
         processId: this.processoId!,
-        actionContext: `resposta_quesitos_modelo_${modelo.id}` // Ex: resposta_quesitos_modelo_m1
+        actionContext: `resposta_quesitos_modelo_${modelo.id}`
       }));
 
-      // Parsing direto (sem regex gambiarra)
       let respostasIA: any = {};
       try {
         respostasIA = JSON.parse(response.responseText);
@@ -447,7 +482,6 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
         throw new Error('A IA não retornou um JSON válido, mesmo com JSON Mode.');
       }
 
-      // Atualiza a tela
       let atualizados = 0;
       
       modelo.quesitos.forEach(q => {
@@ -461,7 +495,6 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
         }
       });
 
-      // Salva no Firestore
       await this.firestoreService.updateLaudoPericial(this.processoId, {
         respostasQuesitos: this.laudoData.respostasQuesitos,
         modeloQuesitoId: this.laudoData.modeloQuesitoId
@@ -494,40 +527,34 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
 
   copyJsonToClipboard() {
     if (this.laudoData) {
-      // Cópia completa conforme solicitado
       this.clipboard.copy(JSON.stringify(this.laudoData, null, 2));
       this.showCopyMessage('JSON completo copiado!');
     }
   }
 
-  // Método genérico para abrir a IA para qualquer campo
-abrirMelhoriaIA(tituloCampo: string, objetoAlvo: any, nomePropriedade: string) {
-  // Verifica se o objeto existe para evitar erros
-  if (!objetoAlvo) return;
+  abrirMelhoriaIA(tituloCampo: string, objetoAlvo: any, nomePropriedade: string) {
+    if (!objetoAlvo) return;
 
-  const valorAtual = objetoAlvo[nomePropriedade] || '';
+    const valorAtual = objetoAlvo[nomePropriedade] || '';
 
-  const dialogRef = this.dialog.open(AiFieldEditorComponent, {
-    width: '900px', // Largura confortável
-    disableClose: true, // Evita fechar clicando fora sem querer
-    data: {
-      fieldName: tituloCampo,
-      currentValue: valorAtual,
-      fullContext: this.getCleanLaudoJson() // Usa seu método existente para dar contexto
-    }
-  });
+    const dialogRef = this.dialog.open(AiFieldEditorComponent, {
+      width: '900px',
+      disableClose: true,
+      data: {
+        fieldName: tituloCampo,
+        currentValue: valorAtual,
+        fullContext: this.getCleanLaudoJson()
+      }
+    });
 
-  dialogRef.afterClosed().subscribe(novoTexto => {
-    if (novoTexto !== undefined) {
-      // Atualiza o campo diretamente no objeto passado por referência
-      objetoAlvo[nomePropriedade] = novoTexto;
-
-      // Avisa o Angular para atualizar a tela
-      this.cdr.markForCheck();
-      this.showCopyMessage('Campo atualizado com IA!');
-    }
-  });
-}
+    dialogRef.afterClosed().subscribe(novoTexto => {
+      if (novoTexto !== undefined) {
+        objetoAlvo[nomePropriedade] = novoTexto;
+        this.cdr.markForCheck();
+        this.showCopyMessage('Campo atualizado com IA!');
+      }
+    });
+  }
 
   copyPromptToClipboard() {
     const jsonString = JSON.stringify(this.getCleanLaudoJson(), null, 2);

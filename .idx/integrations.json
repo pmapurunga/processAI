@@ -1,8 +1,5 @@
 {
   "firebase_hosting": {
     "deploymentHostingUrl": "https://processai-468612.web.app"
-  },
-  "cloud_run_deploy": {},
-  "gemini_api": {},
-  "secrets_manager": {}
+  }
 }
