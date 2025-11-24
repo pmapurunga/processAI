@@ -102,11 +102,26 @@ export class LaudoPericialComponent implements OnInit, OnDestroy {
     }),
     tap(laudo => {
       this.laudoData = laudo;
-
+  
+      // 1. Restaura o Texto da IA
       if (laudo && laudo.analiseIA) {
         this.resultadoAnaliseIA.set(laudo.analiseIA);
       }
-
+  
+      // 2. [NOVO] Restaura a seleção das diretrizes baseada no que foi salvo
+      if (laudo && laudo.diretrizesUsadasAnalise && Array.isArray(laudo.diretrizesUsadasAnalise)) {
+        
+        // Precisamos cruzar os dados salvos com a lista completa para ter os objetos 'Diretriz' completos
+        const todas = this.todasDiretrizes();
+        const idsSalvos = laudo.diretrizesUsadasAnalise.map((d: any) => d.id);
+        
+        const diretrizesParaRestaurar = todas.filter(d => idsSalvos.includes(d.id));
+        
+        if (diretrizesParaRestaurar.length > 0) {
+          this.diretrizesSelecionadas.set(diretrizesParaRestaurar);
+        }
+      }
+  
       this.cdr.markForCheck();
     })
   );
@@ -240,6 +255,7 @@ ${conhecimentosTexto}
 
   // --- INTEGRAÇÃO IA 1: ANÁLISE GERAL COM DIRETRIZES ---
   async analisarComIA() {
+    // 1. Validações Iniciais
     if (this.diretrizesSelecionadas().length === 0) {
       this.showCopyMessage('Selecione pelo menos uma diretriz.');
       return;
@@ -249,20 +265,21 @@ ${conhecimentosTexto}
     this.isAnalisando.set(true);
 
     try {
-      // 1. Recupera o Prompt Base (A "Tarefa")
+      // 2. Recupera o Prompt Base (A "Tarefa")
       const promptConfig = await firstValueFrom(this.promptService.getPromptById('analise_federal'));
 
       if (!promptConfig || !promptConfig.prompt_text) {
         throw new Error('Prompt "analise_federal" não encontrado.');
       }
 
+      // 3. Prepara os dados para envio
       const jsonLaudo = this.getCleanLaudoJson();
 
       const textoDiretrizes = this.diretrizesSelecionadas()
         .map(d => `--- DIRETRIZ (${d.nome}) ---\n${d.conteudo || 'SEM CONTEÚDO'}`)
         .join('\n\n');
 
-      // 2. Configura Persona (System Instruction + Knowledge)
+      // 4. Configura Persona (System Instruction + Knowledge)
       const persona = this.personaSelecionada();
       let systemInstruction = promptConfig.prompt_text; // Fallback se não tiver persona
       let knowledgeContext = '';
@@ -273,7 +290,7 @@ ${conhecimentosTexto}
         systemInstruction = persona.instrucoes;
         // O conhecimento da persona entra no User Content
         knowledgeContext = this.montarContextoConhecimento(persona);
-        // O prompt original vira a instrução da tarefa
+        // O prompt original vira a instrução da tarefa dentro do User Content
         taskInstruction = `
         INSTRUÇÃO DA TAREFA:
         ${promptConfig.prompt_text}
@@ -294,6 +311,7 @@ INSTRUÇÃO FINAL:
 Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
       `;
 
+      // 5. Chamada à API de IA
       const response = await firstValueFrom(this.analysisService.generateLaudoAnalysis({
         model: 'gemini-2.5-pro',
         systemInstruction: systemInstruction,
@@ -305,12 +323,30 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
 
       const textoGerado = response.responseText;
 
+      // 6. Preparação para Salvar (Rastreabilidade das Diretrizes)
+      // Criamos um array leve apenas com ID e Nome para salvar no banco
+      const diretrizesSnapshot = this.diretrizesSelecionadas().map(d => ({
+        id: d.id,
+        nome: d.nome,
+        justica: d.justica // Opcional, ajuda a identificar a origem
+      }));
+
+      // 7. Atualização no Firestore
       await this.firestoreService.updateLaudoPericial(this.processoId, {
-        analiseIA: textoGerado
+        analiseIA: textoGerado,
+        diretrizesUsadasAnalise: diretrizesSnapshot // <--- CAMPO NOVO SALVO AQUI
       });
 
+      // 8. Atualização do Estado Local (Interface)
       this.resultadoAnaliseIA.set(textoGerado);
-      this.showCopyMessage('Análise realizada com sucesso!');
+      
+      // Atualizamos o objeto laudoData localmente para refletir a mudança sem recarregar a página
+      if (this.laudoData) {
+        this.laudoData.analiseIA = textoGerado;
+        this.laudoData.diretrizesUsadasAnalise = diretrizesSnapshot;
+      }
+
+      this.showCopyMessage('Análise realizada e salva com sucesso!');
 
     } catch (error: any) {
       console.error('Erro IA:', error);

@@ -479,6 +479,19 @@
             <mat-divider class="my-4"></mat-divider>
             <div class="ai-result-box">
               <h3><mat-icon class="ai-icon">auto_awesome</mat-icon> Análise da IA</h3>
+              
+              @if (laudoData?.diretrizesUsadasAnalise?.length) {
+                <div class="fontes-usadas mb-3" style="margin-top: -8px;">
+                  <span style="font-size: 0.8rem; color: #666; margin-right: 8px;">Baseado em:</span>
+                  <mat-chip-set aria-label="Diretrizes usadas">
+                    @for (d of laudoData.diretrizesUsadasAnalise; track d.id) {
+                      <mat-chip [highlighted]="true" color="primary" style="font-size: 0.75rem; min-height: 28px;">
+                        {{ d.nome }}
+                      </mat-chip>
+                    }
+                  </mat-chip-set>
+                </div>
+              }
               @if(!isEditing()) {
                   <markdown [data]="resultadoAnaliseIA()"></markdown>
                } @else {
