@@ -13,11 +13,11 @@ import { DiretrizesService, Diretriz } from '../../../core/services/diretrizes.s
 import { PromptService } from '../../../core/services/prompt.service';
 import { AnalysisService } from '../../../core/services/analysis.service';
 import { QuesitosService } from '../../../core/services/quesitos.service';
-import { PersonasService } from '../../../core/services/personas.service'; 
+import { PersonasService } from '../../../core/services/personas.service';
 
 // Models
 import { ModeloQuesito } from '../../../core/models/quesito.model';
-import { Persona } from '../../../core/models/persona.model'; 
+import { Persona } from '../../../core/models/persona.model';
 
 // Components
 import { AiFieldEditorComponent } from '../../../shared/components/ai-field-editor/ai-field-editor';
@@ -102,26 +102,23 @@ export class LaudoPericialComponent implements OnInit, OnDestroy {
     }),
     tap(laudo => {
       this.laudoData = laudo;
-  
+
       // 1. Restaura o Texto da IA
       if (laudo && laudo.analiseIA) {
         this.resultadoAnaliseIA.set(laudo.analiseIA);
       }
-  
-      // 2. [NOVO] Restaura a seleção das diretrizes baseada no que foi salvo
+
+      // 2. Restaura a seleção das diretrizes baseada no que foi salvo
       if (laudo && laudo.diretrizesUsadasAnalise && Array.isArray(laudo.diretrizesUsadasAnalise)) {
-        
-        // Precisamos cruzar os dados salvos com a lista completa para ter os objetos 'Diretriz' completos
         const todas = this.todasDiretrizes();
         const idsSalvos = laudo.diretrizesUsadasAnalise.map((d: any) => d.id);
-        
         const diretrizesParaRestaurar = todas.filter(d => idsSalvos.includes(d.id));
-        
+
         if (diretrizesParaRestaurar.length > 0) {
           this.diretrizesSelecionadas.set(diretrizesParaRestaurar);
         }
       }
-  
+
       this.cdr.markForCheck();
     })
   );
@@ -133,29 +130,21 @@ export class LaudoPericialComponent implements OnInit, OnDestroy {
   // --- Diretrizes (Analise Geral) ---
   todasDiretrizes = toSignal(this.diretrizesService.getDiretrizes(), { initialValue: [] });
   filtroJustica = signal<'Justiça Federal' | 'Justiça do Trabalho' | 'Justiça Comum'>('Justiça Federal');
-  
-  // [NOVO] Signal para armazenar o termo digitado na busca
+
+  // Signal para armazenar o termo digitado na busca
   termoBuscaDiretrizes = signal('');
 
-  // [ALTERADO] Computed que filtra por Justiça E pelo texto da busca
+  // Computed que filtra por Justiça E pelo texto da busca
   diretrizesFiltradas = computed(() => {
     const lista = this.todasDiretrizes();
     const filtro = this.filtroJustica();
-    // Pega o termo digitado, coloca em minúsculas e remove espaços extras
     const busca = this.termoBuscaDiretrizes().toLowerCase().trim();
 
     return lista.filter(d => {
-      // 1. Verifica se pertence à Esfera Judicial selecionada (Federal, Trabalho, etc)
       const matchJustica = d.justica === filtro;
-      
-      // 2. Verifica a busca textual
-      // Se não tiver nada digitado, considera que deu "match" no texto (retorna true)
-      // Se tiver, procura no Nome OU no Conteúdo da diretriz
-      const matchTexto = !busca || 
-                         d.nome.toLowerCase().includes(busca) || 
+      const matchTexto = !busca ||
+                         d.nome.toLowerCase().includes(busca) ||
                          (d.conteudo && d.conteudo.toLowerCase().includes(busca));
-
-      // Retorna apenas se passar nos DOIS filtros
       return matchJustica && matchTexto;
     });
   });
@@ -240,7 +229,7 @@ export class LaudoPericialComponent implements OnInit, OnDestroy {
   // --- HELPER: CONTEXTO DE CONHECIMENTO ---
   private montarContextoConhecimento(persona: Persona): string {
     if (!persona.conhecimentos || persona.conhecimentos.length === 0) return '';
-    
+
     const conhecimentosTexto = persona.conhecimentos
       .map((c, i) => `--- FONTE ${i + 1}: ${c.titulo} ---\n${c.conteudo}`)
       .join('\n\n');
@@ -255,7 +244,6 @@ ${conhecimentosTexto}
 
   // --- INTEGRAÇÃO IA 1: ANÁLISE GERAL COM DIRETRIZES ---
   async analisarComIA() {
-    // 1. Validações Iniciais
     if (this.diretrizesSelecionadas().length === 0) {
       this.showCopyMessage('Selecione pelo menos uma diretriz.');
       return;
@@ -265,32 +253,25 @@ ${conhecimentosTexto}
     this.isAnalisando.set(true);
 
     try {
-      // 2. Recupera o Prompt Base (A "Tarefa")
       const promptConfig = await firstValueFrom(this.promptService.getPromptById('analise_federal'));
 
       if (!promptConfig || !promptConfig.prompt_text) {
         throw new Error('Prompt "analise_federal" não encontrado.');
       }
 
-      // 3. Prepara os dados para envio
       const jsonLaudo = this.getCleanLaudoJson();
-
       const textoDiretrizes = this.diretrizesSelecionadas()
         .map(d => `--- DIRETRIZ (${d.nome}) ---\n${d.conteudo || 'SEM CONTEÚDO'}`)
         .join('\n\n');
 
-      // 4. Configura Persona (System Instruction + Knowledge)
       const persona = this.personaSelecionada();
-      let systemInstruction = promptConfig.prompt_text; // Fallback se não tiver persona
+      let systemInstruction = promptConfig.prompt_text;
       let knowledgeContext = '';
       let taskInstruction = '';
 
       if (persona) {
-        // Se tem persona, a System Instruction é a identidade da persona
         systemInstruction = persona.instrucoes;
-        // O conhecimento da persona entra no User Content
         knowledgeContext = this.montarContextoConhecimento(persona);
-        // O prompt original vira a instrução da tarefa dentro do User Content
         taskInstruction = `
         INSTRUÇÃO DA TAREFA:
         ${promptConfig.prompt_text}
@@ -311,36 +292,30 @@ INSTRUÇÃO FINAL:
 Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
       `;
 
-      // 5. Chamada à API de IA
       const response = await firstValueFrom(this.analysisService.generateLaudoAnalysis({
         model: 'gemini-2.5-pro',
         systemInstruction: systemInstruction,
         userContent: userContent,
         temperature: 0.3,
-        processId: this.processoId!, 
+        processId: this.processoId!,
         actionContext: 'analise_geral_diretrizes'
       }));
 
       const textoGerado = response.responseText;
 
-      // 6. Preparação para Salvar (Rastreabilidade das Diretrizes)
-      // Criamos um array leve apenas com ID e Nome para salvar no banco
       const diretrizesSnapshot = this.diretrizesSelecionadas().map(d => ({
         id: d.id,
         nome: d.nome,
-        justica: d.justica // Opcional, ajuda a identificar a origem
+        justica: d.justica
       }));
 
-      // 7. Atualização no Firestore
       await this.firestoreService.updateLaudoPericial(this.processoId, {
         analiseIA: textoGerado,
-        diretrizesUsadasAnalise: diretrizesSnapshot // <--- CAMPO NOVO SALVO AQUI
+        diretrizesUsadasAnalise: diretrizesSnapshot
       });
 
-      // 8. Atualização do Estado Local (Interface)
       this.resultadoAnaliseIA.set(textoGerado);
-      
-      // Atualizamos o objeto laudoData localmente para refletir a mudança sem recarregar a página
+
       if (this.laudoData) {
         this.laudoData.analiseIA = textoGerado;
         this.laudoData.diretrizesUsadasAnalise = diretrizesSnapshot;
@@ -357,37 +332,28 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
     }
   }
 
-  // --- NOVOS MÉTODOS PARA CORRIGIR A SELEÇÃO ---
-
-  // Verifica se a diretriz está na lista de selecionados (baseado no ID)
-  // Isso garante que o item apareça marcado mesmo depois de filtrar e limpar a busca
   isDiretrizSelected(diretriz: Diretriz): boolean {
     return this.diretrizesSelecionadas().some(d => d.id === diretriz.id);
   }
 
-  // Gerencia a seleção: Adiciona se não tiver, Remove se já tiver
   toggleDiretrizSelection(event: MatSelectionListChange) {
-    const changedOption = event.options[0]; // Pega o item que foi clicado
+    const changedOption = event.options[0];
     const diretriz = changedOption.value;
     const isSelected = changedOption.selected;
 
-    // Cria uma cópia da lista atual para não mutar o signal diretamente
     const listaAtual = [...this.diretrizesSelecionadas()];
 
     if (isSelected) {
-      // Se o usuário marcou e o item NÃO está na lista, adiciona
       if (!listaAtual.some(d => d.id === diretriz.id)) {
         listaAtual.push(diretriz);
       }
     } else {
-      // Se o usuário desmarcou, procura e remove da lista
       const index = listaAtual.findIndex(d => d.id === diretriz.id);
       if (index !== -1) {
         listaAtual.splice(index, 1);
       }
     }
 
-    // Atualiza o signal com a nova lista consolidada
     this.diretrizesSelecionadas.set(listaAtual);
   }
 
@@ -396,19 +362,19 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
       this.showCopyMessage('Ainda não há dados carregados para gerar o JSON.');
       return;
     }
-  
+
     try {
       const jsonFinal = LaudoFormatter.gerarJsonFinal(this.laudoData);
       const jsonString = JSON.stringify(jsonFinal, null, 2);
       const sucesso = this.clipboard.copy(jsonString);
-  
+
       if (sucesso) {
         this.showCopyMessage('JSON Final copiado com sucesso!');
         console.log('JSON Final Gerado:', jsonFinal);
       } else {
         this.showCopyMessage('Erro ao copiar para a área de transferência.');
       }
-  
+
     } catch (error) {
       console.error('Erro ao formatar JSON:', error);
       this.showCopyMessage('Erro interno ao gerar a formatação final.');
@@ -501,10 +467,10 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
       `;
 
       const response = await firstValueFrom(this.analysisService.generateLaudoAnalysis({
-        model: 'gemini-2.5-pro', 
+        model: 'gemini-2.5-pro',
         systemInstruction: systemInstruction,
         userContent: userContent,
-        temperature: 0.2, 
+        temperature: 0.2,
         responseMimeType: 'application/json',
         processId: this.processoId!,
         actionContext: `resposta_quesitos_modelo_${modelo.id}`
@@ -519,12 +485,12 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
       }
 
       let atualizados = 0;
-      
+
       modelo.quesitos.forEach(q => {
-        const respostaGerada = respostasIA[q.id]; 
-        
+        const respostaGerada = respostasIA[q.id];
+
         if (respostaGerada) {
-          const numero = q.id.replace(/\D/g, ''); 
+          const numero = q.id.replace(/\D/g, '');
           const chaveTecnica = `RESPOSTA_QUESITO_${numero}`;
           this.laudoData.respostasQuesitos[chaveTecnica] = respostaGerada;
           atualizados++;
@@ -588,6 +554,32 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
         objetoAlvo[nomePropriedade] = novoTexto;
         this.cdr.markForCheck();
         this.showCopyMessage('Campo atualizado com IA!');
+      }
+    });
+  }
+
+  // --- NOVO MÉTODO PARA ANÁLISE IA ---
+  melhorarAnaliseIA() {
+    const valorAtual = this.resultadoAnaliseIA() || '';
+
+    const dialogRef = this.dialog.open(AiFieldEditorComponent, {
+      width: '900px',
+      disableClose: true,
+      data: {
+        fieldName: 'Análise da IA',
+        currentValue: valorAtual,
+        fullContext: this.getCleanLaudoJson()
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(novoTexto => {
+      if (novoTexto !== undefined) {
+        this.resultadoAnaliseIA.set(novoTexto);
+        if (this.laudoData) {
+            this.laudoData.analiseIA = novoTexto;
+        }
+        this.cdr.markForCheck();
+        this.showCopyMessage('Análise atualizada com IA!');
       }
     });
   }
