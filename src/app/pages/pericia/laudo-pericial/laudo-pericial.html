@@ -621,12 +621,11 @@
     </mat-expansion-panel-header>
 
     <div class="quesitos-list">
-      @for (chave of objectKeys(laudoData.respostasQuesitos); track chave) {
+      @for (chave of getQuesitosKeysOrdenadas(); track chave) {
       <div class="quesito-item mb-3">
-
-                <span style="font-size: 0.75rem; color: #999; text-transform: uppercase; letter-spacing: 0.5px;">
-                  {{ chave }}
-                </span>
+    <span style="font-size: 0.75rem; color: #999; text-transform: uppercase; letter-spacing: 0.5px;">
+      {{ chave }}
+    </span>
 
         <strong class="q-label" style="display: block; margin-bottom: 8px; font-size: 1rem; color: #333;">
           {{ getTextoPergunta(chave) || 'Pergunta não identificada no modelo' }}

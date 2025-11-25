@@ -92,40 +92,14 @@ export class LaudoPericialComponent implements OnInit, OnDestroy {
   // Controle do Modo de Edição
   isEditing = signal(false);
 
-  // Carregamento do Laudo
-  laudo$ = this.route.paramMap.pipe(
-    map(params => params.get('id')),
-    tap(id => this.processoId = id),
-    switchMap(id => {
-      if (!id) return [];
-      return this.firestoreService.getLaudoPericial(id);
-    }),
-    tap(laudo => {
-      this.laudoData = laudo;
-
-      // 1. Restaura o Texto da IA
-      if (laudo && laudo.analiseIA) {
-        this.resultadoAnaliseIA.set(laudo.analiseIA);
-      }
-
-      // 2. Restaura a seleção das diretrizes baseada no que foi salvo
-      if (laudo && laudo.diretrizesUsadasAnalise && Array.isArray(laudo.diretrizesUsadasAnalise)) {
-        const todas = this.todasDiretrizes();
-        const idsSalvos = laudo.diretrizesUsadasAnalise.map((d: any) => d.id);
-        const diretrizesParaRestaurar = todas.filter(d => idsSalvos.includes(d.id));
-
-        if (diretrizesParaRestaurar.length > 0) {
-          this.diretrizesSelecionadas.set(diretrizesParaRestaurar);
-        }
-      }
-
-      this.cdr.markForCheck();
-    })
-  );
-
   // --- PERSONAS ---
   listaPersonas = toSignal(this.personasService.getPersonas(true), { initialValue: [] });
   personaSelecionada = signal<Persona | null>(null);
+
+  // --- Automação de Quesitos ---
+  listaModelosQuesitos = toSignal(this.quesitosService.getModelos(), { initialValue: [] });
+  modeloSelecionado = signal<ModeloQuesito | null>(null);
+  isRespondendoQuesitos = signal(false);
 
   // --- Diretrizes (Analise Geral) ---
   todasDiretrizes = toSignal(this.diretrizesService.getDiretrizes(), { initialValue: [] });
@@ -153,10 +127,55 @@ export class LaudoPericialComponent implements OnInit, OnDestroy {
   resultadoAnaliseIA = signal<string | null>(null);
   isAnalisando = signal(false);
 
-  // --- Automação de Quesitos ---
-  listaModelosQuesitos = toSignal(this.quesitosService.getModelos(), { initialValue: [] });
-  modeloSelecionado = signal<ModeloQuesito | null>(null);
-  isRespondendoQuesitos = signal(false);
+  // Carregamento do Laudo
+  laudo$ = this.route.paramMap.pipe(
+    map(params => params.get('id')),
+    tap(id => this.processoId = id),
+    switchMap(id => {
+      if (!id) return [];
+      return this.firestoreService.getLaudoPericial(id);
+    }),
+    tap(laudo => {
+      this.laudoData = laudo;
+
+      // 1. Restaura o Texto da IA
+      if (laudo && laudo.analiseIA) {
+        this.resultadoAnaliseIA.set(laudo.analiseIA);
+      }
+
+      // 2. Restaura a seleção das diretrizes baseada no que foi salvo
+      if (laudo && laudo.diretrizesUsadasAnalise && Array.isArray(laudo.diretrizesUsadasAnalise)) {
+        const todas = this.todasDiretrizes();
+        const idsSalvos = laudo.diretrizesUsadasAnalise.map((d: any) => d.id);
+        const diretrizesParaRestaurar = todas.filter(d => idsSalvos.includes(d.id));
+
+        if (diretrizesParaRestaurar.length > 0) {
+          this.diretrizesSelecionadas.set(diretrizesParaRestaurar);
+        }
+      }
+
+      // 3. Restaura Contexto de Quesitos (Modelo e Persona)
+      if (laudo) {
+        // Restaura Modelo
+        if (laudo.modeloQuesitoId) {
+          const modeloFound = this.listaModelosQuesitos().find(m => m.id === laudo.modeloQuesitoId);
+          if (modeloFound) {
+            this.modeloSelecionado.set(modeloFound);
+          }
+        }
+
+        // Restaura Persona usada nos Quesitos
+        if (laudo.personaQuesitosId) {
+           const personaFound = this.listaPersonas().find(p => p.id === laudo.personaQuesitosId);
+           if (personaFound) {
+             this.personaSelecionada.set(personaFound);
+           }
+        }
+      }
+
+      this.cdr.markForCheck();
+    })
+  );
 
   // --- CICLO DE VIDA ---
 
@@ -179,6 +198,18 @@ export class LaudoPericialComponent implements OnInit, OnDestroy {
 
   objectKeys(obj: any): string[] {
     return Object.keys(obj || {});
+  }
+
+  // NOVO MÉTODO: Ordenação numérica das chaves dos quesitos
+  getQuesitosKeysOrdenadas(): string[] {
+    if (!this.laudoData || !this.laudoData.respostasQuesitos) return [];
+
+    return Object.keys(this.laudoData.respostasQuesitos).sort((a, b) => {
+      // Extrai apenas os números das chaves (ex: "RESPOSTA_QUESITO_10" -> 10)
+      const numA = parseInt(a.replace(/\D/g, ''), 10) || 0;
+      const numB = parseInt(b.replace(/\D/g, ''), 10) || 0;
+      return numA - numB;
+    });
   }
 
   goBack(): void {
@@ -422,110 +453,157 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
     return quesitoEncontrado ? quesitoEncontrado.texto : '';
   }
 
-  async responderQuesitosComIA() {
-    const modelo = this.modeloSelecionado();
+  // ... imports e código anterior ...
 
-    if (!modelo) {
-      this.showCopyMessage('Selecione um modelo primeiro.');
-      return;
-    }
+    async responderQuesitosComIA() {
+      const modelo = this.modeloSelecionado();
 
-    if (!modelo.promptIA) {
-      this.showCopyMessage('ERRO: Este modelo não possui Prompt de IA cadastrado.');
-      return;
-    }
-
-    if (!this.processoId) return;
-
-    this.isRespondendoQuesitos.set(true);
-
-    try {
-      const jsonLaudo = this.getCleanLaudoJson();
-      const persona = this.personaSelecionada();
-
-      let systemInstruction = "Você é um assistente pericial. Responda estritamente em JSON.";
-      let knowledgeContext = '';
-
-      if (persona) {
-        systemInstruction = persona.instrucoes + " IMPORTANTE: A saída DEVE ser estritamente um JSON válido.";
-        knowledgeContext = this.montarContextoConhecimento(persona);
+      // 1. Validações iniciais
+      if (!modelo) {
+        this.showCopyMessage('Selecione um modelo primeiro.');
+        return;
       }
 
-      const userContent = `
-      ${knowledgeContext}
+      if (!modelo.promptIA) {
+        this.showCopyMessage('ERRO: Este modelo não possui Prompt de IA cadastrado.');
+        return;
+      }
 
-      DADOS DO LAUDO PERICIAL:
-      ${JSON.stringify(jsonLaudo, null, 2)}
+      if (!this.processoId) return;
 
-      ---
-      TAREFA E REGRAS ESPECÍFICAS (PROMPT DO MODELO):
-      ${modelo.promptIA}
+      this.isRespondendoQuesitos.set(true);
 
-      ---
-      FORMATO DE SAÍDA OBRIGATÓRIO (JSON):
-      Retorne APENAS um objeto JSON onde as chaves são os IDs dos quesitos (ex: "q1", "q4") e os valores as respostas.
-      `;
-
-      const response = await firstValueFrom(this.analysisService.generateLaudoAnalysis({
-        model: 'gemini-2.5-pro',
-        systemInstruction: systemInstruction,
-        userContent: userContent,
-        temperature: 0.2,
-        responseMimeType: 'application/json',
-        processId: this.processoId!,
-        actionContext: `resposta_quesitos_modelo_${modelo.id}`
-      }));
-
-      let respostasIA: any = {};
       try {
-        respostasIA = JSON.parse(response.responseText);
-      } catch (e) {
-        console.error('Falha no JSON Parse:', response.responseText);
-        throw new Error('A IA não retornou um JSON válido, mesmo com JSON Mode.');
-      }
+        // 2. Preparação dos Dados (ISOLADA)
+        // Pegamos o JSON base
+        const baseJson = this.getCleanLaudoJson();
 
-      let atualizados = 0;
+        // Criamos uma CÓPIA PROFUNDA para manipular sem medo de alterar o original ou afetar outras funções
+        const jsonParaIA = JSON.parse(JSON.stringify(baseJson));
 
-      modelo.quesitos.forEach(q => {
-        const respostaGerada = respostasIA[q.id];
+        // 3. REMOÇÃO EXPLÍCITA DE CAMPOS (Conforme sua solicitação)
+        // Garantimos que a IA não veja o que já foi respondido ou metadados de controle
+        delete jsonParaIA.respostasQuesitos;
+        delete jsonParaIA.meta_dados_quesitos;
 
-        if (respostaGerada) {
-          const numero = q.id.replace(/\D/g, '');
-          const chaveTecnica = `RESPOSTA_QUESITO_${numero}`;
-          this.laudoData.respostasQuesitos[chaveTecnica] = respostaGerada;
-          atualizados++;
+        // Opcional: remover análise da IA anterior para economizar tokens e evitar viés
+        delete jsonParaIA.analiseIA;
+        delete jsonParaIA.diretrizesUsadasAnalise;
+
+        // 4. Configuração do Prompt
+        const persona = this.personaSelecionada();
+        let systemInstruction = "Você é um assistente pericial. Responda estritamente em JSON.";
+        let knowledgeContext = '';
+
+        if (persona) {
+          systemInstruction = persona.instrucoes + " IMPORTANTE: A saída DEVE ser estritamente um JSON válido.";
+          knowledgeContext = this.montarContextoConhecimento(persona);
         }
-      });
 
-      await this.firestoreService.updateLaudoPericial(this.processoId, {
-        respostasQuesitos: this.laudoData.respostasQuesitos,
-        modeloQuesitoId: this.laudoData.modeloQuesitoId
-      });
+        const userContent = `
+        ${knowledgeContext}
 
-      this.showCopyMessage(`${atualizados} quesitos respondidos e salvos!`);
-      this.cdr.markForCheck();
+        DADOS DO LAUDO PERICIAL (Analise estes dados):
+        ${JSON.stringify(jsonParaIA, null, 2)}
 
-    } catch (error: any) {
-      console.error('Erro Quesitos IA:', error);
-      this.showCopyMessage('Erro ao gerar respostas: ' + error.message);
-    } finally {
-      this.isRespondendoQuesitos.set(false);
+        ---
+        TAREFA (PROMPT DO MODELO):
+        ${modelo.promptIA}
+
+        ---
+        FORMATO DE SAÍDA OBRIGATÓRIO (JSON):
+        Retorne APENAS um objeto JSON onde:
+        1. As chaves são os IDs dos quesitos (ex: "q1", "q4").
+        2. Os valores são as respostas em TEXTO PLANO (String).
+        3. NÃO crie objetos dentro das respostas.
+        `;
+
+        // 5. Chamada à API
+        const response = await firstValueFrom(this.analysisService.generateLaudoAnalysis({
+          model: 'gemini-2.5-pro',
+          systemInstruction: systemInstruction,
+          userContent: userContent,
+          temperature: 0.2,
+          responseMimeType: 'application/json',
+          processId: this.processoId!,
+          actionContext: `resposta_quesitos_modelo_${modelo.id}`
+        }));
+
+        // 6. Tratamento da Resposta (Sanitização)
+        let respostasIA: any = {};
+        try {
+          respostasIA = JSON.parse(response.responseText);
+        } catch (e) {
+          console.error('Falha no JSON Parse:', response.responseText);
+          throw new Error('A IA não retornou um JSON válido.');
+        }
+
+        let atualizados = 0;
+
+        // Iteramos sobre o modelo original para garantir que só pegamos o que esperamos
+        modelo.quesitos.forEach(q => {
+          let respostaGerada = respostasIA[q.id];
+
+          if (respostaGerada) {
+            // --- PROTEÇÃO CONTRA OBJETOS ANINHADOS (Caso a IA falhe no formato) ---
+            // Ex: Se vier { "q1": { "texto": "Resposta..." } } transformamos em "Resposta..."
+            if (typeof respostaGerada === 'object' && respostaGerada !== null) {
+              const valores = Object.values(respostaGerada);
+              if (valores.length > 0) {
+                 respostaGerada = String(valores[0]);
+              } else {
+                 respostaGerada = JSON.stringify(respostaGerada); // Fallback
+              }
+            }
+
+            // Garante que é string
+            if (typeof respostaGerada !== 'string') {
+               respostaGerada = String(respostaGerada);
+            }
+            // ---------------------------------------------------------------------
+
+            const numero = q.id.replace(/\D/g, '');
+            const chaveTecnica = `RESPOSTA_QUESITO_${numero}`;
+
+            // Atualizamos o objeto principal
+            this.laudoData.respostasQuesitos[chaveTecnica] = respostaGerada;
+            atualizados++;
+          }
+        });
+
+        // 7. Salvar no Firestore
+        await this.firestoreService.updateLaudoPericial(this.processoId, {
+          respostasQuesitos: this.laudoData.respostasQuesitos,
+          modeloQuesitoId: this.laudoData.modeloQuesitoId,
+          personaQuesitosId: this.personaSelecionada()?.id || null
+        });
+
+        this.showCopyMessage(`${atualizados} quesitos respondidos/atualizados com sucesso!`);
+        this.cdr.markForCheck();
+
+      } catch (error: any) {
+        console.error('Erro Quesitos IA:', error);
+        this.showCopyMessage('Erro ao gerar respostas: ' + error.message);
+      } finally {
+        this.isRespondendoQuesitos.set(false);
+      }
     }
-  }
 
-  // --- HELPERS ---
-  private getCleanLaudoJson(): any {
-    if (!this.laudoData) return {};
-    const { respostasQuesitos, ...rest } = this.laudoData;
-    return {
-      identificacaoProcesso: rest.identificacaoProcesso,
-      dadosPericiando: rest.dadosPericiando,
-      historicoLaboral: rest.historicoLaboral,
-      dadosMedicos: rest.dadosMedicos,
-      OBSERVACOES: rest.OBSERVACOES,
-      respostasQuesitos: rest.respostasQuesitos,
-    };
-  }
+    // Mantenha o getCleanLaudoJson original ou genérico, pois ele serve para outras coisas
+    private getCleanLaudoJson(): any {
+      if (!this.laudoData) return {};
+      const { respostasQuesitos, ...rest } = this.laudoData;
+      return {
+        identificacaoProcesso: rest.identificacaoProcesso,
+        dadosPericiando: rest.dadosPericiando,
+        historicoLaboral: rest.historicoLaboral,
+        dadosMedicos: rest.dadosMedicos,
+        OBSERVACOES: rest.OBSERVACOES,
+        respostasQuesitos: rest.respostasQuesitos, // Aqui mantemos, pois pode ser usado para copiar JSON completo
+      };
+    }
+
+    // ... resto do código
 
   copyJsonToClipboard() {
     if (this.laudoData) {
