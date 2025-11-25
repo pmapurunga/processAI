@@ -453,9 +453,7 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
     return quesitoEncontrado ? quesitoEncontrado.texto : '';
   }
 
-  // ... imports e código anterior ...
-
-    async responderQuesitosComIA() {
+  async responderQuesitosComIA() {
       const modelo = this.modeloSelecionado();
 
       // 1. Validações iniciais
@@ -474,23 +472,25 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
       this.isRespondendoQuesitos.set(true);
 
       try {
-        // 2. Preparação dos Dados (ISOLADA)
-        // Pegamos o JSON base
+        // 2. Preparação dos Dados
+        // Pegamos o JSON base (que contém dados médicos, processo, etc.)
         const baseJson = this.getCleanLaudoJson();
 
-        // Criamos uma CÓPIA PROFUNDA para manipular sem medo de alterar o original ou afetar outras funções
+        // Criamos uma CÓPIA para manipular exclusivamente para este envio
         const jsonParaIA = JSON.parse(JSON.stringify(baseJson));
 
-        // 3. REMOÇÃO EXPLÍCITA DE CAMPOS (Conforme sua solicitação)
-        // Garantimos que a IA não veja o que já foi respondido ou metadados de controle
+        // 3. LIMPEZA (O que sai)
+        // Removemos as respostas antigas para garantir que a IA gere tudo do zero sem vícios
         delete jsonParaIA.respostasQuesitos;
         delete jsonParaIA.meta_dados_quesitos;
 
-        // Opcional: remover análise da IA anterior para economizar tokens e evitar viés
-        delete jsonParaIA.analiseIA;
-        delete jsonParaIA.diretrizesUsadasAnalise;
+        // 4. INJEÇÃO DE CONTEXTO (O que entra)
+        // ADICIONADO: Incluímos a Análise da IA (com as diretrizes) para guiar as respostas
+        if (this.laudoData.analiseIA) {
+          jsonParaIA.ANALISE_DIRETRIZES_PREVIA = this.laudoData.analiseIA;
+        }
 
-        // 4. Configuração do Prompt
+        // 5. Configuração do Prompt
         const persona = this.personaSelecionada();
         let systemInstruction = "Você é um assistente pericial. Responda estritamente em JSON.";
         let knowledgeContext = '';
@@ -503,11 +503,14 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
         const userContent = `
         ${knowledgeContext}
 
-        DADOS DO LAUDO PERICIAL (Analise estes dados):
+        === CONTEXTO COMPLETO DO CASO ===
+        Abaixo estão os dados do periciando, histórico e a ANÁLISE TÉCNICA PRÉVIA (Diretrizes).
+        Use a "ANALISE_DIRETRIZES_PREVIA" como guia para manter a coerência nas respostas.
+
         ${JSON.stringify(jsonParaIA, null, 2)}
 
         ---
-        TAREFA (PROMPT DO MODELO):
+        TAREFA (RESPONDER QUESITOS):
         ${modelo.promptIA}
 
         ---
@@ -518,7 +521,7 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
         3. NÃO crie objetos dentro das respostas.
         `;
 
-        // 5. Chamada à API
+        // 6. Chamada à API
         const response = await firstValueFrom(this.analysisService.generateLaudoAnalysis({
           model: 'gemini-2.5-pro',
           systemInstruction: systemInstruction,
@@ -529,7 +532,7 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
           actionContext: `resposta_quesitos_modelo_${modelo.id}`
         }));
 
-        // 6. Tratamento da Resposta (Sanitização)
+        // 7. Tratamento e Sanitização da Resposta
         let respostasIA: any = {};
         try {
           respostasIA = JSON.parse(response.responseText);
@@ -540,45 +543,40 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
 
         let atualizados = 0;
 
-        // Iteramos sobre o modelo original para garantir que só pegamos o que esperamos
         modelo.quesitos.forEach(q => {
           let respostaGerada = respostasIA[q.id];
 
           if (respostaGerada) {
-            // --- PROTEÇÃO CONTRA OBJETOS ANINHADOS (Caso a IA falhe no formato) ---
-            // Ex: Se vier { "q1": { "texto": "Resposta..." } } transformamos em "Resposta..."
+            // Proteção contra objetos aninhados (Sanitização)
             if (typeof respostaGerada === 'object' && respostaGerada !== null) {
               const valores = Object.values(respostaGerada);
               if (valores.length > 0) {
                  respostaGerada = String(valores[0]);
               } else {
-                 respostaGerada = JSON.stringify(respostaGerada); // Fallback
+                 respostaGerada = JSON.stringify(respostaGerada);
               }
             }
 
-            // Garante que é string
             if (typeof respostaGerada !== 'string') {
                respostaGerada = String(respostaGerada);
             }
-            // ---------------------------------------------------------------------
 
             const numero = q.id.replace(/\D/g, '');
             const chaveTecnica = `RESPOSTA_QUESITO_${numero}`;
 
-            // Atualizamos o objeto principal
             this.laudoData.respostasQuesitos[chaveTecnica] = respostaGerada;
             atualizados++;
           }
         });
 
-        // 7. Salvar no Firestore
+        // 8. Salvar no Firestore
         await this.firestoreService.updateLaudoPericial(this.processoId, {
           respostasQuesitos: this.laudoData.respostasQuesitos,
           modeloQuesitoId: this.laudoData.modeloQuesitoId,
           personaQuesitosId: this.personaSelecionada()?.id || null
         });
 
-        this.showCopyMessage(`${atualizados} quesitos respondidos/atualizados com sucesso!`);
+        this.showCopyMessage(`${atualizados} quesitos respondidos com base na análise!`);
         this.cdr.markForCheck();
 
       } catch (error: any) {
@@ -602,9 +600,6 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
         respostasQuesitos: rest.respostasQuesitos, // Aqui mantemos, pois pode ser usado para copiar JSON completo
       };
     }
-
-    // ... resto do código
-
   copyJsonToClipboard() {
     if (this.laudoData) {
       this.clipboard.copy(JSON.stringify(this.laudoData, null, 2));
