@@ -453,139 +453,191 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
     return quesitoEncontrado ? quesitoEncontrado.texto : '';
   }
 
-  async responderQuesitosComIA() {
-      const modelo = this.modeloSelecionado();
+ async responderQuesitosComIA() {
+     console.log('🚀 --- INICIANDO PROCESSAMENTO DE QUESITOS COM IA ---');
 
-      // 1. Validações iniciais
-      if (!modelo) {
-        this.showCopyMessage('Selecione um modelo primeiro.');
-        return;
-      }
+     const modelo = this.modeloSelecionado();
 
-      if (!modelo.promptIA) {
-        this.showCopyMessage('ERRO: Este modelo não possui Prompt de IA cadastrado.');
-        return;
-      }
+     // 1. Validações iniciais
+     if (!modelo) {
+       console.warn('⚠️ Nenhum modelo de quesito selecionado.');
+       this.showCopyMessage('Selecione um modelo primeiro.');
+       return;
+     }
 
-      if (!this.processoId) return;
+     if (!modelo.promptIA) {
+       console.warn('⚠️ Modelo sem prompt de IA configurado:', modelo.titulo);
+       this.showCopyMessage('ERRO: Este modelo não possui Prompt de IA cadastrado.');
+       return;
+     }
 
-      this.isRespondendoQuesitos.set(true);
+     if (!this.processoId) {
+       console.error('❌ ID do processo não encontrado.');
+       return;
+     }
 
-      try {
-        // 2. Preparação dos Dados
-        // Pegamos o JSON base (que contém dados médicos, processo, etc.)
-        const baseJson = this.getCleanLaudoJson();
+     this.isRespondendoQuesitos.set(true);
 
-        // Criamos uma CÓPIA para manipular exclusivamente para este envio
-        const jsonParaIA = JSON.parse(JSON.stringify(baseJson));
+     try {
+       // 2. Preparação dos Dados
+       const baseJson = this.getCleanLaudoJson();
 
-        // 3. LIMPEZA (O que sai)
-        // Removemos as respostas antigas para garantir que a IA gere tudo do zero sem vícios
-        delete jsonParaIA.respostasQuesitos;
-        delete jsonParaIA.meta_dados_quesitos;
+       // Cópia para manipulação
+       const jsonParaIA = JSON.parse(JSON.stringify(baseJson));
 
-        // 4. INJEÇÃO DE CONTEXTO (O que entra)
-        // ADICIONADO: Incluímos a Análise da IA (com as diretrizes) para guiar as respostas
-        if (this.laudoData.analiseIA) {
-          jsonParaIA.ANALISE_DIRETRIZES_PREVIA = this.laudoData.analiseIA;
-        }
+       // 3. LIMPEZA (Remove respostas antigas para não enviesar)
+       delete jsonParaIA.respostasQuesitos;
+       delete jsonParaIA.meta_dados_quesitos;
 
-        // 5. Configuração do Prompt
-        const persona = this.personaSelecionada();
-        let systemInstruction = "Você é um assistente pericial. Responda estritamente em JSON.";
-        let knowledgeContext = '';
+       // 4. INJEÇÃO DE CONTEXTO E DIRETRIZES
 
-        if (persona) {
-          systemInstruction = persona.instrucoes + " IMPORTANTE: A saída DEVE ser estritamente um JSON válido.";
-          knowledgeContext = this.montarContextoConhecimento(persona);
-        }
+       // A. Resumo da Análise (Bússola Lógica)
+       if (this.laudoData.analiseIA) {
+         console.log('✅ Análise Prévia (Resumo) encontrada e injetada.');
+         jsonParaIA.ANALISE_DIRETRIZES_PREVIA = this.laudoData.analiseIA;
+       } else {
+         console.log('ℹ️ Sem Análise Prévia disponível no laudo.');
+       }
 
-        const userContent = `
-        ${knowledgeContext}
+       // B. Texto Completo das Diretrizes (Base Legal)
+       const diretrizesAtivas = this.diretrizesSelecionadas();
+       console.log(`📋 Diretrizes Selecionadas: ${diretrizesAtivas.length}`, diretrizesAtivas.map(d => d.nome));
 
-        === CONTEXTO COMPLETO DO CASO ===
-        Abaixo estão os dados do periciando, histórico e a ANÁLISE TÉCNICA PRÉVIA (Diretrizes).
-        Use a "ANALISE_DIRETRIZES_PREVIA" como guia para manter a coerência nas respostas.
+       const textoDiretrizes = diretrizesAtivas
+         .map(d => `--- NORMA/DIRETRIZ (${d.nome}) ---\n${d.conteudo || 'SEM CONTEÚDO'}`)
+         .join('\n\n');
 
-        ${JSON.stringify(jsonParaIA, null, 2)}
+       if (textoDiretrizes) {
+         jsonParaIA.CONTEUDO_DIRETRIZES_COMPLETO = textoDiretrizes;
+         console.log('✅ Conteúdo completo das diretrizes injetado no JSON.');
+       }
 
-        ---
-        TAREFA (RESPONDER QUESITOS):
-        ${modelo.promptIA}
+       // LOG: O que a IA vai ler
+       console.log('📦 JSON DE CONTEXTO (DADOS + DIRETRIZES):', jsonParaIA);
 
-        ---
-        FORMATO DE SAÍDA OBRIGATÓRIO (JSON):
-        Retorne APENAS um objeto JSON onde:
-        1. As chaves são os IDs dos quesitos (ex: "q1", "q4").
-        2. Os valores são as respostas em TEXTO PLANO (String).
-        3. NÃO crie objetos dentro das respostas.
-        `;
+       // 5. Configuração do Prompt (Persona + Instruções)
+       const persona = this.personaSelecionada();
+       let systemInstruction = "Você é um assistente pericial. Responda estritamente em JSON.";
+       let knowledgeContext = '';
 
-        // 6. Chamada à API
-        const response = await firstValueFrom(this.analysisService.generateLaudoAnalysis({
-          model: 'gemini-2.5-pro',
-          systemInstruction: systemInstruction,
-          userContent: userContent,
-          temperature: 0.2,
-          responseMimeType: 'application/json',
-          processId: this.processoId!,
-          actionContext: `resposta_quesitos_modelo_${modelo.id}`
-        }));
+       if (persona) {
+         console.log('👤 Persona aplicada:', persona.nome);
+         systemInstruction = persona.instrucoes + " IMPORTANTE: A saída DEVE ser estritamente um JSON válido.";
+         knowledgeContext = this.montarContextoConhecimento(persona);
+       } else {
+         console.log('👤 Nenhuma Persona selecionada (usando padrão).');
+       }
 
-        // 7. Tratamento e Sanitização da Resposta
-        let respostasIA: any = {};
-        try {
-          respostasIA = JSON.parse(response.responseText);
-        } catch (e) {
-          console.error('Falha no JSON Parse:', response.responseText);
-          throw new Error('A IA não retornou um JSON válido.');
-        }
+       // PROMPT COM A "REGRA DE OURO" E INSTRUÇÃO DE FORMATO
+       const userContent = `
+       ${knowledgeContext}
 
-        let atualizados = 0;
+       === CONTEXTO COMPLETO DO CASO ===
+       Abaixo estão os dados do periciando e a ANÁLISE TÉCNICA PRÉVIA (analiseIA) que define a conclusão do caso.
 
-        modelo.quesitos.forEach(q => {
-          let respostaGerada = respostasIA[q.id];
+       ${JSON.stringify(jsonParaIA, null, 2)}
 
-          if (respostaGerada) {
-            // Proteção contra objetos aninhados (Sanitização)
-            if (typeof respostaGerada === 'object' && respostaGerada !== null) {
-              const valores = Object.values(respostaGerada);
-              if (valores.length > 0) {
-                 respostaGerada = String(valores[0]);
-              } else {
-                 respostaGerada = JSON.stringify(respostaGerada);
-              }
-            }
+       ---
+       🚨 REGRA DE OURO (RACIOCÍNIO OBRIGATÓRIO):
+       O campo "ANALISE_DIRETRIZES_PREVIA" contém a conclusão pericial macroscópica já definida.
+       1. Você deve ADOTAR essa análise como a verdade absoluta do caso.
+       2. Todas as respostas aos quesitos devem DERIVAR logicamente dessa análise.
+       3. SE a análise diz que "não há incapacidade", é PROIBIDO responder qualquer quesito dizendo que "há incapacidade". Mantenha a coerência total.
+       4. Use o "CONTEUDO_DIRETRIZES_COMPLETO" para citar trechos de leis/normas quando solicitado.
 
-            if (typeof respostaGerada !== 'string') {
-               respostaGerada = String(respostaGerada);
-            }
+       ---
+       TAREFA (RESPONDER QUESITOS):
+       ${modelo.promptIA}
 
-            const numero = q.id.replace(/\D/g, '');
-            const chaveTecnica = `RESPOSTA_QUESITO_${numero}`;
+       ---
+       FORMATO DE SAÍDA OBRIGATÓRIO (JSON):
+       Retorne APENAS um objeto JSON onde:
+       1. As chaves devem seguir o padrão solicitado no prompt (ex: "RESPOSTA_QUESITO_4").
+       2. Os valores são as respostas em TEXTO PLANO (String).
+       3. NÃO crie objetos dentro das respostas.
+       `;
 
-            this.laudoData.respostasQuesitos[chaveTecnica] = respostaGerada;
-            atualizados++;
-          }
-        });
+       // LOG DO PROMPT (Útil para debug manual)
+       console.log('📝 PROMPT ENVIADO:', userContent);
 
-        // 8. Salvar no Firestore
-        await this.firestoreService.updateLaudoPericial(this.processoId, {
-          respostasQuesitos: this.laudoData.respostasQuesitos,
-          modeloQuesitoId: this.laudoData.modeloQuesitoId,
-          personaQuesitosId: this.personaSelecionada()?.id || null
-        });
+       // 6. Chamada à API
+       console.log('⏳ Aguardando resposta do Gemini...');
+       const response = await firstValueFrom(this.analysisService.generateLaudoAnalysis({
+         model: 'gemini-2.5-pro',
+         systemInstruction: systemInstruction,
+         userContent: userContent,
+         temperature: 0.2, // Temperatura baixa para maior fidelidade às regras
+         responseMimeType: 'application/json',
+         processId: this.processoId!,
+         actionContext: `resposta_quesitos_modelo_${modelo.id}`
+       }));
 
-        this.showCopyMessage(`${atualizados} quesitos respondidos com base na análise!`);
-        this.cdr.markForCheck();
+       console.log('📩 Resposta bruta recebida:', response.responseText);
 
-      } catch (error: any) {
-        console.error('Erro Quesitos IA:', error);
-        this.showCopyMessage('Erro ao gerar respostas: ' + error.message);
-      } finally {
-        this.isRespondendoQuesitos.set(false);
-      }
-    }
+       // 7. Tratamento da Resposta
+       let respostasIA: any = {};
+       try {
+         respostasIA = JSON.parse(response.responseText);
+         console.log('✅ JSON parseado com sucesso:', respostasIA);
+       } catch (e) {
+         console.error('❌ Falha ao fazer parse do JSON retornado:', response.responseText);
+         throw new Error('A IA não retornou um JSON válido.');
+       }
+
+       let atualizados = 0;
+
+       // 8. Aplicação das Respostas (Lógica Híbrida: Chave Longa vs ID Curto)
+       modelo.quesitos.forEach(q => {
+         // A. Descobre o número (ex: "q4" -> "4")
+         const numero = q.id.replace(/\D/g, '');
+
+         // B. Monta a chave técnica esperada pelo HTML (ex: "RESPOSTA_QUESITO_4")
+         const chaveTecnica = `RESPOSTA_QUESITO_${numero}`;
+
+         // C. Tenta ler a resposta em ambos os formatos possíveis
+         // Prioridade: Chave longa (RESPOSTA_QUESITO_4) > ID (q4)
+         let respostaGerada = respostasIA[chaveTecnica] || respostasIA[q.id];
+
+         if (respostaGerada) {
+           // Sanitização: Garante que é string e não objeto/null
+           if (typeof respostaGerada === 'object' && respostaGerada !== null) {
+             const valores = Object.values(respostaGerada);
+             respostaGerada = valores.length > 0 ? String(valores[0]) : JSON.stringify(respostaGerada);
+           }
+
+           if (typeof respostaGerada !== 'string') {
+              respostaGerada = String(respostaGerada);
+           }
+
+           // Salva no laudo usando a chave correta para o formulário
+           this.laudoData.respostasQuesitos[chaveTecnica] = respostaGerada;
+           atualizados++;
+
+           console.log(`✅ Quesito ${numero} preenchido.`);
+         } else {
+           console.warn(`⚠️ Resposta ausente para Quesito ${numero} (Chaves verificadas: ${chaveTecnica}, ${q.id})`);
+         }
+       });
+
+       console.log(`🏁 Processo finalizado. Total de quesitos respondidos: ${atualizados}`);
+
+       // 9. Salvar no Firestore
+       await this.firestoreService.updateLaudoPericial(this.processoId, {
+         respostasQuesitos: this.laudoData.respostasQuesitos,
+         modeloQuesitoId: this.laudoData.modeloQuesitoId,
+         personaQuesitosId: this.personaSelecionada()?.id || null
+       });
+
+       this.showCopyMessage(`${atualizados} quesitos respondidos com base na análise e diretrizes!`);
+       this.cdr.markForCheck();
+
+     } catch (error: any) {
+       console.error('❌ Erro Crítico ao processar quesitos:', error);
+       this.showCopyMessage('Erro ao gerar respostas: ' + error.message);
+     } finally {
+       this.isRespondendoQuesitos.set(false);
+     }
+   }
 
     // Mantenha o getCleanLaudoJson original ou genérico, pois ele serve para outras coisas
     private getCleanLaudoJson(): any {
