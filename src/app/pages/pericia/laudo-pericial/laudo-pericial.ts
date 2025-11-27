@@ -639,6 +639,24 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
      }
    }
 
+ // Adicione este método na classe LaudoPericialComponent
+
+ limparRespostasQuesitos() {
+   if (!this.isEditing()) return;
+
+   // Uma confirmação nativa simples para segurança
+   if (confirm('Tem certeza que deseja apagar todas as respostas dos quesitos?\nEsta ação não pode ser desfeita localmente até que você cancele a edição.')) {
+
+     // Define o objeto de respostas como vazio
+     this.laudoData.respostasQuesitos = {};
+
+     this.showCopyMessage('Todas as respostas de quesitos foram removidas.');
+
+     // Força a atualização da interface se necessário (embora signals/Angular cuidem disso)
+     this.cdr.markForCheck();
+   }
+ }
+
     // Mantenha o getCleanLaudoJson original ou genérico, pois ele serve para outras coisas
     private getCleanLaudoJson(): any {
       if (!this.laudoData) return {};

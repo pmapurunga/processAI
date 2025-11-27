@@ -621,6 +621,15 @@
     </mat-expansion-panel-header>
 
     <div class="quesitos-list">
+
+      @if(isEditing()) {
+      <div class="action-bar mb-3" style="display: flex; justify-content: flex-end;">
+        <button mat-flat-button color="warn" (click)="limparRespostasQuesitos()">
+          <mat-icon>delete_sweep</mat-icon>
+          Apagar Todas as Respostas
+        </button>
+      </div>
+      }
       @for (chave of getQuesitosKeysOrdenadas(); track chave) {
       <div class="quesito-item mb-3">
     <span style="font-size: 0.75rem; color: #999; text-transform: uppercase; letter-spacing: 0.5px;">
