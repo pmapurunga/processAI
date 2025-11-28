@@ -23,15 +23,22 @@ export class ProcessService {
   }
 
   deleteProcess(processId: string): Observable<void[]> {
-    // Garante que não há espaços em branco no ID
-    const trimmedProcessId = processId.trim();
+      const trimmedProcessId = processId.trim();
 
-    const deleteFirestore$ = this.firestoreService.deleteProcess(trimmedProcessId);
-    const deleteStatus$ = this.firestoreService.deleteProcessStatus(trimmedProcessId);
-    const deleteStorage$ = from(this.deleteFolder(`processos/${trimmedProcessId}`));
+      // 1. Apaga dados do Firestore
+      const deleteFirestore$ = this.firestoreService.deleteProcess(trimmedProcessId);
 
-    return forkJoin([deleteFirestore$, deleteStatus$, deleteStorage$]);
-  }
+      // 2. Apaga status
+      const deleteStatus$ = this.firestoreService.deleteProcessStatus(trimmedProcessId);
+
+      // 3. Apaga Storage
+      const folderPath = `${trimmedProcessId}/`;
+
+      console.log(`Tentando apagar pasta do Storage no caminho: "${folderPath}"`);
+      const deleteStorage$ = from(this.deleteFolder(folderPath));
+
+      return forkJoin([deleteFirestore$, deleteStatus$, deleteStorage$]);
+    }
 
   /**
    * Apaga recursivamente uma "pasta" e todo o seu conteúdo (arquivos e subpastas).
@@ -39,13 +46,13 @@ export class ProcessService {
    */
   private async deleteFolder(path: string): Promise<void> {
     const folderRef = ref(this.storage, path);
-    
+
     try {
       const listResult = await listAll(folderRef);
 
       // Cria uma lista de promessas para apagar todos os arquivos
       const fileDeletePromises = listResult.items.map(itemRef => deleteObject(itemRef));
-      
+
       // Cria uma lista de promessas para apagar todas as subpastas recursivamente
       const folderDeletePromises = listResult.prefixes.map(prefixRef => this.deleteFolder(prefixRef.fullPath));
 
@@ -60,7 +67,7 @@ export class ProcessService {
         console.log(`Pasta não encontrada (isso é normal se não havia arquivos): ${path}`);
         return;
       }
-      
+
       // Para todos os outros erros, exibe no console e lança novamente.
       console.error(`Erro ao apagar a pasta "${path}":`, storageError);
       throw storageError;
