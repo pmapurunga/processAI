@@ -1,9 +1,10 @@
 
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators, FormArray } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { Firestore, doc, docData, setDoc } from '@angular/fire/firestore';
 import { Observable } from 'rxjs';
+import { debounceTime } from 'rxjs/operators';
 import { CommonModule, Location } from '@angular/common';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -95,6 +96,8 @@ export class AvaliacaoPericialComponent {
 
   processoId = this.route.snapshot.paramMap.get('id');
   avaliacao$: Observable<AvaliacaoPericial | undefined>;
+  
+  isEditing = signal(false);
 
   form = this.fb.group({
     identificacaoProcesso: this.fb.group({
@@ -150,13 +153,17 @@ export class AvaliacaoPericialComponent {
   });
 
   constructor() {
+    // Start with form disabled (View Mode)
+    this.form.disable();
+
     if (this.processoId) {
       const docRef = doc(this.firestore, `analises_processos/${this.processoId}/pericia/avaliacao_pericial`);
       // Tentar carregar dados existentes, mas não bloquear se não existirem
       this.avaliacao$ = docData(docRef) as Observable<AvaliacaoPericial | undefined>;
       this.avaliacao$.subscribe(data => {
         if (data) {
-          this.form.patchValue(data as any);
+          // Use emitEvent: false to prevent triggering valueChanges
+          this.form.patchValue(data as any, { emitEvent: false });
         }
       });
     } else {
@@ -164,7 +171,10 @@ export class AvaliacaoPericialComponent {
     }
 
     // Configurar auto-save quando os campos forem alterados
-    this.form.valueChanges.subscribe(() => {
+    // Add debounceTime to prevent excessive writes
+    this.form.valueChanges.pipe(
+      debounceTime(1000)
+    ).subscribe(() => {
       this.save();
     });
   }
@@ -176,6 +186,15 @@ export class AvaliacaoPericialComponent {
       setDoc(docRef, this.form.value, { merge: true }).catch(error => {
         console.error('Erro ao salvar dados:', error);
       });
+    }
+  }
+
+  toggleEdit() {
+    this.isEditing.update(v => !v);
+    if (this.isEditing()) {
+      this.form.enable({ emitEvent: false });
+    } else {
+      this.form.disable({ emitEvent: false });
     }
   }
 

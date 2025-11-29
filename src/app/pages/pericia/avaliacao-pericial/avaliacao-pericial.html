@@ -4,6 +4,19 @@
       <mat-icon>arrow_back</mat-icon>
     </button>
     <h1>Formulário de Avaliação Pericial</h1>
+    <div class="header-actions">
+      @if (isEditing()) {
+        <button mat-raised-button color="primary" (click)="toggleEdit()">
+          <mat-icon>visibility</mat-icon>
+          Visualizar
+        </button>
+      } @else {
+        <button mat-raised-button color="primary" (click)="toggleEdit()">
+          <mat-icon>edit</mat-icon>
+          Editar
+        </button>
+      }
+    </div>
   </div>
   <form [formGroup]="form" (ngSubmit)="save()">
     <!-- Seção de Identificação do Processo -->
@@ -313,15 +326,17 @@
       </mat-card-content>
     </mat-card>
 
-    <div class="form-actions">
-      <button mat-stroked-button (click)="voltar()">
-        <mat-icon>arrow_back</mat-icon>
-        Voltar
-      </button>
-      <button mat-raised-button color="primary" type="submit" [disabled]="form.invalid">
-        <mat-icon>save</mat-icon>
-        Salvar Alterações
-      </button>
-    </div>
+    @if (isEditing()) {
+      <div class="form-actions">
+        <button mat-stroked-button (click)="voltar()">
+          <mat-icon>arrow_back</mat-icon>
+          Voltar
+        </button>
+        <button mat-raised-button color="primary" type="submit" [disabled]="form.invalid">
+          <mat-icon>save</mat-icon>
+          Salvar Alterações
+        </button>
+      </div>
+    }
   </form>
 </div>
