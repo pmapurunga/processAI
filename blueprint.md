@@ -19,23 +19,21 @@ Uma aplicação web em Angular moderna e de alto desempenho para visualizar os r
 
 # Plano de Implementação Atual
 
-## Fase 3: Monitoramento de Status
+## Fase 4: Correção e Melhoria na Exclusão de Processos
 
-**Objetivo:** Integrar os dados de status da coleção `status_processos` na tela de detalhes, permitindo ao usuário ver o resultado (`Sucesso`/`Falha`) do processamento de cada documento.
+**Objetivo:** Garantir a exclusão completa dos dados do processo, incluindo arquivos no Firebase Storage que podem estar armazenados com caminhos personalizados ou fora da estrutura de pastas padrão.
 
 **Passos:**
 
-1.  **Expandir `FirestoreService`**:
-    - Criar uma nova interface, `StatusDocument`.
-    - Adicionar um novo método, `getProcessStatus(processId: string)`, que buscará os documentos da subcoleção `status_processos/{processId}/documentos`.
-    - O método retornará um `Observable<Map<string, StatusDocument>>` para otimizar a consulta.
-2.  **Atualizar `ProcessDetailComponent`**:
-    - Chamar o novo método `getProcessStatus`.
-    - Criar um sinal computado (`computed`) que irá combinar os resultados das duas fontes de dados: os detalhes da análise e o status do processamento.
-    - O novo sinal conterá uma lista de documentos de análise, cada um enriquecido com seu status correspondente.
-3.  **Atualizar o Template**:
-    - Modificar o `mat-card` para exibir o status de forma proeminente.
-    - Usar `mat-icon` e cores para uma representação visual clara: um ícone de "check" verde para Sucesso e um de "erro" vermelho para Falha.
-    - Exibir a mensagem de erro (`erro`) se o status for 'Falha'.
-    - Importar o `MatIconModule` no componente.
-4.  **Verificar e Corrigir**: Executar `ng build` para garantir que não há erros de compilação.
+1.  **Refatorar `ProcessService.deleteProcess`**:
+    - Modificar a lógica de exclusão para primeiro recuperar os documentos do processo (`getDocumentosAnalisados`).
+    - Iterar sobre os documentos para extrair os caminhos reais dos arquivos PDF (`linkArquivoPDF`) usando decodificação de URL do Storage.
+2.  **Executar Exclusão Robusta no Storage**:
+    - Criar uma lista de promessas para apagar os arquivos identificados especificamente.
+    - Manter a tentativa de apagar a pasta raiz do processo (`processId/`) recursivamente como fallback.
+    - Executar todas as exclusões de Storage em paralelo.
+3.  **Sincronizar com Firestore**:
+    - Garantir que a exclusão dos dados no Firestore (`analises_processos` e `status_processos`) ocorra em conjunto (forkJoin) com a limpeza do Storage.
+4.  **Verificar e Corrigir**:
+    - O código foi atualizado para lidar com erros silenciosos (ex: arquivo não encontrado) para não bloquear o fluxo de exclusão.
+    - `ng build` executado com sucesso.
