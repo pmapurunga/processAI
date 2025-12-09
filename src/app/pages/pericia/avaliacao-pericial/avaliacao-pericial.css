@@ -1,4 +1,3 @@
-
 /* General styling */
 :host {
   display: block;
@@ -41,12 +40,14 @@ mat-card-title {
 }
 
 .card:focus-within {
-    border-color: #3f51b5;
-    box-shadow: 0 4px 15px rgba(63, 81, 181, 0.15);
+  border-color: #3f51b5;
+  box-shadow: 0 4px 15px rgba(63, 81, 181, 0.15);
 }
 
-.card h2, .card h3 {
-  color: #3f51b5; /* Indigo color for section titles */
+.card h2,
+.card h3 {
+  color: #3f51b5;
+  /* Indigo color for section titles */
   margin-top: 0;
   margin-bottom: 1.5rem;
   font-weight: 500;
@@ -91,8 +92,8 @@ textarea:focus {
 }
 
 textarea {
-    min-height: 120px;
-    resize: vertical;
+  min-height: 120px;
+  resize: vertical;
 }
 
 
@@ -105,28 +106,34 @@ textarea {
 
 /* Dynamic Array Styling */
 .experience-array-item {
-    border: 1px solid #e0e0e0;
-    border-radius: 6px;
-    padding: 1.5rem;
-    margin-top: 1rem;
-    background-color: #fafafa;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 1.5rem;
+  margin-top: 1rem;
+  background-color: #fafafa;
 }
 
 .experience-array-item h4 {
-    margin-top: 0;
-    color: #5c6bc0;
+  margin-top: 0;
+  color: #5c6bc0;
 }
 
 /* Button Styling */
+/* Button Styling */
 .form-actions {
-    text-align: right;
-    margin-top: 2rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e0e0e0;
 }
 
 button[type="submit"] {
   background: linear-gradient(90deg, #3f51b5 0%, #5c6bc0 100%);
   color: white;
-  padding: 0.9rem 2rem;
+  padding: 0.8rem 2rem;
+  /* Adjusted padding */
   border: none;
   border-radius: 6px;
   cursor: pointer;

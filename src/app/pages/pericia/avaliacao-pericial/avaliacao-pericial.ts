@@ -4,7 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators, FormArray } from '@angula
 import { ActivatedRoute } from '@angular/router';
 import { Firestore, doc, docData, setDoc } from '@angular/fire/firestore';
 import { Observable } from 'rxjs';
-import { debounceTime } from 'rxjs/operators';
+
 import { CommonModule, Location } from '@angular/common';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -74,7 +74,7 @@ export interface AvaliacaoPericial {
   templateUrl: './avaliacao-pericial.html',
   styleUrls: ['./avaliacao-pericial.css'],
   imports: [
-    CommonModule, 
+    CommonModule,
     ReactiveFormsModule,
     MatInputModule,
     MatFormFieldModule,
@@ -96,7 +96,7 @@ export class AvaliacaoPericialComponent {
 
   processoId = this.route.snapshot.paramMap.get('id');
   avaliacao$: Observable<AvaliacaoPericial | undefined>;
-  
+
   isEditing = signal(false);
 
   form = this.fb.group({
@@ -170,13 +170,7 @@ export class AvaliacaoPericialComponent {
       this.avaliacao$ = new Observable();
     }
 
-    // Configurar auto-save quando os campos forem alterados
-    // Add debounceTime to prevent excessive writes
-    this.form.valueChanges.pipe(
-      debounceTime(1000)
-    ).subscribe(() => {
-      this.save();
-    });
+
   }
 
   save() {
