@@ -1,376 +1,496 @@
 /* ============================================================
    LAYOUT PRINCIPAL
    ============================================================ */
-   :host {
-    display: block;
-    padding: 24px;
-    background-color: #f0f2f5;
-    min-height: 100vh;
-  }
+/* ============================================================
+   LAYOUT PRINCIPAL
+   ============================================================ */
+:host {
+  display: block;
+  /* padding top/bottom only, let the layout handle side padding if needed */
+  padding: 24px 0;
+  background-color: #f0f2f5;
+  min-height: 100vh;
+}
 
-  .container {
-    max-width: 1100px;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-  }
+.container {
+  max-width: 1400px;
+  /* Increased to accommodate sidebar */
+  margin: 0 auto;
+  padding: 0 24px;
+}
 
-  /* ============================================================
+/* New Layout Wrapper */
+.laudo-layout {
+  display: flex;
+  gap: 32px;
+  position: relative;
+  align-items: flex-start;
+}
+
+/* Sidebar Styles */
+.laudo-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 64px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  padding-right: 8px;
+  /* For scrollbar breathing room */
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: white;
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.nav-btn {
+  justify-content: flex-start !important;
+  text-align: left !important;
+  font-weight: 500;
+  color: #5f6368;
+}
+
+.nav-btn mat-icon {
+  margin-right: 12px;
+  color: #888;
+}
+
+.nav-btn.active {
+  background-color: #e8f0fe !important;
+  color: #1967d2 !important;
+}
+
+.nav-btn.active mat-icon {
+  color: #1967d2 !important;
+}
+
+/* Main Content Wrapper */
+.laudo-content {
+  flex-grow: 1;
+  min-width: 0;
+  /* Prevents flex items from overflowing */
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Back to Top Button */
+.back-to-top {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  z-index: 999;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* ============================================================
      HEADER & AÇÕES
      ============================================================ */
-  .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 16px;
-  }
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 32px;
+  gap: 24px;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 64px;
+  z-index: 100;
+  background-color: #f5f7fa;
+  padding-top: 24px;
+  /* Compensate for lost parent padding visual when scrolled */
+  margin-top: -24px;
+  /* Pull up to top edge if needed, or just let it sit. */
+  padding-bottom: 24px;
+  /* Add some spacing below */
+  margin-bottom: 8px;
+  /* Reduce margin-bottom since we added padding */
+}
 
-  .header-info h1 {
-    color: #1a1a1a;
-    font-weight: 400;
-  }
+.header-info h1 {
+  color: #1a1a1a;
+  font-weight: 400;
+}
 
-  .processo-badge {
-    background-color: #e3f2fd;
-    color: #1565c0;
-    padding: 4px 12px;
-    border-radius: 16px;
-    font-weight: 500;
-    font-size: 0.9rem;
-  }
+.processo-badge {
+  background-color: #e3f2fd;
+  color: #1565c0;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
 
-  .actions {
-    display: flex;
-    gap: 8px;
-  }
+.actions {
+  display: flex;
+  gap: 8px;
+}
 
-  /* ============================================================
+/* ============================================================
      GRIDS E DADOS CADASTRAIS
      ============================================================ */
+.grid-2-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 768px) {
   .grid-2-col {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
+    grid-template-columns: 1fr;
   }
+}
 
-  @media (max-width: 768px) {
-    .grid-2-col {
-      grid-template-columns: 1fr;
-    }
-  }
+.info-card mat-card-title {
+  font-size: 1.1rem;
+  font-weight: 500;
+}
 
-  .info-card mat-card-title {
-    font-size: 1.1rem;
-    font-weight: 500;
-  }
+.avatar-icon {
+  background-color: #eee;
+  color: #555;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
 
-  .avatar-icon {
-    background-color: #eee;
-    color: #555;
-  }
+.data-row {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 16px;
+}
 
-  .data-row {
-    display: flex;
-    gap: 24px;
-    margin-bottom: 16px;
-  }
+.data-item label {
+  display: block;
+  font-size: 0.75rem;
+  color: #666;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
 
-  .data-item label {
-    display: block;
-    font-size: 0.75rem;
-    color: #666;
-    text-transform: uppercase;
-    margin-bottom: 4px;
-  }
+.data-item p {
+  margin: 0;
+  font-size: 1rem;
+  color: #333;
+}
 
-  .data-item p {
-    margin: 0;
-    font-size: 1rem;
-    color: #333;
-  }
+.full-width {
+  width: 100%;
+  margin-bottom: 16px;
+}
 
-  .full-width {
-    width: 100%;
-    margin-bottom: 16px;
-  }
-
-  /* ============================================================
+/* ============================================================
      SECÇÃO MÉDICA (ABAS)
      ============================================================ */
-  .medical-section {
-    overflow: hidden; /* Para respeitar o border-radius do card */
-  }
+.medical-section {
+  overflow: hidden;
+  /* Para respeitar o border-radius do card */
+}
 
-  .medical-section .no-padding {
-    padding: 0;
-  }
+.medical-section .no-padding {
+  padding: 0;
+}
 
-  .tab-icon {
-    margin-right: 8px;
-  }
+.tab-icon {
+  margin-right: 8px;
+}
 
-  .tab-content {
-    padding: 24px;
-    min-height: 200px;
-  }
+.tab-content {
+  padding: 24px;
+  min-height: 200px;
+}
 
-  .tab-content.bg-light {
-    background-color: #fafafa; /* Diferencia visualmente a aba de Exames */
-  }
+.tab-content.bg-light {
+  background-color: #fafafa;
+  /* Diferencia visualmente a aba de Exames */
+}
 
-  /* Estilo para o conteúdo de markdown na avaliação médica */
-  .tab-content markdown {
-    font-size: 1.1rem;
-    line-height: 1.6;
-  }
+/* Estilo para o conteúdo de markdown na avaliação médica */
+.tab-content markdown {
+  font-size: 1.1rem;
+  line-height: 1.6;
+}
 
-  /* ============================================================
+/* ============================================================
      PAINÉIS EXPANSÍVEIS (GERAL)
      ============================================================ */
-  .section-title {
-    font-size: 1rem;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
+.section-title {
+  font-size: 1rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
-  .laboral-content, .obs-content {
-    padding-top: 16px;
-  }
+.laboral-content,
+.obs-content {
+  padding-top: 16px;
+}
 
-  .info-grid-compact {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 16px;
-  }
+.info-grid-compact {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
 
-  .subsection-title {
-    font-size: 1rem;
-    color: #444;
-    margin-bottom: 12px;
-  }
+.subsection-title {
+  font-size: 1rem;
+  color: #444;
+  margin-bottom: 12px;
+}
 
-  /* ============================================================
+/* ============================================================
      PROFISSIOGRAFIA (Box Amarelo)
      ============================================================ */
-  .profissiografia-box {
-    background-color: #fff8e1; /* Amarelo muito suave */
-    border: 1px solid #ffe082;
-    border-radius: 8px;
-    padding: 16px;
-    margin-top: 24px;
-  }
+.profissiografia-box {
+  background-color: #fff8e1;
+  /* Amarelo muito suave */
+  border: 1px solid #ffe082;
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 24px;
+}
 
-  .profissiografia-box h4 {
-    margin-top: 0;
-    color: #f57f17;
-    border-bottom: 1px solid #ffe082;
-    padding-bottom: 8px;
-    margin-bottom: 16px;
-  }
+.profissiografia-box h4 {
+  margin-top: 0;
+  color: #f57f17;
+  border-bottom: 1px solid #ffe082;
+  padding-bottom: 8px;
+  margin-bottom: 16px;
+}
 
+.prof-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 600px) {
   .prof-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
+    grid-template-columns: 1fr;
   }
+}
 
-  @media (max-width: 600px) {
-    .prof-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  /* ============================================================
+/* ============================================================
      NOVA SECÇÃO: DIRETRIZES E IA
      ============================================================ */
-  .diretrizes-container {
-    padding-top: 16px;
+.diretrizes-container {
+  padding-top: 16px;
+}
+
+.filter-section {
+  max-width: 300px;
+  margin-bottom: 16px;
+}
+
+/* Caixa da Lista de Seleção */
+.list-section {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.list-label {
+  background-color: #f5f5f5;
+  padding: 12px 16px;
+  margin: 0;
+  font-weight: 500;
+  color: #666;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+mat-selection-list {
+  max-height: 250px;
+  /* Scroll se a lista for muito grande */
+  overflow-y: auto;
+}
+
+.text-small {
+  font-size: 0.8rem;
+  color: #999;
+}
+
+.empty-list {
+  padding: 24px;
+  text-align: center;
+  color: #999;
+  font-style: italic;
+}
+
+.action-section {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Caixa de Resultado da IA (Lilás) */
+.ai-result-box {
+  background-color: #f3e5f5;
+  border: 1px solid #e1bee7;
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 24px;
+  animation: fadeIn 0.5s ease-in;
+}
+
+.ai-result-box h3 {
+  color: #7b1fa2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 0;
+}
+
+.ai-icon {
+  font-size: 20px;
+  height: 20px;
+  width: 20px;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
   }
 
-  .filter-section {
-    max-width: 300px;
-    margin-bottom: 16px;
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
+}
 
-  /* Caixa da Lista de Seleção */
-  .list-section {
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    overflow: hidden;
-    margin-bottom: 24px;
-  }
-
-  .list-label {
-    background-color: #f5f5f5;
-    padding: 12px 16px;
-    margin: 0;
-    font-weight: 500;
-    color: #666;
-    border-bottom: 1px solid #e0e0e0;
-  }
-
-  mat-selection-list {
-    max-height: 250px; /* Scroll se a lista for muito grande */
-    overflow-y: auto;
-  }
-
-  .text-small {
-    font-size: 0.8rem;
-    color: #999;
-  }
-
-  .empty-list {
-    padding: 24px;
-    text-align: center;
-    color: #999;
-    font-style: italic;
-  }
-
-  .action-section {
-    display: flex;
-    justify-content: flex-end;
-  }
-
-  /* Caixa de Resultado da IA (Lilás) */
-  .ai-result-box {
-    background-color: #f3e5f5;
-    border: 1px solid #e1bee7;
-    border-radius: 8px;
-    padding: 20px;
-    margin-top: 24px;
-    animation: fadeIn 0.5s ease-in;
-  }
-
-  .ai-result-box h3 {
-    color: #7b1fa2;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 0;
-  }
-
-  .ai-icon {
-    font-size: 20px;
-    height: 20px;
-    width: 20px;
-  }
-
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  /* ============================================================
+/* ============================================================
      QUESITOS E FOOTER
      ============================================================ */
-  .quesitos-list {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
+.quesitos-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
 
-  .quesito-item {
-    padding-bottom: 16px;
-    border-bottom: 1px solid #eee;
-  }
+.quesito-item {
+  padding-bottom: 16px;
+  border-bottom: 1px solid #eee;
+}
 
-  .quesito-item:last-child {
-    border-bottom: none;
-  }
+.quesito-item:last-child {
+  border-bottom: none;
+}
 
-  .q-label {
-    display: block;
-    color: #1565c0;
-    margin-bottom: 4px;
-  }
+.q-label {
+  display: block;
+  color: #1565c0;
+  margin-bottom: 4px;
+}
 
-  .doc-footer {
-    text-align: center;
-    color: #888;
-    font-size: 0.85rem;
-    margin-top: 24px;
-    padding-bottom: 24px;
-  }
+.doc-footer {
+  text-align: center;
+  color: #888;
+  font-size: 0.85rem;
+  margin-top: 24px;
+  padding-bottom: 24px;
+}
 
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 48px;
-    color: #aaa;
-  }
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px;
+  color: #aaa;
+}
 
-  .empty-state mat-icon {
-    font-size: 48px;
-    width: 48px;
-    height: 48px;
-    margin-bottom: 16px;
-  }
+.empty-state mat-icon {
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 16px;
+}
 
-  /* ============================================================
+/* ============================================================
      CLASSES UTILITÁRIAS
      ============================================================ */
-  .mb-4 {
-    margin-bottom: 24px !important;
-  }
+.mb-4 {
+  margin-bottom: 24px !important;
+}
 
-  .my-3 {
-    margin-top: 16px !important;
-    margin-bottom: 16px !important;
-  }
+.my-3 {
+  margin-top: 16px !important;
+  margin-bottom: 16px !important;
+}
 
-  .my-4 {
-    margin-top: 24px !important;
-    margin-bottom: 24px !important;
-  }
+.my-4 {
+  margin-top: 24px !important;
+  margin-bottom: 24px !important;
+}
 
-  .w-full {
-    width: 100%;
-  }
+.w-full {
+  width: 100%;
+}
 
-  .simple-input {
-    border: 1px solid #ccc;
-    padding: 4px;
-    border-radius: 4px;
-  }
+.simple-input {
+  border: 1px solid #ccc;
+  padding: 4px;
+  border-radius: 4px;
+}
 
-  /* ============================================================
+/* ============================================================
      NOVO: AUTOMAÇÃO DE QUESITOS COM IA
      ============================================================ */
-  .ai-quesitos-card {
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-  }
+.ai-quesitos-card {
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
 
-  .ai-quesitos-card:hover {
-    box-shadow: 0 4px 12px rgba(103, 58, 183, 0.15);
-  }
+.ai-quesitos-card:hover {
+  box-shadow: 0 4px 12px rgba(103, 58, 183, 0.15);
+}
 
-  .ai-actions-row {
-    margin-bottom: 8px;
-  }
+.ai-actions-row {
+  margin-bottom: 8px;
+}
 
-  .badge-jurisdicao {
-    background-color: #e0e0e0;
-    color: #333;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    margin-right: 8px;
-    font-weight: 500;
-    text-transform: uppercase;
-  }
+.badge-jurisdicao {
+  background-color: #e0e0e0;
+  color: #333;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  margin-right: 8px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
 
-  /* Estilo do Texto de Feedback */
-  .modelo-info {
-    border-top: 1px dashed #e0e0e0;
-    padding-top: 12px;
-  }
+/* Estilo do Texto de Feedback */
+.modelo-info {
+  border-top: 1px dashed #e0e0e0;
+  padding-top: 12px;
+}
 
-  .spacer {
-    color: #ddd;
-  }
+.spacer {
+  color: #ddd;
+}
+
+/* Scroll Adjustment for Fixed Headers */
+#dados-cadastrais,
+#avaliacao-medica,
+#historico-laboral,
+#observacoes,
+#diretrizes,
+#automacao-quesitos,
+#quesitos-respondidos {
+  scroll-margin-top: 180px;
+  /* Adjust based on your header height */
+}
+
+#top {
+  scroll-margin-top: 100px;
+}

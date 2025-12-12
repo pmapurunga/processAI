@@ -117,8 +117,8 @@ export class LaudoPericialComponent implements OnInit, OnDestroy {
     return lista.filter(d => {
       const matchJustica = d.justica === filtro;
       const matchTexto = !busca ||
-                         d.nome.toLowerCase().includes(busca) ||
-                         (d.conteudo && d.conteudo.toLowerCase().includes(busca));
+        d.nome.toLowerCase().includes(busca) ||
+        (d.conteudo && d.conteudo.toLowerCase().includes(busca));
       return matchJustica && matchTexto;
     });
   });
@@ -166,10 +166,10 @@ export class LaudoPericialComponent implements OnInit, OnDestroy {
 
         // Restaura Persona usada nos Quesitos
         if (laudo.personaQuesitosId) {
-           const personaFound = this.listaPersonas().find(p => p.id === laudo.personaQuesitosId);
-           if (personaFound) {
-             this.personaSelecionada.set(personaFound);
-           }
+          const personaFound = this.listaPersonas().find(p => p.id === laudo.personaQuesitosId);
+          if (personaFound) {
+            this.personaSelecionada.set(personaFound);
+          }
         }
       }
 
@@ -453,83 +453,83 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
     return quesitoEncontrado ? quesitoEncontrado.texto : '';
   }
 
- async responderQuesitosComIA() {
-     console.log('🚀 --- INICIANDO PROCESSAMENTO DE QUESITOS COM IA ---');
+  async responderQuesitosComIA() {
+    console.log('🚀 --- INICIANDO PROCESSAMENTO DE QUESITOS COM IA ---');
 
-     const modelo = this.modeloSelecionado();
+    const modelo = this.modeloSelecionado();
 
-     // 1. Validações iniciais
-     if (!modelo) {
-       console.warn('⚠️ Nenhum modelo de quesito selecionado.');
-       this.showCopyMessage('Selecione um modelo primeiro.');
-       return;
-     }
+    // 1. Validações iniciais
+    if (!modelo) {
+      console.warn('⚠️ Nenhum modelo de quesito selecionado.');
+      this.showCopyMessage('Selecione um modelo primeiro.');
+      return;
+    }
 
-     if (!modelo.promptIA) {
-       console.warn('⚠️ Modelo sem prompt de IA configurado:', modelo.titulo);
-       this.showCopyMessage('ERRO: Este modelo não possui Prompt de IA cadastrado.');
-       return;
-     }
+    if (!modelo.promptIA) {
+      console.warn('⚠️ Modelo sem prompt de IA configurado:', modelo.titulo);
+      this.showCopyMessage('ERRO: Este modelo não possui Prompt de IA cadastrado.');
+      return;
+    }
 
-     if (!this.processoId) {
-       console.error('❌ ID do processo não encontrado.');
-       return;
-     }
+    if (!this.processoId) {
+      console.error('❌ ID do processo não encontrado.');
+      return;
+    }
 
-     this.isRespondendoQuesitos.set(true);
+    this.isRespondendoQuesitos.set(true);
 
-     try {
-       // 2. Preparação dos Dados
-       const baseJson = this.getCleanLaudoJson();
+    try {
+      // 2. Preparação dos Dados
+      const baseJson = this.getCleanLaudoJson();
 
-       // Cópia para manipulação
-       const jsonParaIA = JSON.parse(JSON.stringify(baseJson));
+      // Cópia para manipulação
+      const jsonParaIA = JSON.parse(JSON.stringify(baseJson));
 
-       // 3. LIMPEZA (Remove respostas antigas para não enviesar)
-       delete jsonParaIA.respostasQuesitos;
-       delete jsonParaIA.meta_dados_quesitos;
+      // 3. LIMPEZA (Remove respostas antigas para não enviesar)
+      delete jsonParaIA.respostasQuesitos;
+      delete jsonParaIA.meta_dados_quesitos;
 
-       // 4. INJEÇÃO DE CONTEXTO E DIRETRIZES
+      // 4. INJEÇÃO DE CONTEXTO E DIRETRIZES
 
-       // A. Resumo da Análise (Bússola Lógica)
-       if (this.laudoData.analiseIA) {
-         console.log('✅ Análise Prévia (Resumo) encontrada e injetada.');
-         jsonParaIA.ANALISE_DIRETRIZES_PREVIA = this.laudoData.analiseIA;
-       } else {
-         console.log('ℹ️ Sem Análise Prévia disponível no laudo.');
-       }
+      // A. Resumo da Análise (Bússola Lógica)
+      if (this.laudoData.analiseIA) {
+        console.log('✅ Análise Prévia (Resumo) encontrada e injetada.');
+        jsonParaIA.ANALISE_DIRETRIZES_PREVIA = this.laudoData.analiseIA;
+      } else {
+        console.log('ℹ️ Sem Análise Prévia disponível no laudo.');
+      }
 
-       // B. Texto Completo das Diretrizes (Base Legal)
-       const diretrizesAtivas = this.diretrizesSelecionadas();
-       console.log(`📋 Diretrizes Selecionadas: ${diretrizesAtivas.length}`, diretrizesAtivas.map(d => d.nome));
+      // B. Texto Completo das Diretrizes (Base Legal)
+      const diretrizesAtivas = this.diretrizesSelecionadas();
+      console.log(`📋 Diretrizes Selecionadas: ${diretrizesAtivas.length}`, diretrizesAtivas.map(d => d.nome));
 
-       const textoDiretrizes = diretrizesAtivas
-         .map(d => `--- NORMA/DIRETRIZ (${d.nome}) ---\n${d.conteudo || 'SEM CONTEÚDO'}`)
-         .join('\n\n');
+      const textoDiretrizes = diretrizesAtivas
+        .map(d => `--- NORMA/DIRETRIZ (${d.nome}) ---\n${d.conteudo || 'SEM CONTEÚDO'}`)
+        .join('\n\n');
 
-       if (textoDiretrizes) {
-         jsonParaIA.CONTEUDO_DIRETRIZES_COMPLETO = textoDiretrizes;
-         console.log('✅ Conteúdo completo das diretrizes injetado no JSON.');
-       }
+      if (textoDiretrizes) {
+        jsonParaIA.CONTEUDO_DIRETRIZES_COMPLETO = textoDiretrizes;
+        console.log('✅ Conteúdo completo das diretrizes injetado no JSON.');
+      }
 
-       // LOG: O que a IA vai ler
-       console.log('📦 JSON DE CONTEXTO (DADOS + DIRETRIZES):', jsonParaIA);
+      // LOG: O que a IA vai ler
+      console.log('📦 JSON DE CONTEXTO (DADOS + DIRETRIZES):', jsonParaIA);
 
-       // 5. Configuração do Prompt (Persona + Instruções)
-       const persona = this.personaSelecionada();
-       let systemInstruction = "Você é um assistente pericial. Responda estritamente em JSON.";
-       let knowledgeContext = '';
+      // 5. Configuração do Prompt (Persona + Instruções)
+      const persona = this.personaSelecionada();
+      let systemInstruction = "Você é um assistente pericial. Responda estritamente em JSON.";
+      let knowledgeContext = '';
 
-       if (persona) {
-         console.log('👤 Persona aplicada:', persona.nome);
-         systemInstruction = persona.instrucoes + " IMPORTANTE: A saída DEVE ser estritamente um JSON válido.";
-         knowledgeContext = this.montarContextoConhecimento(persona);
-       } else {
-         console.log('👤 Nenhuma Persona selecionada (usando padrão).');
-       }
+      if (persona) {
+        console.log('👤 Persona aplicada:', persona.nome);
+        systemInstruction = persona.instrucoes + " IMPORTANTE: A saída DEVE ser estritamente um JSON válido.";
+        knowledgeContext = this.montarContextoConhecimento(persona);
+      } else {
+        console.log('👤 Nenhuma Persona selecionada (usando padrão).');
+      }
 
-       // PROMPT COM A "REGRA DE OURO" E INSTRUÇÃO DE FORMATO
-       const userContent = `
+      // PROMPT COM A "REGRA DE OURO" E INSTRUÇÃO DE FORMATO
+      const userContent = `
        ${knowledgeContext}
 
        === CONTEXTO COMPLETO DO CASO ===
@@ -557,119 +557,119 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
        3. NÃO crie objetos dentro das respostas.
        `;
 
-       // LOG DO PROMPT (Útil para debug manual)
-       console.log('📝 PROMPT ENVIADO:', userContent);
+      // LOG DO PROMPT (Útil para debug manual)
+      console.log('📝 PROMPT ENVIADO:', userContent);
 
-       // 6. Chamada à API
-       console.log('⏳ Aguardando resposta do Gemini...');
-       const response = await firstValueFrom(this.analysisService.generateLaudoAnalysis({
-         model: 'gemini-2.5-pro',
-         systemInstruction: systemInstruction,
-         userContent: userContent,
-         temperature: 0.2, // Temperatura baixa para maior fidelidade às regras
-         responseMimeType: 'application/json',
-         processId: this.processoId!,
-         actionContext: `resposta_quesitos_modelo_${modelo.id}`
-       }));
+      // 6. Chamada à API
+      console.log('⏳ Aguardando resposta do Gemini...');
+      const response = await firstValueFrom(this.analysisService.generateLaudoAnalysis({
+        model: 'gemini-2.5-pro',
+        systemInstruction: systemInstruction,
+        userContent: userContent,
+        temperature: 0.2, // Temperatura baixa para maior fidelidade às regras
+        responseMimeType: 'application/json',
+        processId: this.processoId!,
+        actionContext: `resposta_quesitos_modelo_${modelo.id}`
+      }));
 
-       console.log('📩 Resposta bruta recebida:', response.responseText);
+      console.log('📩 Resposta bruta recebida:', response.responseText);
 
-       // 7. Tratamento da Resposta
-       let respostasIA: any = {};
-       try {
-         respostasIA = JSON.parse(response.responseText);
-         console.log('✅ JSON parseado com sucesso:', respostasIA);
-       } catch (e) {
-         console.error('❌ Falha ao fazer parse do JSON retornado:', response.responseText);
-         throw new Error('A IA não retornou um JSON válido.');
-       }
+      // 7. Tratamento da Resposta
+      let respostasIA: any = {};
+      try {
+        respostasIA = JSON.parse(response.responseText);
+        console.log('✅ JSON parseado com sucesso:', respostasIA);
+      } catch (e) {
+        console.error('❌ Falha ao fazer parse do JSON retornado:', response.responseText);
+        throw new Error('A IA não retornou um JSON válido.');
+      }
 
-       let atualizados = 0;
+      let atualizados = 0;
 
-       // 8. Aplicação das Respostas (Lógica Híbrida: Chave Longa vs ID Curto)
-       modelo.quesitos.forEach(q => {
-         // A. Descobre o número (ex: "q4" -> "4")
-         const numero = q.id.replace(/\D/g, '');
+      // 8. Aplicação das Respostas (Lógica Híbrida: Chave Longa vs ID Curto)
+      modelo.quesitos.forEach(q => {
+        // A. Descobre o número (ex: "q4" -> "4")
+        const numero = q.id.replace(/\D/g, '');
 
-         // B. Monta a chave técnica esperada pelo HTML (ex: "RESPOSTA_QUESITO_4")
-         const chaveTecnica = `RESPOSTA_QUESITO_${numero}`;
+        // B. Monta a chave técnica esperada pelo HTML (ex: "RESPOSTA_QUESITO_4")
+        const chaveTecnica = `RESPOSTA_QUESITO_${numero}`;
 
-         // C. Tenta ler a resposta em ambos os formatos possíveis
-         // Prioridade: Chave longa (RESPOSTA_QUESITO_4) > ID (q4)
-         let respostaGerada = respostasIA[chaveTecnica] || respostasIA[q.id];
+        // C. Tenta ler a resposta em ambos os formatos possíveis
+        // Prioridade: Chave longa (RESPOSTA_QUESITO_4) > ID (q4)
+        let respostaGerada = respostasIA[chaveTecnica] || respostasIA[q.id];
 
-         if (respostaGerada) {
-           // Sanitização: Garante que é string e não objeto/null
-           if (typeof respostaGerada === 'object' && respostaGerada !== null) {
-             const valores = Object.values(respostaGerada);
-             respostaGerada = valores.length > 0 ? String(valores[0]) : JSON.stringify(respostaGerada);
-           }
+        if (respostaGerada) {
+          // Sanitização: Garante que é string e não objeto/null
+          if (typeof respostaGerada === 'object' && respostaGerada !== null) {
+            const valores = Object.values(respostaGerada);
+            respostaGerada = valores.length > 0 ? String(valores[0]) : JSON.stringify(respostaGerada);
+          }
 
-           if (typeof respostaGerada !== 'string') {
-              respostaGerada = String(respostaGerada);
-           }
+          if (typeof respostaGerada !== 'string') {
+            respostaGerada = String(respostaGerada);
+          }
 
-           // Salva no laudo usando a chave correta para o formulário
-           this.laudoData.respostasQuesitos[chaveTecnica] = respostaGerada;
-           atualizados++;
+          // Salva no laudo usando a chave correta para o formulário
+          this.laudoData.respostasQuesitos[chaveTecnica] = respostaGerada;
+          atualizados++;
 
-           console.log(`✅ Quesito ${numero} preenchido.`);
-         } else {
-           console.warn(`⚠️ Resposta ausente para Quesito ${numero} (Chaves verificadas: ${chaveTecnica}, ${q.id})`);
-         }
-       });
+          console.log(`✅ Quesito ${numero} preenchido.`);
+        } else {
+          console.warn(`⚠️ Resposta ausente para Quesito ${numero} (Chaves verificadas: ${chaveTecnica}, ${q.id})`);
+        }
+      });
 
-       console.log(`🏁 Processo finalizado. Total de quesitos respondidos: ${atualizados}`);
+      console.log(`🏁 Processo finalizado. Total de quesitos respondidos: ${atualizados}`);
 
-       // 9. Salvar no Firestore
-       await this.firestoreService.updateLaudoPericial(this.processoId, {
-         respostasQuesitos: this.laudoData.respostasQuesitos,
-         modeloQuesitoId: this.laudoData.modeloQuesitoId,
-         personaQuesitosId: this.personaSelecionada()?.id || null
-       });
+      // 9. Salvar no Firestore
+      await this.firestoreService.updateLaudoPericial(this.processoId, {
+        respostasQuesitos: this.laudoData.respostasQuesitos,
+        modeloQuesitoId: this.laudoData.modeloQuesitoId,
+        personaQuesitosId: this.personaSelecionada()?.id || null
+      });
 
-       this.showCopyMessage(`${atualizados} quesitos respondidos com base na análise e diretrizes!`);
-       this.cdr.markForCheck();
+      this.showCopyMessage(`${atualizados} quesitos respondidos com base na análise e diretrizes!`);
+      this.cdr.markForCheck();
 
-     } catch (error: any) {
-       console.error('❌ Erro Crítico ao processar quesitos:', error);
-       this.showCopyMessage('Erro ao gerar respostas: ' + error.message);
-     } finally {
-       this.isRespondendoQuesitos.set(false);
-     }
-   }
-
- // Adicione este método na classe LaudoPericialComponent
-
- limparRespostasQuesitos() {
-   if (!this.isEditing()) return;
-
-   // Uma confirmação nativa simples para segurança
-   if (confirm('Tem certeza que deseja apagar todas as respostas dos quesitos?\nEsta ação não pode ser desfeita localmente até que você cancele a edição.')) {
-
-     // Define o objeto de respostas como vazio
-     this.laudoData.respostasQuesitos = {};
-
-     this.showCopyMessage('Todas as respostas de quesitos foram removidas.');
-
-     // Força a atualização da interface se necessário (embora signals/Angular cuidem disso)
-     this.cdr.markForCheck();
-   }
- }
-
-    // Mantenha o getCleanLaudoJson original ou genérico, pois ele serve para outras coisas
-    private getCleanLaudoJson(): any {
-      if (!this.laudoData) return {};
-      const { respostasQuesitos, ...rest } = this.laudoData;
-      return {
-        identificacaoProcesso: rest.identificacaoProcesso,
-        dadosPericiando: rest.dadosPericiando,
-        historicoLaboral: rest.historicoLaboral,
-        dadosMedicos: rest.dadosMedicos,
-        OBSERVACOES: rest.OBSERVACOES,
-        respostasQuesitos: rest.respostasQuesitos, // Aqui mantemos, pois pode ser usado para copiar JSON completo
-      };
+    } catch (error: any) {
+      console.error('❌ Erro Crítico ao processar quesitos:', error);
+      this.showCopyMessage('Erro ao gerar respostas: ' + error.message);
+    } finally {
+      this.isRespondendoQuesitos.set(false);
     }
+  }
+
+  // Adicione este método na classe LaudoPericialComponent
+
+  limparRespostasQuesitos() {
+    if (!this.isEditing()) return;
+
+    // Uma confirmação nativa simples para segurança
+    if (confirm('Tem certeza que deseja apagar todas as respostas dos quesitos?\nEsta ação não pode ser desfeita localmente até que você cancele a edição.')) {
+
+      // Define o objeto de respostas como vazio
+      this.laudoData.respostasQuesitos = {};
+
+      this.showCopyMessage('Todas as respostas de quesitos foram removidas.');
+
+      // Força a atualização da interface se necessário (embora signals/Angular cuidem disso)
+      this.cdr.markForCheck();
+    }
+  }
+
+  // Mantenha o getCleanLaudoJson original ou genérico, pois ele serve para outras coisas
+  private getCleanLaudoJson(): any {
+    if (!this.laudoData) return {};
+    const { respostasQuesitos, ...rest } = this.laudoData;
+    return {
+      identificacaoProcesso: rest.identificacaoProcesso,
+      dadosPericiando: rest.dadosPericiando,
+      historicoLaboral: rest.historicoLaboral,
+      dadosMedicos: rest.dadosMedicos,
+      OBSERVACOES: rest.OBSERVACOES,
+      respostasQuesitos: rest.respostasQuesitos, // Aqui mantemos, pois pode ser usado para copiar JSON completo
+    };
+  }
   copyJsonToClipboard() {
     if (this.laudoData) {
       this.clipboard.copy(JSON.stringify(this.laudoData, null, 2));
@@ -719,7 +719,7 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
       if (novoTexto !== undefined) {
         this.resultadoAnaliseIA.set(novoTexto);
         if (this.laudoData) {
-            this.laudoData.analiseIA = novoTexto;
+          this.laudoData.analiseIA = novoTexto;
         }
         this.cdr.markForCheck();
         this.showCopyMessage('Análise atualizada com IA!');
@@ -732,4 +732,19 @@ Use as diretrizes acima e a base de conhecimento para fundamentar a análise.
     this.clipboard.copy("Use este JSON: " + jsonString);
     this.showCopyMessage('Dados copiados!');
   }
+
+  scrollToSection(elementId: string) {
+    const element = document.getElementById(elementId);
+    if (element) {
+      // Usando scrollIntoView nativo com 'block: start' e margem superior via CSS (scroll-margin-top)
+      // ou um offset manual se necessário, mas o padrão moderno é scrollIntoView
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      // Adicionar classe ativa no botão se quisermos highlight (futuro)
+    } else {
+      console.warn(`Elemento com id '${elementId}' não encontrado.`);
+    }
+  }
+
+
 }

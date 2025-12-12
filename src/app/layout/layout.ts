@@ -12,6 +12,7 @@ import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatMenuModule } from '@angular/material/menu'; // Opcional, para menu de utilizador
+import { AuthService } from '../core/services/auth.service';
 
 @Component({
   selector: 'app-layout',
@@ -31,6 +32,7 @@ import { MatMenuModule } from '@angular/material/menu'; // Opcional, para menu d
 })
 export class LayoutComponent {
   private breakpointObserver = inject(BreakpointObserver);
+  private authService = inject(AuthService);
 
   // Deteta se o ecrã é pequeno (Handset/Telemóvel)
   isHandset$: Observable<boolean> = this.breakpointObserver.observe(Breakpoints.Handset)
@@ -38,4 +40,8 @@ export class LayoutComponent {
       map(result => result.matches),
       shareReplay()
     );
+
+  logout(): void {
+    this.authService.logout();
+  }
 }

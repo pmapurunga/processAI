@@ -1,7 +1,8 @@
 :host {
   display: block;
   padding: 24px;
-  background-color: #f5f7fa; /* Um cinza levemente mais moderno */
+  background-color: #f5f7fa;
+  /* Um cinza levemente mais moderno */
   min-height: 100vh;
 }
 
@@ -18,6 +19,18 @@
   margin-bottom: 32px;
   gap: 24px;
   flex-wrap: wrap;
+  position: sticky;
+  top: 64px;
+  z-index: 100;
+  background-color: #f5f7fa;
+  padding-top: 24px;
+  /* Compensate for lost parent padding visual when scrolled */
+  margin-top: -24px;
+  /* Pull up to top edge if needed, or just let it sit. */
+  padding-bottom: 24px;
+  /* Add some spacing below */
+  margin-bottom: 8px;
+  /* Reduce margin-bottom since we added padding */
 }
 
 .header-content h1 {
@@ -55,7 +68,8 @@
   }
 }
 
-.main-content, .sidebar-content {
+.main-content,
+.sidebar-content {
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -64,8 +78,10 @@
 /* --- Card Customizations --- */
 mat-card {
   border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.1); /* Sombra suave */
-  border: 1px solid rgba(0,0,0,0.08); /* Borda sutil */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1);
+  /* Sombra suave */
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  /* Borda sutil */
 }
 
 mat-card-header {
@@ -120,7 +136,8 @@ mat-card-title {
 }
 
 .attention-card {
-  background-color: #fef2f2; /* Vermelho bem claro */
+  background-color: #fef2f2;
+  /* Vermelho bem claro */
   border-color: #fecaca;
 }
 
@@ -136,12 +153,14 @@ mat-card-title {
 
 /* --- AI Metrics Card (NOVO) --- */
 .ai-metrics-card {
-  border-left: 4px solid #7b1fa2; /* Roxo Material Design */
+  border-left: 4px solid #7b1fa2;
+  /* Roxo Material Design */
   background: linear-gradient(to right, #ffffff, #fdfbff);
 }
 
 .ai-avatar {
-  background-color: #f3e5f5; /* Fundo roxo bem claro */
+  background-color: #f3e5f5;
+  /* Fundo roxo bem claro */
   color: #7b1fa2;
   display: flex;
   align-items: center;
@@ -160,7 +179,8 @@ mat-card-title {
 
 .metric-row .value {
   font-weight: 500;
-  font-family: 'Roboto Mono', monospace; /* Fonte monoespaçada para números fica ótimo */
+  font-family: 'Roboto Mono', monospace;
+  /* Fonte monoespaçada para números fica ótimo */
 }
 
 .total-row {

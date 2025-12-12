@@ -12,11 +12,23 @@
 
 .page-header {
   display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #dee2e6;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 32px;
+  gap: 24px;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 64px;
+  z-index: 100;
+  background-color: #f5f7fa;
+  padding-top: 24px;
+  /* Compensate for lost parent padding visual when scrolled */
+  margin-top: -24px;
+  /* Pull up to top edge if needed, or just let it sit. */
+  padding-bottom: 24px;
+  /* Add some spacing below */
+  margin-bottom: 8px;
+  /* Reduce margin-bottom since we added padding */
 }
 
 .page-header h1 {

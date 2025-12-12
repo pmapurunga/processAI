@@ -1,671 +1,693 @@
 <div class="container">
   @if (laudoData) {
 
-  <header class="page-header">
-    <div class="header-info">
-      <h1 class="mat-headline-5 mb-0">Laudo Pericial</h1>
+  <div class="laudo-layout">
 
-      @if(!isEditing()) {
-      <span class="processo-badge">{{ laudoData.identificacaoProcesso?.PROCESSO_NUM }}</span>
-      } @else {
-      <mat-form-field density="compact" subscriptSizing="dynamic">
-        <mat-label>Nº Processo</mat-label>
-        <input matInput [(ngModel)]="laudoData.identificacaoProcesso.PROCESSO_NUM">
-        <button mat-icon-button matSuffix color="primary" matTooltip="Melhorar com IA"
-                (click)="abrirMelhoriaIA('Número do Processo', laudoData.identificacaoProcesso, 'PROCESSO_NUM')">
-          <mat-icon>auto_fix_high</mat-icon>
-        </button>
-      </mat-form-field>
-      }
-    </div>
 
-    <div class="actions">
-      @if(!isEditing()) {
-      <button mat-button (click)="goBack()">
-        <mat-icon>arrow_back</mat-icon> Voltar
-      </button>
+    <main class="laudo-content">
+      <header class="page-header" id="top">
+        <div class="header-info">
+          <h1 class="mat-headline-5 mb-0">Laudo Pericial</h1>
+          <span class="processo-badge">{{ laudoData.identificacaoProcesso?.NOME_PERICIANDO }}</span>
 
-      <button mat-stroked-button color="primary" (click)="toggleEdit()">
-        <mat-icon>edit</mat-icon> Editar
-      </button>
-
-      <button mat-stroked-button (click)="copyJsonToClipboard()">
-        <mat-icon>content_copy</mat-icon> JSON
-      </button>
-
-      <button mat-raised-button color="accent" (click)="copiarJsonFinal()">
-        <mat-icon>content_copy</mat-icon>
-        Copiar JSON Final
-      </button>
-      <button mat-flat-button color="primary">
-        <mat-icon>smart_toy</mat-icon> Copiar Prompt
-      </button>
-      } @else {
-      <button mat-button color="warn" (click)="cancelarEdicao()">
-        <mat-icon>cancel</mat-icon> Cancelar
-      </button>
-      <button mat-flat-button color="primary" (click)="salvarEdicao()">
-        <mat-icon>save</mat-icon> Salvar Alterações
-      </button>
-      }
-    </div>
-  </header>
-
-  <div class="grid-2-col">
-    <mat-card class="info-card">
-      <mat-card-header>
-        <mat-icon mat-card-avatar class="avatar-icon">person</mat-icon>
-        <mat-card-title>Periciando(a)</mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <div class="data-row">
-          <div class="data-item full-width">
-            <label>Nome</label>
-            @if(!isEditing()) {
-            <p><strong>{{ laudoData.identificacaoProcesso?.NOME_PERICIANDO }}</strong></p>
-            } @else {
-            <mat-form-field appearance="outline" class="w-full">
-              <input matInput [(ngModel)]="laudoData.identificacaoProcesso.NOME_PERICIANDO">
-              <button mat-icon-button matSuffix color="primary" matTooltip="Corrigir Nome"
-                      (click)="abrirMelhoriaIA('Nome Periciando', laudoData.identificacaoProcesso, 'NOME_PERICIANDO')">
-                <mat-icon>auto_fix_high</mat-icon>
-              </button>
-            </mat-form-field>
-            }
-          </div>
         </div>
-        <div class="data-row">
-          <div class="data-item">
-            <label>Idade / Nasc.</label>
-            @if(!isEditing()) {
-            <p>{{ laudoData.dadosPericiando?.DATA_NASCIMENTO }}</p>
-            } @else {
-            <mat-form-field appearance="outline">
-              <input matInput [(ngModel)]="laudoData.dadosPericiando.DATA_NASCIMENTO">
-            </mat-form-field>
-            }
-          </div>
-          <div class="data-item">
-            <label>Escolaridade</label>
-            @if(!isEditing()) {
-            <p>{{ laudoData.dadosPericiando?.ESCOLARIDADE }}</p>
-            } @else {
-            <mat-form-field appearance="outline">
-              <input matInput [(ngModel)]="laudoData.dadosPericiando.ESCOLARIDADE">
-            </mat-form-field>
-            }
-          </div>
-        </div>
-        <div class="data-row">
-          <div class="data-item">
-            <label>Estado Civil</label>
-            @if(!isEditing()) {
-            <p>{{ laudoData.dadosPericiando?.ESTADO_CIVIL }}</p>
-            } @else {
-            <mat-form-field appearance="outline">
-              <input matInput [(ngModel)]="laudoData.dadosPericiando.ESTADO_CIVIL">
-            </mat-form-field>
-            }
-          </div>
-        </div>
-      </mat-card-content>
-    </mat-card>
 
-    <mat-card class="info-card">
-      <mat-card-header>
-        <mat-icon mat-card-avatar class="avatar-icon">gavel</mat-icon>
-        <mat-card-title>Dados do Processo</mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <div class="data-item full-width">
-          <label>Juízo</label>
+        <div class="actions">
           @if(!isEditing()) {
-          <p>{{ laudoData.identificacaoProcesso?.JUIZO }}</p>
+          <button mat-button (click)="goBack()">
+            <mat-icon>arrow_back</mat-icon> Voltar
+          </button>
+
+          <button mat-stroked-button color="primary" (click)="toggleEdit()">
+            <mat-icon>edit</mat-icon> Editar
+          </button>
+
+          <button mat-stroked-button (click)="copyJsonToClipboard()">
+            <mat-icon>content_copy</mat-icon> JSON
+          </button>
+
+          <button mat-raised-button color="accent" (click)="copiarJsonFinal()">
+            <mat-icon>content_copy</mat-icon>
+            Copiar JSON Final
+          </button>
+          <button mat-flat-button color="primary">
+            <mat-icon>smart_toy</mat-icon> Copiar Prompt
+          </button>
           } @else {
-          <mat-form-field appearance="outline" class="w-full">
-            <textarea matInput [(ngModel)]="laudoData.identificacaoProcesso.JUIZO" rows="2"></textarea>
-            <button mat-icon-button matSuffix color="primary" matTooltip="Melhorar Texto"
-                    (click)="abrirMelhoriaIA('Juízo', laudoData.identificacaoProcesso, 'JUIZO')">
-              <mat-icon>auto_fix_high</mat-icon>
-            </button>
-          </mat-form-field>
+          <button mat-button color="warn" (click)="cancelarEdicao()">
+            <mat-icon>cancel</mat-icon> Cancelar
+          </button>
+          <button mat-flat-button color="primary" (click)="salvarEdicao()">
+            <mat-icon>save</mat-icon> Salvar Alterações
+          </button>
           }
         </div>
-        <div class="data-item">
-          <label>Data do Exame</label>
-          @if(!isEditing()) {
-          <p>{{ laudoData.identificacaoProcesso?.DATA_EXAME }}</p>
-          } @else {
-          <mat-form-field appearance="outline">
-            <input matInput [(ngModel)]="laudoData.identificacaoProcesso.DATA_EXAME">
-          </mat-form-field>
-          }
-        </div>
-      </mat-card-content>
-    </mat-card>
-  </div>
+      </header>
 
-  <mat-card class="medical-section">
-    <mat-card-header>
-      <mat-card-title>Avaliação Médica</mat-card-title>
-    </mat-card-header>
-    <mat-card-content class="no-padding">
-      <mat-tab-group mat-stretch-tabs="false" animationDuration="0ms">
-
-        <mat-tab>
-          <ng-template mat-tab-label>
-            <mat-icon class="tab-icon">history_edu</mat-icon> História Clínica
-          </ng-template>
-          <div class="tab-content">
-            @if(!isEditing()) {
-            <markdown [data]="laudoData.dadosMedicos?.HISTORIA_CLINICA"></markdown>
-            } @else {
-            <div class="flex justify-between items-center mb-1">
-              <mat-label class="text-muted small">História Clínica (Markdown suportado)</mat-label>
-              <button mat-button color="primary" class="small-ai-btn"
-                      (click)="abrirMelhoriaIA('História Clínica', laudoData.dadosMedicos, 'HISTORIA_CLINICA')">
-                <mat-icon>auto_fix_high</mat-icon> Melhorar com IA
-              </button>
+      <div class="grid-2-col" id="dados-cadastrais">
+        <mat-card class="info-card">
+          <mat-card-header>
+            <mat-icon mat-card-avatar class="avatar-icon">person</mat-icon>
+            <mat-card-title>Periciando(a)</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="data-row">
+              <div class="data-item full-width">
+                <label>Nome</label>
+                @if(!isEditing()) {
+                <p><strong>{{ laudoData.identificacaoProcesso?.NOME_PERICIANDO }}</strong></p>
+                } @else {
+                <mat-form-field appearance="outline" class="w-full">
+                  <input matInput [(ngModel)]="laudoData.identificacaoProcesso.NOME_PERICIANDO">
+                  <button mat-icon-button matSuffix color="primary" matTooltip="Corrigir Nome"
+                    (click)="abrirMelhoriaIA('Nome Periciando', laudoData.identificacaoProcesso, 'NOME_PERICIANDO')">
+                    <mat-icon>auto_fix_high</mat-icon>
+                  </button>
+                </mat-form-field>
+                }
+              </div>
             </div>
-            <mat-form-field appearance="outline" class="w-full">
-              <textarea matInput [(ngModel)]="laudoData.dadosMedicos.HISTORIA_CLINICA" rows="15"></textarea>
-            </mat-form-field>
-            }
-          </div>
-        </mat-tab>
-
-        <mat-tab>
-          <ng-template mat-tab-label>
-            <mat-icon class="tab-icon">radiology</mat-icon> Exames Complementares
-          </ng-template>
-          <div class="tab-content bg-light">
-            @if(!isEditing()) {
-            @if(laudoData.dadosMedicos?.EXAMES) {
-            <markdown [data]="laudoData.dadosMedicos?.EXAMES"></markdown>
-            } @else {
-            <p class="text-muted">Nenhum exame registrado.</p>
-            }
-            } @else {
-            <div class="flex justify-between items-center mb-1">
-              <mat-label class="text-muted small">Exames Complementares</mat-label>
-              <button mat-button color="primary" class="small-ai-btn"
-                      (click)="abrirMelhoriaIA('Exames Complementares', laudoData.dadosMedicos, 'EXAMES')">
-                <mat-icon>auto_fix_high</mat-icon> Melhorar com IA
-              </button>
+            <div class="data-row">
+              <div class="data-item">
+                <label>Idade / Nasc.</label>
+                @if(!isEditing()) {
+                <p>{{ laudoData.dadosPericiando?.DATA_NASCIMENTO }}</p>
+                } @else {
+                <mat-form-field appearance="outline">
+                  <input matInput [(ngModel)]="laudoData.dadosPericiando.DATA_NASCIMENTO">
+                </mat-form-field>
+                }
+              </div>
+              <div class="data-item">
+                <label>Escolaridade</label>
+                @if(!isEditing()) {
+                <p>{{ laudoData.dadosPericiando?.ESCOLARIDADE }}</p>
+                } @else {
+                <mat-form-field appearance="outline">
+                  <input matInput [(ngModel)]="laudoData.dadosPericiando.ESCOLARIDADE">
+                </mat-form-field>
+                }
+              </div>
             </div>
-            <mat-form-field appearance="outline" class="w-full">
-              <textarea matInput [(ngModel)]="laudoData.dadosMedicos.EXAMES" rows="15"></textarea>
-            </mat-form-field>
-            }
-          </div>
-        </mat-tab>
-
-        <mat-tab>
-          <ng-template mat-tab-label>
-            <mat-icon class="tab-icon">medical_services</mat-icon> Exame Físico
-          </ng-template>
-          <div class="tab-content">
-            @if(!isEditing()) {
-            @if(laudoData.dadosMedicos?.EXAME_CLINICO) {
-            <markdown [data]="laudoData.dadosMedicos?.EXAME_CLINICO"></markdown>
-            } @else {
-            <p class="text-muted">Exame físico não detalhado.</p>
-            }
-            } @else {
-            <div class="flex justify-between items-center mb-1">
-              <mat-label class="text-muted small">Exame Clínico</mat-label>
-              <button mat-button color="primary" class="small-ai-btn"
-                      (click)="abrirMelhoriaIA('Exame Clínico', laudoData.dadosMedicos, 'EXAME_CLINICO')">
-                <mat-icon>auto_fix_high</mat-icon> Melhorar com IA
-              </button>
+            <div class="data-row">
+              <div class="data-item">
+                <label>Estado Civil</label>
+                @if(!isEditing()) {
+                <p>{{ laudoData.dadosPericiando?.ESTADO_CIVIL }}</p>
+                } @else {
+                <mat-form-field appearance="outline">
+                  <input matInput [(ngModel)]="laudoData.dadosPericiando.ESTADO_CIVIL">
+                </mat-form-field>
+                }
+              </div>
             </div>
-            <mat-form-field appearance="outline" class="w-full">
-              <textarea matInput [(ngModel)]="laudoData.dadosMedicos.EXAME_CLINICO" rows="15"></textarea>
-            </mat-form-field>
-            }
-          </div>
-        </mat-tab>
+          </mat-card-content>
+        </mat-card>
 
-      </mat-tab-group>
-    </mat-card-content>
-  </mat-card>
-
-  <mat-expansion-panel expanded="false" class="mb-4">
-    <mat-expansion-panel-header>
-      <mat-panel-title class="section-title">
-        <mat-icon>work</mat-icon> Histórico Laboral e Profissiografia
-      </mat-panel-title>
-    </mat-expansion-panel-header>
-
-    <div class="laboral-content">
-      <div class="info-grid-compact">
-        <div class="data-item">
-          <label>Função Declarada</label>
-          @if(!isEditing()) {
-          <p><strong>{{ laudoData.historicoLaboral?.FUNCAO_HABITUAL_ATUAL?.descricao }}</strong></p>
-          } @else {
-          @if(laudoData.historicoLaboral?.FUNCAO_HABITUAL_ATUAL) {
-          <mat-form-field appearance="outline">
-            <input matInput [(ngModel)]="laudoData.historicoLaboral.FUNCAO_HABITUAL_ATUAL.descricao">
-            <button mat-icon-button matSuffix color="primary"
-                    (click)="abrirMelhoriaIA('Função', laudoData.historicoLaboral.FUNCAO_HABITUAL_ATUAL, 'descricao')">
-              <mat-icon>auto_fix_high</mat-icon>
-            </button>
-          </mat-form-field>
-          }
-          }
-        </div>
-        <div class="data-item">
-          <label>Tempo Total</label>
-          @if(!isEditing()) {
-          <p>{{ laudoData.historicoLaboral?.TEMPO_TOTAL_ATIVIDADE }}</p>
-          } @else {
-          <mat-form-field appearance="outline">
-            <input matInput [(ngModel)]="laudoData.historicoLaboral.TEMPO_TOTAL_ATIVIDADE">
-          </mat-form-field>
-          }
-        </div>
-        <div class="data-item">
-          <label>Afastamento</label>
-          @if(!isEditing()) {
-          <p>{{ laudoData.historicoLaboral?.DATA_AFASTAMENTO_DECLARADA }}</p>
-          } @else {
-          <mat-form-field appearance="outline">
-            <input matInput [(ngModel)]="laudoData.historicoLaboral.DATA_AFASTAMENTO_DECLARADA">
-          </mat-form-field>
-          }
-        </div>
-      </div>
-
-      <mat-divider class="my-3"></mat-divider>
-
-      <h3 class="subsection-title">Narrativa Ocupacional</h3>
-      @if(!isEditing()) {
-      <markdown [data]="laudoData.historicoLaboral?.HISTORICO_OCUPACIONAL_COMPLETO"></markdown>
-      } @else {
-      <div class="flex justify-between items-center mb-1">
-        <mat-label class="text-muted small">Histórico Completo</mat-label>
-        <button mat-button color="primary" class="small-ai-btn"
-                (click)="abrirMelhoriaIA('Narrativa Ocupacional', laudoData.historicoLaboral, 'HISTORICO_OCUPACIONAL_COMPLETO')">
-          <mat-icon>auto_fix_high</mat-icon> Melhorar com IA
-        </button>
-      </div>
-      <mat-form-field appearance="outline" class="w-full">
-        <textarea matInput [(ngModel)]="laudoData.historicoLaboral.HISTORICO_OCUPACIONAL_COMPLETO" rows="8"></textarea>
-      </mat-form-field>
-      }
-
-      @if(laudoData.historicoLaboral?.PROFISSIOGRAFIA; as prof) {
-      <div class="profissiografia-box">
-        @if(!isEditing()) {
-        <h4>Análise da Atividade: {{ prof.atividade_analisada }}</h4>
-        } @else {
-        <mat-form-field appearance="outline" class="w-full">
-          <mat-label>Atividade Analisada</mat-label>
-          <input matInput [(ngModel)]="prof.atividade_analisada">
-        </mat-form-field>
-        }
-
-        <div class="prof-grid">
-          <div>
-            <strong>Tarefas Executadas:</strong>
-            @if(!isEditing()) {
-            <ul>
-              @for(tarefa of prof.tarefas_executadas; track tarefa) {
-              <li>{{ tarefa }}</li>
-              }
-            </ul>
-            } @else {
-            <p class="text-small text-muted">Edite as tarefas separando por vírgula (simplificação)</p>
-            <p><em>Edição de lista de tarefas não suportada neste modo rápido. Use a edição JSON.</em></p>
-            }
-          </div>
-          <div>
-            <div class="mb-2">
-              <strong>Postura:</strong>
+        <mat-card class="info-card">
+          <mat-card-header>
+            <mat-icon mat-card-avatar class="avatar-icon">gavel</mat-icon>
+            <mat-card-title>Dados do Processo</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="data-item full-width">
+              <label>Número do Processo</label>
+              <p>{{ laudoData.identificacaoProcesso?.PROCESSO_NUM }}</p>
+              <br>
+              <label>Juízo</label>
               @if(!isEditing()) {
-              {{ prof.postura_corporal }}
+              <p>{{ laudoData.identificacaoProcesso?.JUIZO }}</p>
               } @else {
-              <div style="display:flex; gap:4px;">
-                <input class="simple-input" [(ngModel)]="prof.postura_corporal" style="flex:1">
-                <button mat-icon-button color="primary" style="transform: scale(0.7);"
-                        (click)="abrirMelhoriaIA('Postura', prof, 'postura_corporal')">
+              <mat-form-field appearance="outline" class="w-full">
+                <textarea matInput [(ngModel)]="laudoData.identificacaoProcesso.JUIZO" rows="2"></textarea>
+                <button mat-icon-button matSuffix color="primary" matTooltip="Melhorar Texto"
+                  (click)="abrirMelhoriaIA('Juízo', laudoData.identificacaoProcesso, 'JUIZO')">
                   <mat-icon>auto_fix_high</mat-icon>
                 </button>
-              </div>
+              </mat-form-field>
               }
             </div>
-            <div class="mb-2">
-              <strong>Carga:</strong>
+            <div class="data-item">
+              <label>Data do Exame</label>
               @if(!isEditing()) {
-              {{ prof.carga_fisica }}
+              <p>{{ laudoData.identificacaoProcesso?.DATA_EXAME }}</p>
               } @else {
-              <div style="display:flex; gap:4px;">
-                <input class="simple-input" [(ngModel)]="prof.carga_fisica" style="flex:1">
-                <button mat-icon-button color="primary" style="transform: scale(0.7);"
-                        (click)="abrirMelhoriaIA('Carga Física', prof, 'carga_fisica')">
-                  <mat-icon>auto_fix_high</mat-icon>
-                </button>
-              </div>
+              <mat-form-field appearance="outline">
+                <input matInput [(ngModel)]="laudoData.identificacaoProcesso.DATA_EXAME">
+              </mat-form-field>
               }
             </div>
-            <div>
-              <strong>Exigências:</strong>
+          </mat-card-content>
+        </mat-card>
+      </div>
+
+      <mat-card class="medical-section" id="avaliacao-medica">
+        <mat-card-header>
+          <mat-card-title>Avaliação Médica</mat-card-title>
+        </mat-card-header>
+        <mat-card-content class="no-padding">
+          <mat-tab-group mat-stretch-tabs="false" animationDuration="0ms">
+
+            <mat-tab>
+              <ng-template mat-tab-label>
+                <mat-icon class="tab-icon">history_edu</mat-icon> História Clínica
+              </ng-template>
+              <div class="tab-content">
+                @if(!isEditing()) {
+                <markdown [data]="laudoData.dadosMedicos?.HISTORIA_CLINICA"></markdown>
+                } @else {
+                <div class="flex justify-between items-center mb-1">
+                  <mat-label class="text-muted small">História Clínica (Markdown suportado)</mat-label>
+                  <button mat-button color="primary" class="small-ai-btn"
+                    (click)="abrirMelhoriaIA('História Clínica', laudoData.dadosMedicos, 'HISTORIA_CLINICA')">
+                    <mat-icon>auto_fix_high</mat-icon> Melhorar com IA
+                  </button>
+                </div>
+                <mat-form-field appearance="outline" class="w-full">
+                  <textarea matInput [(ngModel)]="laudoData.dadosMedicos.HISTORIA_CLINICA" rows="15"></textarea>
+                </mat-form-field>
+                }
+              </div>
+            </mat-tab>
+
+            <mat-tab>
+              <ng-template mat-tab-label>
+                <mat-icon class="tab-icon">radiology</mat-icon> Exames Complementares
+              </ng-template>
+              <div class="tab-content bg-light">
+                @if(!isEditing()) {
+                @if(laudoData.dadosMedicos?.EXAMES) {
+                <markdown [data]="laudoData.dadosMedicos?.EXAMES"></markdown>
+                } @else {
+                <p class="text-muted">Nenhum exame registrado.</p>
+                }
+                } @else {
+                <div class="flex justify-between items-center mb-1">
+                  <mat-label class="text-muted small">Exames Complementares</mat-label>
+                  <button mat-button color="primary" class="small-ai-btn"
+                    (click)="abrirMelhoriaIA('Exames Complementares', laudoData.dadosMedicos, 'EXAMES')">
+                    <mat-icon>auto_fix_high</mat-icon> Melhorar com IA
+                  </button>
+                </div>
+                <mat-form-field appearance="outline" class="w-full">
+                  <textarea matInput [(ngModel)]="laudoData.dadosMedicos.EXAMES" rows="15"></textarea>
+                </mat-form-field>
+                }
+              </div>
+            </mat-tab>
+
+            <mat-tab>
+              <ng-template mat-tab-label>
+                <mat-icon class="tab-icon">medical_services</mat-icon> Exame Físico
+              </ng-template>
+              <div class="tab-content">
+                @if(!isEditing()) {
+                @if(laudoData.dadosMedicos?.EXAME_CLINICO) {
+                <markdown [data]="laudoData.dadosMedicos?.EXAME_CLINICO"></markdown>
+                } @else {
+                <p class="text-muted">Exame físico não detalhado.</p>
+                }
+                } @else {
+                <div class="flex justify-between items-center mb-1">
+                  <mat-label class="text-muted small">Exame Clínico</mat-label>
+                  <button mat-button color="primary" class="small-ai-btn"
+                    (click)="abrirMelhoriaIA('Exame Clínico', laudoData.dadosMedicos, 'EXAME_CLINICO')">
+                    <mat-icon>auto_fix_high</mat-icon> Melhorar com IA
+                  </button>
+                </div>
+                <mat-form-field appearance="outline" class="w-full">
+                  <textarea matInput [(ngModel)]="laudoData.dadosMedicos.EXAME_CLINICO" rows="15"></textarea>
+                </mat-form-field>
+                }
+              </div>
+            </mat-tab>
+
+          </mat-tab-group>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-expansion-panel expanded="false" class="mb-4" id="historico-laboral">
+        <mat-expansion-panel-header>
+          <mat-panel-title class="section-title">
+            <mat-icon>work</mat-icon> Histórico Laboral e Profissiografia
+          </mat-panel-title>
+        </mat-expansion-panel-header>
+
+        <div class="laboral-content">
+          <div class="info-grid-compact">
+            <div class="data-item">
+              <label>Função Declarada</label>
               @if(!isEditing()) {
-              {{ prof.exigencias_fisicas }}
+              <p><strong>{{ laudoData.historicoLaboral?.FUNCAO_HABITUAL_ATUAL?.descricao }}</strong></p>
               } @else {
-              <div style="display:flex; gap:4px;">
-                <input class="simple-input" [(ngModel)]="prof.exigencias_fisicas" style="flex:1">
-                <button mat-icon-button color="primary" style="transform: scale(0.7);"
-                        (click)="abrirMelhoriaIA('Exigências', prof, 'exigencias_fisicas')">
+              @if(laudoData.historicoLaboral?.FUNCAO_HABITUAL_ATUAL) {
+              <mat-form-field appearance="outline">
+                <input matInput [(ngModel)]="laudoData.historicoLaboral.FUNCAO_HABITUAL_ATUAL.descricao">
+                <button mat-icon-button matSuffix color="primary"
+                  (click)="abrirMelhoriaIA('Função', laudoData.historicoLaboral.FUNCAO_HABITUAL_ATUAL, 'descricao')">
                   <mat-icon>auto_fix_high</mat-icon>
                 </button>
-              </div>
+              </mat-form-field>
+              }
+              }
+            </div>
+            <div class="data-item">
+              <label>Tempo Total</label>
+              @if(!isEditing()) {
+              <p>{{ laudoData.historicoLaboral?.TEMPO_TOTAL_ATIVIDADE }}</p>
+              } @else {
+              <mat-form-field appearance="outline">
+                <input matInput [(ngModel)]="laudoData.historicoLaboral.TEMPO_TOTAL_ATIVIDADE">
+              </mat-form-field>
+              }
+            </div>
+            <div class="data-item">
+              <label>Afastamento</label>
+              @if(!isEditing()) {
+              <p>{{ laudoData.historicoLaboral?.DATA_AFASTAMENTO_DECLARADA }}</p>
+              } @else {
+              <mat-form-field appearance="outline">
+                <input matInput [(ngModel)]="laudoData.historicoLaboral.DATA_AFASTAMENTO_DECLARADA">
+              </mat-form-field>
               }
             </div>
           </div>
-        </div>
-      </div>
-      }
-    </div>
-  </mat-expansion-panel>
 
-  <mat-expansion-panel>
-    <mat-expansion-panel-header>
-      <mat-panel-title class="section-title">
-        <mat-icon>assignment</mat-icon> Observações e Conclusão
-      </mat-panel-title>
-    </mat-expansion-panel-header>
+          <mat-divider class="my-3"></mat-divider>
 
-    <div class="obs-content">
-      @if(!isEditing()) {
-      <markdown [data]="laudoData.OBSERVACOES"></markdown>
-      } @else {
-      <div class="flex justify-between items-center mb-1">
-        <mat-label class="text-muted small">Conclusão / Observações</mat-label>
-        <button mat-button color="primary" class="small-ai-btn"
-                (click)="abrirMelhoriaIA('Observações e Conclusão', laudoData, 'OBSERVACOES')">
-          <mat-icon>auto_fix_high</mat-icon> Melhorar com IA
-        </button>
-      </div>
-      <mat-form-field appearance="outline" class="w-full">
-        <textarea matInput [(ngModel)]="laudoData.OBSERVACOES" rows="6"></textarea>
-      </mat-form-field>
-      }
-    </div>
-  </mat-expansion-panel>
-
-  <mat-expansion-panel class="mb-4">
-    <mat-expansion-panel-header>
-      <mat-panel-title class="section-title">
-        <mat-icon>gavel</mat-icon> Análise com Diretrizes
-      </mat-panel-title>
-      <mat-panel-description>
-        Selecione normas para fundamentar a análise
-      </mat-panel-description>
-    </mat-expansion-panel-header>
-
-    <div class="diretrizes-container">
-
-      <div class="persona-selector mb-3">
-        <mat-form-field appearance="outline" class="w-full">
-          <mat-label><mat-icon style="vertical-align: bottom; margin-right: 4px;">face</mat-icon> Persona (Agente IA)</mat-label>
-          <mat-select [ngModel]="personaSelecionada()" (selectionChange)="personaSelecionada.set($event.value)">
-            <mat-option [value]="null">-- Padrão (Sem Persona Específica) --</mat-option>
-            @for (p of listaPersonas(); track p.id) {
-            <mat-option [value]="p">{{ p.nome }}</mat-option>
-            }
-          </mat-select>
-          <mat-hint>Escolha qual "especialista" fará a análise</mat-hint>
-        </mat-form-field>
-      </div>
-
-      <div class="filter-row" style="display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px;">
-
-        <div style="flex: 1; min-width: 250px;">
-          <mat-form-field appearance="outline" class="w-full">
-            <mat-label>Esfera Judicial</mat-label>
-            <mat-select [ngModel]="filtroJustica()" (ngModelChange)="filtroJustica.set($event)">
-              <mat-option value="Justiça Federal">Justiça Federal</mat-option>
-              <mat-option value="Justiça do Trabalho">Justiça do Trabalho</mat-option>
-              <mat-option value="Justiça Comum">Justiça Comum</mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
-
-        <div style="flex: 2; min-width: 250px;">
-          <mat-form-field appearance="outline" class="w-full">
-            <mat-label>Pesquisar Diretriz</mat-label>
-            <input matInput
-                   placeholder="Ex: Ombro, Lombalgia, Dano..."
-                   [ngModel]="termoBuscaDiretrizes()"
-                   (ngModelChange)="termoBuscaDiretrizes.set($event)">
-
-            @if (termoBuscaDiretrizes()) {
-            <button mat-icon-button matSuffix (click)="termoBuscaDiretrizes.set('')" matTooltip="Limpar busca">
-              <mat-icon>close</mat-icon>
+          <h3 class="subsection-title">Narrativa Ocupacional</h3>
+          @if(!isEditing()) {
+          <markdown [data]="laudoData.historicoLaboral?.HISTORICO_OCUPACIONAL_COMPLETO"></markdown>
+          } @else {
+          <div class="flex justify-between items-center mb-1">
+            <mat-label class="text-muted small">Histórico Completo</mat-label>
+            <button mat-button color="primary" class="small-ai-btn"
+              (click)="abrirMelhoriaIA('Narrativa Ocupacional', laudoData.historicoLaboral, 'HISTORICO_OCUPACIONAL_COMPLETO')">
+              <mat-icon>auto_fix_high</mat-icon> Melhorar com IA
             </button>
-            }
-            <mat-icon matSuffix>search</mat-icon>
+          </div>
+          <mat-form-field appearance="outline" class="w-full">
+            <textarea matInput [(ngModel)]="laudoData.historicoLaboral.HISTORICO_OCUPACIONAL_COMPLETO"
+              rows="8"></textarea>
           </mat-form-field>
+          }
+
+          @if(laudoData.historicoLaboral?.PROFISSIOGRAFIA; as prof) {
+          <div class="profissiografia-box">
+            @if(!isEditing()) {
+            <h4>Análise da Atividade: {{ prof.atividade_analisada }}</h4>
+            } @else {
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>Atividade Analisada</mat-label>
+              <input matInput [(ngModel)]="prof.atividade_analisada">
+            </mat-form-field>
+            }
+
+            <div class="prof-grid">
+              <div>
+                <strong>Tarefas Executadas:</strong>
+                @if(!isEditing()) {
+                <ul>
+                  @for(tarefa of prof.tarefas_executadas; track tarefa) {
+                  <li>{{ tarefa }}</li>
+                  }
+                </ul>
+                } @else {
+                <p class="text-small text-muted">Edite as tarefas separando por vírgula (simplificação)</p>
+                <p><em>Edição de lista de tarefas não suportada neste modo rápido. Use a edição JSON.</em></p>
+                }
+              </div>
+              <div>
+                <div class="mb-2">
+                  <strong>Postura:</strong>
+                  @if(!isEditing()) {
+                  {{ prof.postura_corporal }}
+                  } @else {
+                  <div style="display:flex; gap:4px;">
+                    <input class="simple-input" [(ngModel)]="prof.postura_corporal" style="flex:1">
+                    <button mat-icon-button color="primary" style="transform: scale(0.7);"
+                      (click)="abrirMelhoriaIA('Postura', prof, 'postura_corporal')">
+                      <mat-icon>auto_fix_high</mat-icon>
+                    </button>
+                  </div>
+                  }
+                </div>
+                <div class="mb-2">
+                  <strong>Carga:</strong>
+                  @if(!isEditing()) {
+                  {{ prof.carga_fisica }}
+                  } @else {
+                  <div style="display:flex; gap:4px;">
+                    <input class="simple-input" [(ngModel)]="prof.carga_fisica" style="flex:1">
+                    <button mat-icon-button color="primary" style="transform: scale(0.7);"
+                      (click)="abrirMelhoriaIA('Carga Física', prof, 'carga_fisica')">
+                      <mat-icon>auto_fix_high</mat-icon>
+                    </button>
+                  </div>
+                  }
+                </div>
+                <div>
+                  <strong>Exigências:</strong>
+                  @if(!isEditing()) {
+                  {{ prof.exigencias_fisicas }}
+                  } @else {
+                  <div style="display:flex; gap:4px;">
+                    <input class="simple-input" [(ngModel)]="prof.exigencias_fisicas" style="flex:1">
+                    <button mat-icon-button color="primary" style="transform: scale(0.7);"
+                      (click)="abrirMelhoriaIA('Exigências', prof, 'exigencias_fisicas')">
+                      <mat-icon>auto_fix_high</mat-icon>
+                    </button>
+                  </div>
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+          }
         </div>
+      </mat-expansion-panel>
 
-      </div>
+      <mat-expansion-panel id="observacoes">
+        <mat-expansion-panel-header>
+          <mat-panel-title class="section-title">
+            <mat-icon>assignment</mat-icon> Observações e Conclusão
+          </mat-panel-title>
+        </mat-expansion-panel-header>
 
-      <div class="list-section">
-        <p class="list-label">
-          Selecione as diretrizes aplicáveis ({{ diretrizesFiltradas().length }} encontradas):
-        </p>
+        <div class="obs-content">
+          @if(!isEditing()) {
+          <markdown [data]="laudoData.OBSERVACOES"></markdown>
+          } @else {
+          <div class="flex justify-between items-center mb-1">
+            <mat-label class="text-muted small">Conclusão / Observações</mat-label>
+            <button mat-button color="primary" class="small-ai-btn"
+              (click)="abrirMelhoriaIA('Observações e Conclusão', laudoData, 'OBSERVACOES')">
+              <mat-icon>auto_fix_high</mat-icon> Melhorar com IA
+            </button>
+          </div>
+          <mat-form-field appearance="outline" class="w-full">
+            <textarea matInput [(ngModel)]="laudoData.OBSERVACOES" rows="6"></textarea>
+          </mat-form-field>
+          }
+        </div>
+      </mat-expansion-panel>
 
-        <div class="list-section">
-          <p class="list-label">
-            Opções encontradas: {{ diretrizesFiltradas().length }} |
-            <span style="color: var(--primary-color); font-weight: bold;">
+      <mat-expansion-panel class="mb-4" id="diretrizes">
+        <mat-expansion-panel-header>
+          <mat-panel-title class="section-title">
+            <mat-icon>gavel</mat-icon> Análise com Diretrizes
+          </mat-panel-title>
+          <mat-panel-description>
+            Selecione normas para fundamentar a análise
+          </mat-panel-description>
+        </mat-expansion-panel-header>
+
+        <div class="diretrizes-container">
+
+          <div class="persona-selector mb-3">
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label><mat-icon style="vertical-align: bottom; margin-right: 4px;">face</mat-icon> Persona (Agente
+                IA)</mat-label>
+              <mat-select [ngModel]="personaSelecionada()" (selectionChange)="personaSelecionada.set($event.value)">
+                <mat-option [value]="null">-- Padrão (Sem Persona Específica) --</mat-option>
+                @for (p of listaPersonas(); track p.id) {
+                <mat-option [value]="p">{{ p.nome }}</mat-option>
+                }
+              </mat-select>
+              <mat-hint>Escolha qual "especialista" fará a análise</mat-hint>
+            </mat-form-field>
+          </div>
+
+          <div class="filter-row" style="display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px;">
+
+            <div style="flex: 1; min-width: 250px;">
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Esfera Judicial</mat-label>
+                <mat-select [ngModel]="filtroJustica()" (ngModelChange)="filtroJustica.set($event)">
+                  <mat-option value="Justiça Federal">Justiça Federal</mat-option>
+                  <mat-option value="Justiça do Trabalho">Justiça do Trabalho</mat-option>
+                  <mat-option value="Justiça Comum">Justiça Comum</mat-option>
+                </mat-select>
+              </mat-form-field>
+            </div>
+
+            <div style="flex: 2; min-width: 250px;">
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Pesquisar Diretriz</mat-label>
+                <input matInput placeholder="Ex: Ombro, Lombalgia, Dano..." [ngModel]="termoBuscaDiretrizes()"
+                  (ngModelChange)="termoBuscaDiretrizes.set($event)">
+
+                @if (termoBuscaDiretrizes()) {
+                <button mat-icon-button matSuffix (click)="termoBuscaDiretrizes.set('')" matTooltip="Limpar busca">
+                  <mat-icon>close</mat-icon>
+                </button>
+                }
+                <mat-icon matSuffix>search</mat-icon>
+              </mat-form-field>
+            </div>
+
+          </div>
+
+          <div class="list-section">
+            <p class="list-label">
+              Selecione as diretrizes aplicáveis ({{ diretrizesFiltradas().length }} encontradas):
+            </p>
+
+            <div class="list-section">
+              <p class="list-label">
+                Opções encontradas: {{ diretrizesFiltradas().length }} |
+                <span style="color: var(--primary-color); font-weight: bold;">
                   Selecionadas: {{ diretrizesSelecionadas().length }}
                 </span>
-          </p>
+              </p>
 
-          <mat-selection-list #diretrizesList (selectionChange)="toggleDiretrizSelection($event)">
+              <mat-selection-list #diretrizesList (selectionChange)="toggleDiretrizSelection($event)">
 
-            @for (diretriz of diretrizesFiltradas(); track diretriz.id) {
-            <mat-list-option [value]="diretriz" color="primary"
-                             [selected]="isDiretrizSelected(diretriz)">
-              <span matListItemTitle>{{ diretriz.nome }}</span>
-              <span matListItemLine class="text-small">Link: {{ diretriz.link | slice:0:30 }}...</span>
-            </mat-list-option>
-            } @empty {
-            <div class="empty-list">
-              <p>Nenhuma diretriz encontrada com o termo "{{ termoBuscaDiretrizes() }}" nesta esfera.</p>
+                @for (diretriz of diretrizesFiltradas(); track diretriz.id) {
+                <mat-list-option [value]="diretriz" color="primary" [selected]="isDiretrizSelected(diretriz)">
+                  <span matListItemTitle>{{ diretriz.nome }}</span>
+                  <span matListItemLine class="text-small">Link: {{ diretriz.link | slice:0:30 }}...</span>
+                </mat-list-option>
+                } @empty {
+                <div class="empty-list">
+                  <p>Nenhuma diretriz encontrada com o termo "{{ termoBuscaDiretrizes() }}" nesta esfera.</p>
+                </div>
+                }
+              </mat-selection-list>
+            </div>
+          </div>
+
+          <div class="action-section">
+            <button mat-flat-button color="accent" (click)="analisarComIA()"
+              [disabled]="isAnalisando() || diretrizesSelecionadas().length === 0">
+              @if(isAnalisando()) {
+              <ng-container>
+                <mat-icon><mat-spinner diameter="18"></mat-spinner></mat-icon>
+                <span>Analisando...</span>
+              </ng-container>
+              } @else {
+              <ng-container>
+                <mat-icon>psychology</mat-icon>
+                <span>Analisar com IA</span>
+              </ng-container>
+              }
+            </button>
+          </div>
+
+          @if (resultadoAnaliseIA()) {
+          <mat-divider class="my-4"></mat-divider>
+          <div class="ai-result-box">
+            <h3><mat-icon class="ai-icon">auto_awesome</mat-icon> Análise da IA</h3>
+
+            @if (laudoData?.diretrizesUsadasAnalise?.length) {
+            <div class="fontes-usadas mb-3" style="margin-top: -8px;">
+              <span style="font-size: 0.8rem; color: #666; margin-right: 8px;">Baseado em:</span>
+              <mat-chip-set aria-label="Diretrizes usadas">
+                @for (d of laudoData.diretrizesUsadasAnalise; track d.id) {
+                <mat-chip [highlighted]="true" color="primary" style="font-size: 0.75rem; min-height: 28px;">
+                  {{ d.nome }}
+                </mat-chip>
+                }
+              </mat-chip-set>
             </div>
             }
-          </mat-selection-list>
-        </div>
-      </div>
 
-      <div class="action-section">
-        <button mat-flat-button color="accent"
-                (click)="analisarComIA()"
-                [disabled]="isAnalisando() || diretrizesSelecionadas().length === 0">
-          @if(isAnalisando()) {
-          <ng-container>
-            <mat-icon><mat-spinner diameter="18"></mat-spinner></mat-icon>
-            <span>Analisando...</span>
-          </ng-container>
-          } @else {
-          <ng-container>
-            <mat-icon>psychology</mat-icon>
-            <span>Analisar com IA</span>
-          </ng-container>
-          }
-        </button>
-      </div>
+            @if(!isEditing()) {
+            <markdown [data]="resultadoAnaliseIA()"></markdown>
+            } @else {
+            <div class="flex justify-between items-center mb-1">
+              <mat-label class="text-muted small">Resultado da Análise IA</mat-label>
 
-      @if (resultadoAnaliseIA()) {
-      <mat-divider class="my-4"></mat-divider>
-      <div class="ai-result-box">
-        <h3><mat-icon class="ai-icon">auto_awesome</mat-icon> Análise da IA</h3>
+              <button mat-button color="primary" class="small-ai-btn" (click)="melhorarAnaliseIA()">
+                <mat-icon>auto_fix_high</mat-icon> Melhorar com IA
+              </button>
+            </div>
 
-        @if (laudoData?.diretrizesUsadasAnalise?.length) {
-        <div class="fontes-usadas mb-3" style="margin-top: -8px;">
-          <span style="font-size: 0.8rem; color: #666; margin-right: 8px;">Baseado em:</span>
-          <mat-chip-set aria-label="Diretrizes usadas">
-            @for (d of laudoData.diretrizesUsadasAnalise; track d.id) {
-            <mat-chip [highlighted]="true" color="primary" style="font-size: 0.75rem; min-height: 28px;">
-              {{ d.nome }}
-            </mat-chip>
+            <mat-form-field appearance="outline" class="w-full">
+              <textarea matInput name="analiseIA" autocomplete="off" [ngModel]="resultadoAnaliseIA()"
+                (ngModelChange)="resultadoAnaliseIA.set($event)" rows="15"></textarea>
+            </mat-form-field>
             }
-          </mat-chip-set>
-        </div>
-        }
-
-        @if(!isEditing()) {
-        <markdown [data]="resultadoAnaliseIA()"></markdown>
-        } @else {
-        <div class="flex justify-between items-center mb-1">
-          <mat-label class="text-muted small">Resultado da Análise IA</mat-label>
-
-          <button mat-button color="primary" class="small-ai-btn"
-                  (click)="melhorarAnaliseIA()">
-            <mat-icon>auto_fix_high</mat-icon> Melhorar com IA
-          </button>
-        </div>
-
-        <mat-form-field appearance="outline" class="w-full">
-                    <textarea matInput
-                              name="analiseIA"
-                              autocomplete="off"
-                              [ngModel]="resultadoAnaliseIA()"
-                              (ngModelChange)="resultadoAnaliseIA.set($event)"
-                              rows="15"></textarea>
-        </mat-form-field>
-        }
-      </div>
-      }
-
-    </div>
-  </mat-expansion-panel>
-
-  <mat-card class="mb-4 mt-4 ai-quesitos-card" style="border-left: 5px solid #673ab7; background-color: #fdfbff;">
-    <mat-card-header>
-      <mat-icon mat-card-avatar style="color: #673ab7;">psychology</mat-icon>
-      <mat-card-title>Automação de Quesitos (IA)</mat-card-title>
-      <mat-card-subtitle>Selecione um modelo para preencher automaticamente</mat-card-subtitle>
-    </mat-card-header>
-    <mat-card-content class="pt-3">
-
-      <div class="ai-actions-row" style="display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap;">
-
-        <mat-form-field appearance="outline" style="flex: 1; min-width: 250px;">
-          <mat-label>Persona (Agente IA)</mat-label>
-          <mat-select [ngModel]="personaSelecionada()" (selectionChange)="personaSelecionada.set($event.value)">
-            <mat-option [value]="null">-- Padrão --</mat-option>
-            @for (p of listaPersonas(); track p.id) {
-            <mat-option [value]="p">{{ p.nome }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" style="flex: 1; min-width: 300px;">
-          <mat-label>Modelo de Quesitos</mat-label>
-          <mat-select (selectionChange)="aplicarModeloQuesitos($event.value)">
-            @for (modelo of listaModelosQuesitos(); track modelo.id) {
-            <mat-option [value]="modelo">
-              <span class="badge-jurisdicao">{{ modelo.jurisdicao }}</span> {{ modelo.titulo }}
-            </mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-
-        <button mat-raised-button color="accent"
-                style="height: 56px;"
-                (click)="responderQuesitosComIA()"
-                [disabled]="!modeloSelecionado() || isRespondendoQuesitos()">
-          @if(isRespondendoQuesitos()) {
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <mat-spinner diameter="24" color="warn"></mat-spinner>
-            <span class="ml-2">Processando IA...</span>
-          </div>
-          } @else {
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <mat-icon>auto_fix_high</mat-icon>
-            <span>Responder com IA</span>
           </div>
           }
-        </button>
-      </div>
 
-      @if(modeloSelecionado()) {
-      <div class="modelo-info mt-2" style="font-size: 0.9rem; color: #666;">
-        <strong>Modelo Ativo:</strong> {{ modeloSelecionado()?.titulo }}
-        <span class="spacer mx-2">|</span>
-        @if(modeloSelecionado()?.promptIA) {
-        <span style="color: green; display: inline-flex; align-items: center; gap: 4px;">
-                  <mat-icon style="font-size: 16px; height: 16px; width: 16px;">check_circle</mat-icon> Prompt IA Configurado
-                </span>
-        } @else {
-        <span style="color: red; display: inline-flex; align-items: center; gap: 4px;">
-                  <mat-icon style="font-size: 16px; height: 16px; width: 16px;">error</mat-icon> Sem Prompt IA (Verifique o Banco)
-                </span>
-        }
-      </div>
-      }
-    </mat-card-content>
-  </mat-card>
-
-  @if(objectKeys(laudoData.respostasQuesitos).length > 0) {
-  <mat-expansion-panel class="mt-3" expanded="true">
-    <mat-expansion-panel-header>
-      <mat-panel-title class="section-title">
-        <mat-icon>question_answer</mat-icon> Quesitos Respondidos
-      </mat-panel-title>
-    </mat-expansion-panel-header>
-
-    <div class="quesitos-list">
-
-      @if(isEditing()) {
-      <div class="action-bar mb-3" style="display: flex; justify-content: flex-end;">
-        <button mat-flat-button color="warn" (click)="limparRespostasQuesitos()">
-          <mat-icon>delete_sweep</mat-icon>
-          Apagar Todas as Respostas
-        </button>
-      </div>
-      }
-      @for (chave of getQuesitosKeysOrdenadas(); track chave) {
-      <div class="quesito-item mb-3">
-    <span style="font-size: 0.75rem; color: #999; text-transform: uppercase; letter-spacing: 0.5px;">
-      {{ chave }}
-    </span>
-
-        <strong class="q-label" style="display: block; margin-bottom: 8px; font-size: 1rem; color: #333;">
-          {{ getTextoPergunta(chave) || 'Pergunta não identificada no modelo' }}
-        </strong>
-
-        @if(!isEditing()) {
-        <div class="q-answer p-2 bg-light rounded border" style="background-color: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 4px;">
-          <p style="white-space: pre-wrap; margin: 0;">{{ laudoData.respostasQuesitos[chave] }}</p>
         </div>
-        } @else {
-        <div class="flex justify-between items-center mb-1 mt-2">
-          <mat-label class="text-muted small">Resposta para {{ chave }}</mat-label>
-          <button mat-button color="primary" class="small-ai-btn"
-                  (click)="abrirMelhoriaIA('Quesito ' + chave, laudoData.respostasQuesitos, chave)">
-            <mat-icon>auto_fix_high</mat-icon> Melhorar com IA
-          </button>
-        </div>
-        <mat-form-field appearance="outline" class="w-full">
-          <textarea matInput [(ngModel)]="laudoData.respostasQuesitos[chave]" rows="4"></textarea>
-        </mat-form-field>
-        }
-      </div>
-      <mat-divider class="my-3"></mat-divider>
-      }
-    </div>
-  </mat-expansion-panel>
-  }
+      </mat-expansion-panel>
 
-  <footer class="doc-footer">
-    <p>Laudo emitido eletronicamente em {{ laudoData.dadosLaudo?.DIA_LAUDO }}/{{ laudoData.dadosLaudo?.MES_LAUDO }}/{{ laudoData.dadosLaudo?.ANO_LAUDO }}</p>
-  </footer>
+      <mat-card class="mb-4 mt-4 ai-quesitos-card" style="border-left: 5px solid #673ab7; background-color: #fdfbff;"
+        id="automacao-quesitos">
+        <mat-card-header>
+          <mat-icon mat-card-avatar style="color: #673ab7;">psychology</mat-icon>
+          <mat-card-title>Automação de Quesitos (IA)</mat-card-title>
+          <mat-card-subtitle>Selecione um modelo para preencher automaticamente</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content class="pt-3">
+
+          <div class="ai-actions-row" style="display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap;">
+
+            <mat-form-field appearance="outline" style="flex: 1; min-width: 250px;">
+              <mat-label>Persona (Agente IA)</mat-label>
+              <mat-select [ngModel]="personaSelecionada()" (selectionChange)="personaSelecionada.set($event.value)">
+                <mat-option [value]="null">-- Padrão --</mat-option>
+                @for (p of listaPersonas(); track p.id) {
+                <mat-option [value]="p">{{ p.nome }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" style="flex: 1; min-width: 300px;">
+              <mat-label>Modelo de Quesitos</mat-label>
+              <mat-select (selectionChange)="aplicarModeloQuesitos($event.value)">
+                @for (modelo of listaModelosQuesitos(); track modelo.id) {
+                <mat-option [value]="modelo">
+                  <span class="badge-jurisdicao">{{ modelo.jurisdicao }}</span> {{ modelo.titulo }}
+                </mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            <button mat-raised-button color="accent" style="height: 56px;" (click)="responderQuesitosComIA()"
+              [disabled]="!modeloSelecionado() || isRespondendoQuesitos()">
+              @if(isRespondendoQuesitos()) {
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <mat-spinner diameter="24" color="warn"></mat-spinner>
+                <span class="ml-2">Processando IA...</span>
+              </div>
+              } @else {
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <mat-icon>auto_fix_high</mat-icon>
+                <span>Responder com IA</span>
+              </div>
+              }
+            </button>
+          </div>
+
+          @if(modeloSelecionado()) {
+          <div class="modelo-info mt-2" style="font-size: 0.9rem; color: #666;">
+            <strong>Modelo Ativo:</strong> {{ modeloSelecionado()?.titulo }}
+            <span class="spacer mx-2">|</span>
+            @if(modeloSelecionado()?.promptIA) {
+            <span style="color: green; display: inline-flex; align-items: center; gap: 4px;">
+              <mat-icon style="font-size: 16px; height: 16px; width: 16px;">check_circle</mat-icon> Prompt IA
+              Configurado
+            </span>
+            } @else {
+            <span style="color: red; display: inline-flex; align-items: center; gap: 4px;">
+              <mat-icon style="font-size: 16px; height: 16px; width: 16px;">error</mat-icon> Sem Prompt IA (Verifique o
+              Banco)
+            </span>
+            }
+          </div>
+          }
+        </mat-card-content>
+      </mat-card>
+
+      @if(objectKeys(laudoData.respostasQuesitos).length > 0) {
+      <mat-expansion-panel class="mt-3" expanded="true" id="quesitos-respondidos">
+        <mat-expansion-panel-header>
+          <mat-panel-title class="section-title">
+            <mat-icon>question_answer</mat-icon> Quesitos Respondidos
+          </mat-panel-title>
+        </mat-expansion-panel-header>
+
+        <div class="quesitos-list">
+
+          @if(isEditing()) {
+          <div class="action-bar mb-3" style="display: flex; justify-content: flex-end;">
+            <button mat-flat-button color="warn" (click)="limparRespostasQuesitos()">
+              <mat-icon>delete_sweep</mat-icon>
+              Apagar Todas as Respostas
+            </button>
+          </div>
+          }
+          @for (chave of getQuesitosKeysOrdenadas(); track chave) {
+          <div class="quesito-item mb-3">
+            <span style="font-size: 0.75rem; color: #999; text-transform: uppercase; letter-spacing: 0.5px;">
+              {{ chave }}
+            </span>
+
+            <strong class="q-label" style="display: block; margin-bottom: 8px; font-size: 1rem; color: #333;">
+              {{ getTextoPergunta(chave) || 'Pergunta não identificada no modelo' }}
+            </strong>
+
+            @if(!isEditing()) {
+            <div class="q-answer p-2 bg-light rounded border"
+              style="background-color: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 4px;">
+              <p style="white-space: pre-wrap; margin: 0;">{{ laudoData.respostasQuesitos[chave] }}</p>
+            </div>
+            } @else {
+            <div class="flex justify-between items-center mb-1 mt-2">
+              <mat-label class="text-muted small">Resposta para {{ chave }}</mat-label>
+              <button mat-button color="primary" class="small-ai-btn"
+                (click)="abrirMelhoriaIA('Quesito ' + chave, laudoData.respostasQuesitos, chave)">
+                <mat-icon>auto_fix_high</mat-icon> Melhorar com IA
+              </button>
+            </div>
+            <mat-form-field appearance="outline" class="w-full">
+              <textarea matInput [(ngModel)]="laudoData.respostasQuesitos[chave]" rows="4"></textarea>
+            </mat-form-field>
+            }
+          </div>
+          <mat-divider class="my-3"></mat-divider>
+          }
+        </div>
+      </mat-expansion-panel>
+      }
+
+      <footer class="doc-footer">
+        <p>Laudo emitido eletronicamente em {{ laudoData.dadosLaudo?.DIA_LAUDO }}/{{ laudoData.dadosLaudo?.MES_LAUDO
+          }}/{{
+          laudoData.dadosLaudo?.ANO_LAUDO }}</p>
+      </footer>
+
+    </main>
+
+    <aside class="laudo-sidebar">
+      <nav class="sidebar-nav">
+        <button mat-button (click)="scrollToSection('dados-cadastrais')" class="nav-btn">
+          <mat-icon>person</mat-icon> Dados Cadastrais
+        </button>
+        <button mat-button (click)="scrollToSection('avaliacao-medica')" class="nav-btn">
+          <mat-icon>medical_services</mat-icon> Avaliação Médica
+        </button>
+        <button mat-button (click)="scrollToSection('historico-laboral')" class="nav-btn">
+          <mat-icon>work</mat-icon> Histórico Laboral
+        </button>
+        <button mat-button (click)="scrollToSection('observacoes')" class="nav-btn">
+          <mat-icon>assignment</mat-icon> Conclusão
+        </button>
+        <button mat-button (click)="scrollToSection('diretrizes')" class="nav-btn">
+          <mat-icon>gavel</mat-icon> Diretrizes & IA
+        </button>
+        <button mat-button (click)="scrollToSection('automacao-quesitos')" class="nav-btn">
+          <mat-icon>psychology</mat-icon> Automação Quesitos
+        </button>
+        <button mat-button (click)="scrollToSection('quesitos-respondidos')" class="nav-btn">
+          <mat-icon>question_answer</mat-icon> Quesitos
+        </button>
+      </nav>
+    </aside>
+  </div>
 
   } @else {
   <div class="loading-container">

@@ -1,10 +1,8 @@
 <mat-sidenav-container class="sidenav-container">
-  
-  <mat-sidenav #drawer class="sidenav" fixedInViewport
-      [attr.role]="(isHandset$ | async) ? 'dialog' : 'navigation'"
-      [mode]="(isHandset$ | async) ? 'over' : 'side'"
-      [opened]="(isHandset$ | async) === false">
-    
+
+  <mat-sidenav #drawer class="sidenav" fixedInViewport [attr.role]="(isHandset$ | async) ? 'dialog' : 'navigation'"
+    [mode]="(isHandset$ | async) ? 'over' : 'side'" [opened]="(isHandset$ | async) === false">
+
     <div class="sidenav-header">
       <div class="logo-container">
         <mat-icon class="logo-icon">gavel</mat-icon>
@@ -16,7 +14,7 @@
     <mat-divider></mat-divider>
 
     <mat-nav-list>
-      
+
       <h3 matSubheader>Análise</h3>
 
       <a mat-list-item routerLink="/process-list" routerLinkActive="active-link">
@@ -50,28 +48,31 @@
   </mat-sidenav>
 
   <mat-sidenav-content>
-    
+
     <mat-toolbar color="primary" class="app-toolbar">
       @if (isHandset$ | async) {
-        <button
-          type="button"
-          aria-label="Toggle sidenav"
-          mat-icon-button
-          (click)="drawer.toggle()">
-          <mat-icon>menu</mat-icon>
-        </button>
+      <button type="button" aria-label="Toggle sidenav" mat-icon-button (click)="drawer.toggle()">
+        <mat-icon>menu</mat-icon>
+      </button>
       }
-      
+
       <span class="toolbar-title">Portal do Perito</span>
-      
+
       <span class="spacer"></span>
 
       <button mat-icon-button aria-label="Notificações">
         <mat-icon>notifications</mat-icon>
       </button>
-      <button mat-icon-button aria-label="Conta do Utilizador">
+      <button mat-icon-button aria-label="Conta do Utilizador" [matMenuTriggerFor]="userMenu">
         <mat-icon>account_circle</mat-icon>
       </button>
+
+      <mat-menu #userMenu="matMenu">
+        <button mat-menu-item (click)="logout()">
+          <mat-icon>logout</mat-icon>
+          <span>Logout</span>
+        </button>
+      </mat-menu>
     </mat-toolbar>
 
     <main class="main-content">
