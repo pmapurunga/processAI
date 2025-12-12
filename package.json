@@ -22,6 +22,7 @@
     "@angular/router": "^20.1.0",
     "@google/generative-ai": "^0.24.1",
     "firebase": "^11.8.1",
+    "ngx-file-drop": "^16.0.0",
     "ngx-markdown": "^20.1.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",

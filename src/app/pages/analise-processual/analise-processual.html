@@ -1,0 +1,117 @@
+<div class="analysis-container">
+    <div class="header-section">
+        <h1>Análise Processual</h1>
+        <p>Upload e extração automatizada de dados de processos judiciais utilizando IA.</p>
+    </div>
+
+    <!-- Fase 1: Upload -->
+    @if (!isProcessing) {
+    <mat-card class="upload-card">
+        <ngx-file-drop dropZoneLabel="Drop files here" (onFileDrop)="dropped($event)" (onFileOver)="fileOver($event)"
+            (onFileLeave)="fileLeave($event)">
+
+            <ng-template ngx-file-drop-content-tmp let-openFileSelector="openFileSelector">
+                <div class="drop-zone" [class.hovering]="isHovering">
+                    <div class="drop-content">
+                        <mat-icon>cloud_upload</mat-icon>
+                        <h3>Arraste seu arquivo PDF aqui</h3>
+                        <p>ou clique para selecionar do computador</p>
+
+                        <div class="actions">
+                            <button mat-flat-button color="primary" (click)="openFileSelector()">
+                                Selecionar Arquivo
+                            </button>
+                        </div>
+
+                        <!-- Drive Import Button -->
+                        <div class="drive-import-btn">
+                            <button mat-stroked-button (click)="importFromDrive()">
+                                <mat-icon>add_to_drive</mat-icon> Importar do Google Drive
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </ng-template>
+
+        </ngx-file-drop>
+
+        <mat-card-footer>
+            @if (files.length > 0) {
+            <mat-list>
+                @for (item of files; track item.relativePath) {
+                <mat-list-item>
+                    <mat-icon matListItemIcon>description</mat-icon>
+                    <div matListItemTitle>{{ item.relativePath }}</div>
+                </mat-list-item>
+                }
+            </mat-list>
+            }
+        </mat-card-footer>
+    </mat-card>
+    }
+
+    <!-- Fase 2: Processamento (Visível durante upload ou processamento) -->
+    @if (isProcessing) {
+    <mat-card class="processing-state animate-pulse">
+
+        @if (uploadProgress < 100) { <h2>Enviando arquivo...</h2>
+            <div class="progress-section">
+                <div class="progress-labels">
+                    <span>Upload</span>
+                    <span>{{ uploadProgress }}%</span>
+                </div>
+                <mat-progress-bar mode="determinate" [value]="uploadProgress"></mat-progress-bar>
+            </div>
+            } @else {
+            <h2>Analisando com Inteligência Artificial</h2>
+            <p class="status-text">O sistema está identificando e segmentando os documentos do processo...</p>
+
+            <div class="progress-section">
+                <div class="progress-labels">
+                    <span>Progresso da Análise</span>
+                    <span>{{ analysisProgress }}%</span>
+                </div>
+                <mat-progress-bar mode="determinate" [value]="analysisProgress"></mat-progress-bar>
+            </div>
+            }
+
+    </mat-card>
+    }
+
+    <!-- Fase 3: Resultados (Live Feed) -->
+    @if (analyzedDocs.length > 0) {
+    <div class="results-grid">
+        @for (doc of analyzedDocs; track doc.id_documento_pje) {
+        <mat-card class="document-card fade-in-up">
+            <mat-card-header>
+                <div mat-card-avatar>
+                    <mat-icon class="doc-icon">article</mat-icon>
+                </div>
+                <mat-card-title>{{ doc.titulo_original }}</mat-card-title>
+                <mat-card-subtitle>{{ doc.categoria_ia }}</mat-card-subtitle>
+            </mat-card-header>
+
+            <mat-card-content class="mt-4">
+                <div class="doc-header">
+                    <span class="doc-badge">{{ doc.categoria_ia }}</span>
+                    <span class="doc-pages">Págs: {{ doc.paginas_pdf.join(', ') }}</span>
+                </div>
+
+                <p class="doc-summary">{{ doc.resumo }}</p>
+
+                @if(hasData(doc.dados_extraidos)) {
+                <div class="doc-extracted-data">
+                    @for (key of getKeys(doc.dados_extraidos); track key) {
+                    <div class="data-row">
+                        <span class="data-label">{{ key | titlecase }}:</span>
+                        <span class="data-value">{{ doc.dados_extraidos[key] }}</span>
+                    </div>
+                    }
+                </div>
+                }
+            </mat-card-content>
+        </mat-card>
+        }
+    </div>
+    }
+</div>

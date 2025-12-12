@@ -13,9 +13,12 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 
 interface ProcessAnalysis {
-    metadadosConsolidacao?: { 
+  status?: string;
+  progresso?: number;
+  metadadosConsolidacao?: {
     numeroProcesso: string;
     dataUltimaMovimentacao: string;
     dataExamePericial: string;
@@ -92,7 +95,9 @@ interface ProcessAnalysis {
     MatIconModule,
     MatButtonModule,
     MatToolbarModule,
+    MatToolbarModule,
     MatProgressSpinnerModule,
+    MatProgressBarModule
   ],
   templateUrl: './process-selector.html',
   styleUrls: ['./process-selector.css'],

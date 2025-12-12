@@ -36,4 +36,26 @@ Uma aplicação web em Angular moderna e de alto desempenho para visualizar os r
     - Garantir que a exclusão dos dados no Firestore (`analises_processos` e `status_processos`) ocorra em conjunto (forkJoin) com a limpeza do Storage.
 4.  **Verificar e Corrigir**:
     - O código foi atualizado para lidar com erros silenciosos (ex: arquivo não encontrado) para não bloquear o fluxo de exclusão.
-    - `ng build` executado com sucesso.
+
+## Fase 5: Implementação de Análise Processual (Novo)
+
+**Objetivo:** Criar uma nova página "Análise Processual" para upload e processamento de arquivos PDF (via Cloud Run + Gemini), com acompanhamento em tempo real.
+
+**Especificação Técnica:**
+- **Frontend**: Angular 18+
+- **Input**: Upload Local (Drag & Drop) e Integração Google Picker (Drive).
+- **Processamento**:
+    - Solicitação de Signed URL para upload direto ao GCS.
+    - Acionamento do endpoint de processamento no Backend.
+    - Monitoramento via Firestore (`analises_processos`).
+- **UI**:
+    - Página acessível via Sidebar (`layout`).
+    - Exibição de status (Processando, Concluído, Erro).
+    - Visualização dos resultados (Resumo, Pedidos, Decisão).
+
+**Passos:**
+1.  Criar `AnaliseProcessualComponent` (Standalone).
+2.  Criar `AnaliseProcessualService` para comunicação com Backend e Firestore.
+3.  Adicionar Rota e Link na Sidebar.
+4.  Implementar Interface de Upload e Status.
+

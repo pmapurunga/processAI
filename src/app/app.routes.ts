@@ -38,34 +38,41 @@ export const routes: Routes = [
     children: [
       // Dashboard / Listagem
       { path: 'process-list', component: ProcessListPageComponent },
-      
+
       // Admin
       { path: 'prompt-manager', component: PromptManagerComponent },
       { path: 'diretrizes', component: DiretrizesComponent },
       { path: 'quesitos', component: QuesitosManagerComponent },
-      { path: 'personas', component: PersonasManagerComponent }, // <--- NOVA ROTA
+      { path: 'personas', component: PersonasManagerComponent },
+
+      // Feature: Análise Processual
+      {
+        path: 'analise-processual',
+        loadComponent: () => import('./pages/analise-processual/analise-processual').then(m => m.AnaliseProcessualComponent),
+        title: 'Análise Processual'
+      },
 
       // Rotas de um Processo Específico
-      { 
-        path: 'process/:id', 
-        component: ProcessSelectorComponent 
+      {
+        path: 'process/:id',
+        component: ProcessSelectorComponent
       },
       {
-        path: 'process/:id/ai-report', 
+        path: 'process/:id/ai-report',
         component: AiUsageReportComponent,
         title: 'Relatório de IA' // Opcional: Título da aba do navegador
       },
-      { 
-        path: 'process/:id/documentos-analisados', 
-        component: ProcessDetailComponent 
+      {
+        path: 'process/:id/documentos-analisados',
+        component: ProcessDetailComponent
       },
-      { 
-        path: 'process/:id/avaliacao-pericial', 
-        component: AvaliacaoPericialComponent 
+      {
+        path: 'process/:id/avaliacao-pericial',
+        component: AvaliacaoPericialComponent
       },
-      { 
-        path: 'process/:id/laudo-pericial', 
-        component: LaudoPericialComponent 
+      {
+        path: 'process/:id/laudo-pericial',
+        component: LaudoPericialComponent
       },
     ]
   }

@@ -4,242 +4,250 @@
   <header class="page-header">
     <div class="header-content">
       @if (data.metadadosConsolidacao) {
-        <h1>Processo nº {{ data.metadadosConsolidacao.numeroProcesso }}</h1>
-        <div class="header-meta">
-          @if (data.resumoProcessual?.statusAtual) {
-            <mat-chip>{{ data.resumoProcessual?.statusAtual }}</mat-chip>
-          }
-          <span>Última mov: {{ data.metadadosConsolidacao.dataUltimaMovimentacao }}</span>
+      <h1>Processo nº {{ data.metadadosConsolidacao.numeroProcesso }}</h1>
+      <div class="header-meta">
+        @if (data.progresso !== undefined && data.progresso < 100) { <div class="processing-status">
+          <span>Processando: {{ data.progresso }}%</span>
+          <mat-progress-bar mode="determinate" [value]="data.progresso"></mat-progress-bar>
+      </div>
+      } @else if (data.status === 'Consolidado' || data.progresso === 100) {
+      <mat-chip class="status-consolidado">Consolidado</mat-chip>
+      } @else if (data.resumoProcessual?.statusAtual) {
+      <mat-chip>{{ data.resumoProcessual?.statusAtual }}</mat-chip>
+      }
+      <span>Última mov: {{ data.metadadosConsolidacao.dataUltimaMovimentacao }}</span>
+    </div>
+    }
+</div>
+
+<div class="process-actions">
+  <a mat-stroked-button [routerLink]="['/process', processId(), 'avaliacao-pericial']">
+    <mat-icon>assessment</mat-icon>
+    Avaliação
+  </a>
+  <a mat-stroked-button [routerLink]="['/process', processId(), 'laudo-pericial']">
+    <mat-icon>gavel</mat-icon>
+    Laudo
+  </a>
+  <a mat-flat-button color="primary" [routerLink]="['/process', processId(), 'documentos-analisados']">
+    <mat-icon>folder_open</mat-icon>
+    Documentos
+  </a>
+</div>
+</header>
+
+<div class="dashboard-grid">
+
+  <aside class="sidebar-content">
+
+    @if (data.usoIA) {
+    <mat-card class="ai-metrics-card">
+      <mat-card-header>
+        <div mat-card-avatar class="ai-avatar">
+          <mat-icon>psychology</mat-icon>
         </div>
-      }
-    </div>
+        <mat-card-title>Consumo Inteligência (IA)</mat-card-title>
+        <mat-card-subtitle>Monitoramento de Tokens</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
 
-    <div class="process-actions">
-      <a mat-stroked-button [routerLink]="['/process', processId(), 'avaliacao-pericial']">
-        <mat-icon>assessment</mat-icon>
-        Avaliação
-      </a>
-      <a mat-stroked-button [routerLink]="['/process', processId(), 'laudo-pericial']">
-        <mat-icon>gavel</mat-icon>
-        Laudo
-      </a>
-      <a mat-flat-button color="primary" [routerLink]="['/process', processId(), 'documentos-analisados']">
-        <mat-icon>folder_open</mat-icon>
-        Documentos
-      </a>
-    </div>
-  </header>
+        <div class="metric-row">
+          <span class="label">Entrada (Prompt):</span>
+          <span class="value">{{ data.usoIA.totalInput }}</span>
+        </div>
 
-  <div class="dashboard-grid">
-    
-    <aside class="sidebar-content">
-      
-      @if (data.usoIA) {
-        <mat-card class="ai-metrics-card">
-          <mat-card-header>
-            <div mat-card-avatar class="ai-avatar">
-              <mat-icon>psychology</mat-icon>
-            </div>
-            <mat-card-title>Consumo Inteligência (IA)</mat-card-title>
-            <mat-card-subtitle>Monitoramento de Tokens</mat-card-subtitle>
-          </mat-card-header>
-          <mat-card-content>
-            
-            <div class="metric-row">
-              <span class="label">Entrada (Prompt):</span>
-              <span class="value">{{ data.usoIA.totalInput }}</span>
-            </div>
+        <div class="metric-row">
+          <span class="label">Saída (Geração):</span>
+          <span class="value">{{ data.usoIA.totalOutput }}</span>
+        </div>
 
-            <div class="metric-row">
-              <span class="label">Saída (Geração):</span>
-              <span class="value">{{ data.usoIA.totalOutput }}</span>
-            </div>
+        <mat-divider style="margin: 12px 0;"></mat-divider>
 
-            <mat-divider style="margin: 12px 0;"></mat-divider>
+        <div class="metric-row total-row">
+          <span class="label">Total Tokens:</span>
+          <span class="value">{{ data.usoIA.custoTotal }}</span>
+        </div>
 
-            <div class="metric-row total-row">
-              <span class="label">Total Tokens:</span>
-              <span class="value">{{ data.usoIA.custoTotal }}</span>
-            </div>
+        @if (data.usoIA.ultimaAtualizacao) {
+        <div class="last-update">
+          Atualizado: {{ data.usoIA.ultimaAtualizacao.toDate() | date:'dd/MM/yyyy HH:mm' }}
+        </div>
+        }
 
-            @if (data.usoIA.ultimaAtualizacao) {
-              <div class="last-update">
-                Atualizado: {{ data.usoIA.ultimaAtualizacao.toDate() | date:'dd/MM/yyyy HH:mm' }}
-              </div>
-            }
+      </mat-card-content>
+      <div style="margin-top: 16px; text-align: right;">
+        <a mat-button color="primary" [routerLink]="['/process', processId(), 'ai-report']">
+          Ver Relatório Detalhado
+        </a>
+      </div>
+    </mat-card>
+    }
+    @if (data.dadosCadastrais) {
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>Partes Envolvidas</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        @if (data.dadosCadastrais.autor) {
+        <div class="info-group">
+          <h3>Autor</h3>
+          <p class="info-value"><strong>{{ data.dadosCadastrais.autor.nomeCompleto }}</strong></p>
+          <span class="text-sm text-gray">CPF: {{ data.dadosCadastrais.autor.cpf }}</span>
+          <p class="text-sm text-gray">{{ data.dadosCadastrais.autor.nascimento }} ({{ data.dadosCadastrais.autor.sexo
+            }})</p>
+        </div>
+        }
 
-          </mat-card-content>
-          <div style="margin-top: 16px; text-align: right;">
-            <a mat-button color="primary" [routerLink]="['/process', processId(), 'ai-report']">
-              Ver Relatório Detalhado
-            </a>
+        <mat-divider></mat-divider>
+
+        @if (data.dadosCadastrais.reu) {
+        <div class="info-group" style="margin-top: 16px;">
+          <h3>Réu</h3>
+          <p class="info-value"><strong>{{ data.dadosCadastrais.reu.nome }}</strong></p>
+          @if(data.dadosCadastrais.reu.cnpj) {
+          <span class="text-sm text-gray">CNPJ: {{ data.dadosCadastrais.reu.cnpj }}</span>
+          }
+        </div>
+        }
+
+        <mat-divider></mat-divider>
+
+        @if (data.dadosCadastrais.orgaoJulgador) {
+        <div class="info-group" style="margin-top: 16px;">
+          <h3>Juízo</h3>
+          <p class="info-value">{{ data.dadosCadastrais.orgaoJulgador.vara }}</p>
+          <span class="text-sm">{{ data.dadosCadastrais.orgaoJulgador.tribunal }}</span>
+        </div>
+        }
+      </mat-card-content>
+    </mat-card>
+    }
+
+    @if (data.metadadosConsolidacao) {
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>Detalhes Técnicos</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <mat-list dense>
+          <mat-list-item>
+            <span matListItemTitle>Exame Pericial</span>
+            <span matListItemLine>{{ data.metadadosConsolidacao.dataExamePericial }}</span>
+          </mat-list-item>
+          <mat-list-item>
+            <span matListItemTitle>Arquivos</span>
+            <span matListItemLine>{{ data.metadadosConsolidacao.quantidadeArquivosAnalisados }} documentos</span>
+          </mat-list-item>
+          @if (data.metadadosConsolidacao.periodoCoberto) {
+          <mat-list-item>
+            <span matListItemTitle>Período</span>
+            <span matListItemLine>{{ data.metadadosConsolidacao.periodoCoberto.inicio }} a {{
+              data.metadadosConsolidacao.periodoCoberto.fim }}</span>
+          </mat-list-item>
+          }
+        </mat-list>
+      </mat-card-content>
+    </mat-card>
+    }
+  </aside>
+
+  <main class="main-content">
+
+    @if (data.pontosDeAtencao) {
+    <mat-card class="attention-card">
+      <mat-card-header>
+        <mat-icon color="warn" mat-card-avatar>warning</mat-icon>
+        <mat-card-title>Pontos de Atenção</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <p>{{ data.pontosDeAtencao }}</p>
+      </mat-card-content>
+    </mat-card>
+    }
+
+    @if (data.resumoProcessual) {
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>Resumo da Lide</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="info-group">
+          <h3>Objeto da Ação</h3>
+          <p>{{ data.resumoProcessual.objetoDaAcao }}</p>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div class="info-group">
+            <h3>Tese Inicial</h3>
+            <p>{{ data.resumoProcessual.teseInicial }}</p>
           </div>
-        </mat-card>
-      }
-      @if (data.dadosCadastrais) {
-        <mat-card>
-          <mat-card-header>
-            <mat-card-title>Partes Envolvidas</mat-card-title>
-          </mat-card-header>
-          <mat-card-content>
-            @if (data.dadosCadastrais.autor) {
-              <div class="info-group">
-                <h3>Autor</h3>
-                <p class="info-value"><strong>{{ data.dadosCadastrais.autor.nomeCompleto }}</strong></p>
-                <span class="text-sm text-gray">CPF: {{ data.dadosCadastrais.autor.cpf }}</span>
-                <p class="text-sm text-gray">{{ data.dadosCadastrais.autor.nascimento }} ({{ data.dadosCadastrais.autor.sexo }})</p>
-              </div>
-            }
-            
-            <mat-divider></mat-divider>
-            
-            @if (data.dadosCadastrais.reu) {
-              <div class="info-group" style="margin-top: 16px;">
-                <h3>Réu</h3>
-                <p class="info-value"><strong>{{ data.dadosCadastrais.reu.nome }}</strong></p>
-                @if(data.dadosCadastrais.reu.cnpj) {
-                  <span class="text-sm text-gray">CNPJ: {{ data.dadosCadastrais.reu.cnpj }}</span>
-                }
-              </div>
-            }
+          <div class="info-group">
+            <h3>Tese da Defesa</h3>
+            <p>{{ data.resumoProcessual.teseDefesa }}</p>
+          </div>
+        </div>
 
-            <mat-divider></mat-divider>
-
-            @if (data.dadosCadastrais.orgaoJulgador) {
-               <div class="info-group" style="margin-top: 16px;">
-                <h3>Juízo</h3>
-                <p class="info-value">{{ data.dadosCadastrais.orgaoJulgador.vara }}</p>
-                <span class="text-sm">{{ data.dadosCadastrais.orgaoJulgador.tribunal }}</span>
-               </div>
-            }
-          </mat-card-content>
-        </mat-card>
-      }
-
-      @if (data.metadadosConsolidacao) {
-        <mat-card>
-          <mat-card-header>
-            <mat-card-title>Detalhes Técnicos</mat-card-title>
-          </mat-card-header>
-          <mat-card-content>
-            <mat-list dense>
-              <mat-list-item>
-                <span matListItemTitle>Exame Pericial</span>
-                <span matListItemLine>{{ data.metadadosConsolidacao.dataExamePericial }}</span>
-              </mat-list-item>
-              <mat-list-item>
-                <span matListItemTitle>Arquivos</span>
-                <span matListItemLine>{{ data.metadadosConsolidacao.quantidadeArquivosAnalisados }} documentos</span>
-              </mat-list-item>
-              @if (data.metadadosConsolidacao.periodoCoberto) {
-                <mat-list-item>
-                  <span matListItemTitle>Período</span>
-                  <span matListItemLine>{{ data.metadadosConsolidacao.periodoCoberto.inicio }} a {{ data.metadadosConsolidacao.periodoCoberto.fim }}</span>
-                </mat-list-item>
-              }
-            </mat-list>
-          </mat-card-content>
-        </mat-card>
-      }
-    </aside>
-
-    <main class="main-content">
-
-      @if (data.pontosDeAtencao) {
-        <mat-card class="attention-card">
-          <mat-card-header>
-            <mat-icon color="warn" mat-card-avatar>warning</mat-icon>
-            <mat-card-title>Pontos de Atenção</mat-card-title>
-          </mat-card-header>
-          <mat-card-content>
-            <p>{{ data.pontosDeAtencao }}</p>
-          </mat-card-content>
-        </mat-card>
-      }
-
-      @if (data.resumoProcessual) {
-        <mat-card>
-          <mat-card-header>
-            <mat-card-title>Resumo da Lide</mat-card-title>
-          </mat-card-header>
-          <mat-card-content>
-            <div class="info-group">
-              <h3>Objeto da Ação</h3>
-              <p>{{ data.resumoProcessual.objetoDaAcao }}</p>
+        <div class="info-group">
+          <h3>Linha do Tempo</h3>
+          <div class="timeline">
+            @for(item of data.resumoProcessual.linhaDoTempoEventos; track item) {
+            <div class="timeline-item">
+              <div class="timeline-date">{{ item.data }}</div>
+              <div class="timeline-event">{{ item.evento }}</div>
             </div>
-            
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-              <div class="info-group">
-                <h3>Tese Inicial</h3>
-                <p>{{ data.resumoProcessual.teseInicial }}</p>
-              </div>
-              <div class="info-group">
-                <h3>Tese da Defesa</h3>
-                <p>{{ data.resumoProcessual.teseDefesa }}</p>
-              </div>
-            </div>
-
-            <div class="info-group">
-              <h3>Linha do Tempo</h3>
-              <div class="timeline">
-                @for(item of data.resumoProcessual.linhaDoTempoEventos; track item) {
-                  <div class="timeline-item">
-                    <div class="timeline-date">{{ item.data }}</div>
-                    <div class="timeline-event">{{ item.evento }}</div>
-                  </div>
-                }
-              </div>
-            </div>
-          </mat-card-content>
-        </mat-card>
-      }
-
-      @if (data.saudeConsolidada) {
-        <mat-card>
-          <mat-card-header>
-            <mat-icon mat-card-avatar>medical_services</mat-icon>
-            <mat-card-title>Saúde Consolidada</mat-card-title>
-          </mat-card-header>
-          <mat-card-content>
-            <p style="white-space: pre-wrap;">{{ data.saudeConsolidada.historicoClinicoNarrativo }}</p>
-          </mat-card-content>
-        </mat-card>
-      }
-
-      @if (data.ocupacionalConsolidado) {
-        <mat-card>
-          <mat-card-header>
-            <mat-icon mat-card-avatar>work</mat-icon>
-            <mat-card-title>Histórico Ocupacional</mat-card-title>
-          </mat-card-header>
-          <mat-card-content>
-            <p>{{ data.ocupacionalConsolidado.historicoNarrativo }}</p>
-            
-            @if(data.ocupacionalConsolidado.cargosIdentificados.length > 0) {
-              <div class="info-group" style="margin-top: 16px;">
-                <h3>Cargos Identificados</h3>
-                <mat-list>
-                  @for(cargo of data.ocupacionalConsolidado.cargosIdentificados; track cargo) {
-                    <mat-list-item>
-                      <mat-icon matListItemIcon>badge</mat-icon>
-                      <span matListItemTitle>{{ cargo.cargo }}</span>
-                      <span matListItemLine>{{ cargo.empresa }} ({{ cargo.periodo }})</span>
-                    </mat-list-item>
-                  }
-                </mat-list>
-              </div>
             }
-          </mat-card-content>
-        </mat-card>
-      }
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+    }
 
-    </main>
-  </div>
+    @if (data.saudeConsolidada) {
+    <mat-card>
+      <mat-card-header>
+        <mat-icon mat-card-avatar>medical_services</mat-icon>
+        <mat-card-title>Saúde Consolidada</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <p style="white-space: pre-wrap;">{{ data.saudeConsolidada.historicoClinicoNarrativo }}</p>
+      </mat-card-content>
+    </mat-card>
+    }
 
-  } @else {
-  <div class="spinner-container">
-    <mat-spinner diameter="50"></mat-spinner>
-    <p>Carregando dados do processo...</p>
-  </div>
-  }
+    @if (data.ocupacionalConsolidado) {
+    <mat-card>
+      <mat-card-header>
+        <mat-icon mat-card-avatar>work</mat-icon>
+        <mat-card-title>Histórico Ocupacional</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <p>{{ data.ocupacionalConsolidado.historicoNarrativo }}</p>
+
+        @if(data.ocupacionalConsolidado.cargosIdentificados.length > 0) {
+        <div class="info-group" style="margin-top: 16px;">
+          <h3>Cargos Identificados</h3>
+          <mat-list>
+            @for(cargo of data.ocupacionalConsolidado.cargosIdentificados; track cargo) {
+            <mat-list-item>
+              <mat-icon matListItemIcon>badge</mat-icon>
+              <span matListItemTitle>{{ cargo.cargo }}</span>
+              <span matListItemLine>{{ cargo.empresa }} ({{ cargo.periodo }})</span>
+            </mat-list-item>
+            }
+          </mat-list>
+        </div>
+        }
+      </mat-card-content>
+    </mat-card>
+    }
+
+  </main>
+</div>
+
+} @else {
+<div class="spinner-container">
+  <mat-spinner diameter="50"></mat-spinner>
+  <p>Carregando dados do processo...</p>
+</div>
+}
 </div>

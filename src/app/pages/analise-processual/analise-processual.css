@@ -1,0 +1,222 @@
+.analysis-container {
+    padding: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.header-section {
+    margin-bottom: 32px;
+}
+
+.header-section h1 {
+    font-size: 2rem;
+    font-weight: 500;
+    margin-bottom: 8px;
+    color: var(--mat-sys-on-background);
+}
+
+.header-section p {
+    color: var(--mat-sys-outline);
+    font-size: 1rem;
+}
+
+.upload-card {
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--mat-sys-level2);
+    padding: 32px;
+    height: 500px;
+    /* Increased for better aspect ratio */
+    display: flex;
+    flex-direction: column;
+}
+
+ngx-file-drop {
+    height: 100%;
+    width: 100%;
+}
+
+.drop-zone {
+    height: 100%;
+    width: 100%;
+    border: 3px dashed var(--mat-sys-outline-variant);
+    border-radius: 16px;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    background-color: var(--mat-sys-surface-container-low);
+    box-sizing: border-box;
+    /* Ensure border is included in size */
+}
+
+.drop-zone:hover {
+    border-color: var(--mat-sys-primary);
+    background-color: var(--mat-sys-surface-container);
+    transform: scale(1.01);
+}
+
+.drop-content {
+    text-align: center;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    height: 100%;
+}
+
+.drop-content mat-icon {
+    font-size: 84px;
+    width: 84px;
+    height: 84px;
+    color: var(--mat-sys-primary);
+    margin-bottom: 24px;
+}
+
+.drop-content h3 {
+    font-size: 2rem;
+    /* Larger title */
+    font-weight: 500;
+    margin-bottom: 8px;
+    color: var(--mat-sys-on-surface);
+}
+
+.drop-content p {
+    color: var(--mat-sys-on-surface-variant);
+    margin-bottom: 32px;
+    font-size: 1.2rem;
+}
+
+.actions {
+    pointer-events: auto;
+}
+
+/* Ensure ngx-file-drop internal container fills space */
+::ng-deep .ngx-file-drop__drop-zone {
+    border: none !important;
+    background: transparent !important;
+    height: 100% !important;
+    width: 100% !important;
+}
+
+::ng-deep .ngx-file-drop__content {
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.drive-import-btn {
+    text-align: center;
+    margin-top: 16px;
+    pointer-events: auto;
+    /* <--- FIX: Re-enable clicks */
+}
+
+.processing-state {
+    padding: 48px 24px;
+    text-align: center;
+}
+
+.progress-section {
+    max-width: 600px;
+    margin: 0 auto;
+    margin-top: 32px;
+}
+
+.progress-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    color: var(--mat-sys-on-surface-variant);
+    font-size: 0.875rem;
+}
+
+.status-text {
+    margin-top: 16px;
+    font-weight: 500;
+}
+
+.results-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: 32px;
+    margin-top: 32px;
+}
+
+.document-card {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+}
+
+.doc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+
+.doc-badge {
+    background-color: var(--mat-sys-primary-container);
+    color: var(--mat-sys-on-primary-container);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.doc-pages {
+    color: var(--mat-sys-outline);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.doc-summary {
+    margin-bottom: 24px;
+    color: var(--mat-sys-on-surface);
+    line-height: 1.6;
+    font-size: 1rem;
+}
+
+.doc-extracted-data {
+    background-color: var(--mat-sys-surface-container);
+    border: 1px solid var(--mat-sys-outline-variant);
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: auto;
+}
+
+.data-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+    padding: 4px 0;
+    border-bottom: 1px dashed var(--mat-sys-outline-variant);
+}
+
+.data-row:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.data-label {
+    color: var(--mat-sys-on-surface-variant);
+    font-weight: 600;
+    margin-right: 16px;
+}
+
+.data-value {
+    color: var(--mat-sys-on-surface);
+    font-weight: 400;
+    text-align: right;
+}
