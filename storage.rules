@@ -1,10 +1,7 @@
-rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     match /{allPaths=**} {
-      // Permite que qualquer pessoa (logada ou não) leia e escreva arquivos.
-      // CUIDADO: Use apenas para desenvolvimento.
-      allow read, write;
+      allow read, write: if request.auth != null;
     }
   }
 }
