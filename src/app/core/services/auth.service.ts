@@ -18,6 +18,7 @@ export class AuthService {
         this.router.navigate(['/process-list']);
       } else {
         console.log('Authentication state changed: User is logged out');
+        this.router.navigate(['/login']);
       }
     });
   }
@@ -29,10 +30,10 @@ export class AuthService {
       // The onAuthStateChanged observer will handle the redirect
     } catch (error: any) {
       console.error('Login failed. Detailed error report:');
-      
+
       // Log the full error object to inspect all properties
-      console.dir(error); 
-      
+      console.dir(error);
+
       if (error.code) {
         console.error('Error Code:', error.code);
       }

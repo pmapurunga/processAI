@@ -41,7 +41,9 @@ export class LayoutComponent {
       shareReplay()
     );
 
-  logout(): void {
-    this.authService.logout();
+  user$ = this.authService.user$;
+
+  async logout(): Promise<void> {
+    await this.authService.logout();
   }
 }

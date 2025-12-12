@@ -68,9 +68,18 @@
       <button mat-icon-button aria-label="Notificações">
         <mat-icon>notifications</mat-icon>
       </button>
+
+      @if (user$ | async; as user) {
+      <span class="user-email" style="margin-right: 8px; font-size: 14px;">{{ user.email }}</span>
+
       <button mat-icon-button aria-label="Conta do Utilizador" [matMenuTriggerFor]="userMenu">
+        @if (user.photoURL) {
+        <img [src]="user.photoURL" alt="Avatar" style="width: 24px; height: 24px; border-radius: 50%;">
+        } @else {
         <mat-icon>account_circle</mat-icon>
+        }
       </button>
+      }
 
       <mat-menu #userMenu="matMenu">
         <button mat-menu-item (click)="logout()">
