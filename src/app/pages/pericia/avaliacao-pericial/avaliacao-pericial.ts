@@ -15,6 +15,7 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { MatSelectModule } from '@angular/material/select';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 export interface AvaliacaoPericial {
   identificacaoProcesso?: {
@@ -84,7 +85,8 @@ export interface AvaliacaoPericial {
     MatNativeDateModule,
     MatSelectModule,
     MatDividerModule,
-    MatIconModule
+    MatIconModule,
+    MatSnackBarModule
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -93,6 +95,7 @@ export class AvaliacaoPericialComponent {
   private route: ActivatedRoute = inject(ActivatedRoute);
   private fb: FormBuilder = inject(FormBuilder);
   private location: Location = inject(Location);
+  private snackBar: MatSnackBar = inject(MatSnackBar);
 
   processoId = this.route.snapshot.paramMap.get('id');
   avaliacao$: Observable<AvaliacaoPericial | undefined>;
@@ -177,9 +180,21 @@ export class AvaliacaoPericialComponent {
     if (this.processoId) {
       const docRef = doc(this.firestore, `analises_processos/${this.processoId}/pericia/avaliacao_pericial`);
       // Criar ou atualizar o documento
-      setDoc(docRef, this.form.value, { merge: true }).catch(error => {
-        console.error('Erro ao salvar dados:', error);
-      });
+      setDoc(docRef, this.form.value, { merge: true })
+        .then(() => {
+          this.snackBar.open('Alterações salvas com sucesso!', 'Fechar', {
+            duration: 3000,
+            horizontalPosition: 'end',
+            verticalPosition: 'bottom'
+          });
+        })
+        .catch(error => {
+          console.error('Erro ao salvar dados:', error);
+          this.snackBar.open('Erro ao salvar alterações.', 'Fechar', {
+            duration: 3000,
+            panelClass: ['error-snackbar'] // Optional styling
+          });
+        });
     }
   }
 
