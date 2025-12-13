@@ -176,11 +176,27 @@ def handle_importar_drive(request, headers):
     try:
         data = request.get_json()
         file_id = data.get('fileId')
+        file_url = data.get('fileUrl')
         oauth_token = data.get('oAuthToken')
         
+        # Se veio URL mas não veio ID, tenta extrair
+        if not file_id and file_url:
+            # Padrões comuns de URL do Drive
+            patterns = [
+                r'/file/d/([a-zA-Z0-9_-]+)',
+                r'id=([a-zA-Z0-9_-]+)',
+                r'/open\?id=([a-zA-Z0-9_-]+)'
+            ]
+            for pattern in patterns:
+                match = re.search(pattern, file_url)
+                if match:
+                    file_id = match.group(1)
+                    logger.info(f"Extracted file_id {file_id} from URL {file_url}")
+                    break
+        
         if not file_id or not oauth_token:
-            logger.error(f"Missing fileId or token. Data: {data}")
-            return (json.dumps({'error': 'Missing fileId or token'}), 400, headers)
+            logger.error(f"Missing fileId (or valid URL) or token. Data: {data}")
+            return (json.dumps({'error': 'Missing fileId (or valid URL) or token'}), 400, headers)
             
         # 1. Obter metadados do arquivo (Nome)
         logger.info(f"Fetching metadata for file_id: {file_id}")
